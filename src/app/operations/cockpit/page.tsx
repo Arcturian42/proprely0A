@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { mockOperationalItems, mockAgents, mockClients, mockSites, mockSops, mockMissions } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { Agent, Mission, OperationalItem, OperationalItemStatus } from '@/types'
 import { OPERATIONAL_ITEM_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -25,8 +25,17 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 const STATUS_COLUMNS: OperationalItemStatus[] = ['a_organiser', 'en_cours', 'planifie']
 
 export default function CockpitPage() {
-  const [items, setItems] = useState<OperationalItem[]>(mockOperationalItems)
-  const [missions, setMissions] = useState<Mission[]>(mockMissions)
+  const {
+    operationalItems, missions, agents: storeAgents, clients, sites, sops,
+    addMission, updateOperationalItem, deleteOperationalItem,
+  } = useAppStore()
+
+  const items: OperationalItem[] = operationalItems.map(item => ({
+    ...item,
+    client: clients.find(c => c.id === item.client_id),
+    site: sites.find(s => s.id === item.site_id),
+  }))
+
   const [showMissionForm, setShowMissionForm] = useState(false)
   const [selectedItem, setSelectedItem] = useState<OperationalItem | null>(null)
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
@@ -50,10 +59,10 @@ export default function CockpitPage() {
       return
     }
 
-    const agents = mockAgents.filter(a => selectedAgents.includes(a.id))
-    const client = mockClients.find(c => c.id === selectedItem.client_id)
-    const site = mockSites.find(s => s.id === selectedItem.site_id)
-    const sop = mockSops.find(s => s.id === missionForm.sop_id)
+    const agents = storeAgents.filter(a => selectedAgents.includes(a.id))
+    const client = clients.find(c => c.id === selectedItem.client_id)
+    const site = sites.find(s => s.id === selectedItem.site_id)
+    const sop = sops.find(s => s.id === missionForm.sop_id)
 
     const newMission: Mission = {
       id: `mission-${Date.now()}`,
@@ -77,21 +86,23 @@ export default function CockpitPage() {
       sop,
     }
 
-    setMissions(prev => [...prev, newMission])
-    setItems(prev => prev.map(i => i.id === selectedItem.id
-      ? { ...i, converted_to_mission: true, mission_id: newMission.id, status: 'planifie' as OperationalItemStatus }
-      : i
-    ))
+    addMission(newMission)
+    updateOperationalItem(selectedItem.id, {
+      converted_to_mission: true,
+      mission_id: newMission.id,
+      status: 'planifie' as OperationalItemStatus,
+      updated_at: new Date().toISOString(),
+    })
     toast.success(`Mission créée pour ${client?.name} – ${site?.name}`)
     setShowMissionForm(false)
   }
 
   const handleUpdateStatus = (item: OperationalItem, status: OperationalItemStatus) => {
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, status, updated_at: new Date().toISOString() } : i))
+    updateOperationalItem(item.id, { status, updated_at: new Date().toISOString() })
   }
 
   const handleDeleteItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id))
+    deleteOperationalItem(id)
     toast.success('Opération supprimée')
     setConfirmDeleteItem(null)
   }
@@ -290,7 +301,7 @@ export default function CockpitPage() {
               <Select value={missionForm.sop_id} onValueChange={v => setMissionForm(f => ({ ...f, sop_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Choisir un protocole..." /></SelectTrigger>
                 <SelectContent>
-                  {mockSops.map(sop => (
+                  {sops.map(sop => (
                     <SelectItem key={sop.id} value={sop.id}>{sop.title}</SelectItem>
                   ))}
                 </SelectContent>
@@ -300,7 +311,7 @@ export default function CockpitPage() {
             <div>
               <Label className="mb-2 block">Agents assignés *</Label>
               <div className="space-y-2 border rounded-lg p-3">
-                {mockAgents.map(agent => (
+                {storeAgents.map(agent => (
                   <div key={agent.id} className="flex items-center gap-3">
                     <Checkbox
                       id={agent.id}

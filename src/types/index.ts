@@ -126,11 +126,13 @@ export interface Sop {
   company_id: string
   title: string
   service_type: string | null
+  frequency: string | null
   estimated_duration_minutes: number | null
   required_skills: string[]
   required_materials: string[]
   required_products: string[]
   checklist_items: { id: string; text: string; completed?: boolean }[]
+  associated_site_ids: string[]
   safety_instructions: string | null
   notes: string | null
   created_at: string

@@ -82,16 +82,27 @@ export default function PipelinePage() {
     setShowForm(true)
   }
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
   const handleSave = () => {
     if (!form.title || !form.prospect_name) {
-      toast.error('Titre et nom du prospect requis')
+      toast.error('Le titre et le nom du prospect sont requis')
+      return
+    }
+    if (form.email && !EMAIL_RE.test(form.email)) {
+      toast.error('Le format de l\'email est invalide')
+      return
+    }
+    const amount = form.estimated_amount ? parseFloat(form.estimated_amount) : null
+    if (amount !== null && (isNaN(amount) || amount < 0)) {
+      toast.error('Le montant estimé doit être un nombre positif')
       return
     }
 
     if (editingOpp) {
       updateOpportunity(editingOpp.id, {
         ...form,
-        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
+        estimated_amount: amount,
         next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
         updated_at: new Date().toISOString(),
       })
@@ -101,7 +112,7 @@ export default function PipelinePage() {
         id: `opp-${Date.now()}`, company_id: 'company-1',
         lead_id: null, client_id: null, site_id: null,
         ...form,
-        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
+        estimated_amount: amount,
         next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
         status: 'ouvert', converted_to_client: false, converted_at: null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),

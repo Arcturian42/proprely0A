@@ -110,7 +110,7 @@ export function AppSidebar() {
             <ul className="space-y-1">
               {section.items.map((item) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 return (
                   <li key={item.href}>
                     <Link
@@ -167,9 +167,15 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
-              window.location.href = '/'
-            }}>
+            <DropdownMenuItem
+              className="text-red-600 flex items-center gap-2 cursor-pointer"
+              aria-label="Se déconnecter"
+              onClick={() => {
+                if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+                  window.location.href = '/'
+                }
+              }}
+            >
               <LogOut className="w-4 h-4" />
               Se déconnecter
             </DropdownMenuItem>

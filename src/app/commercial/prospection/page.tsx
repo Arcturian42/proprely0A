@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { Lead, LeadStatus } from '@/types'
+import { Lead, LeadStatus, Opportunity } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Phone, Globe } from 'lucide-react'
@@ -36,7 +36,7 @@ const defaultForm = {
 }
 
 export default function ProspectionPage() {
-  const { leads, addLead, updateLead, deleteLead } = useAppStore()
+  const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -75,10 +75,13 @@ export default function ProspectionPage() {
     setShowForm(true)
   }
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
   const handleSave = () => {
-    if (!form.company_name) { toast.error('Nom de l\'entreprise requis'); return }
+    if (!form.company_name) { toast.error('Le nom de l\'entreprise est requis'); return }
+    if (form.email && !EMAIL_RE.test(form.email)) { toast.error('Le format de l\'email est invalide'); return }
     const score = form.ai_score ? parseInt(form.ai_score) : null
-    if (score !== null && (score < 0 || score > 100)) { toast.error('Le score IA doit être entre 0 et 100'); return }
+    if (score !== null && (isNaN(score) || score < 0 || score > 100)) { toast.error('Le score IA doit être un nombre entre 0 et 100'); return }
     if (editingLead) {
       updateLead(editingLead.id, { ...form, ai_score: score, updated_at: new Date().toISOString() })
       toast.success('Lead mis à jour')
@@ -103,8 +106,35 @@ export default function ProspectionPage() {
 
   const handleConvert = (lead: Lead) => {
     if (lead.status === 'converti') { toast.error('Ce lead a déjà été converti'); return }
-    updateLead(lead.id, { status: 'converti' as LeadStatus })
-    toast.success(`Lead "${lead.company_name}" converti. Créez l'opportunité dans le pipeline.`)
+    const now = new Date().toISOString()
+    const newOpp: Opportunity = {
+      id: `opp-${Date.now()}`,
+      company_id: 'company-1',
+      lead_id: lead.id,
+      client_id: null,
+      site_id: null,
+      title: `${lead.company_name}${lead.probable_need ? ' — ' + lead.probable_need : ''}`,
+      prospect_name: lead.company_name,
+      contact_name: null,
+      email: lead.email,
+      phone: lead.phone,
+      city: lead.city,
+      site_address: null,
+      client_type: null,
+      service_type: null,
+      estimated_amount: null,
+      stage: 'lead',
+      next_action_date: null,
+      notes: lead.notes,
+      status: 'ouvert',
+      converted_to_client: false,
+      converted_at: null,
+      created_at: now,
+      updated_at: now,
+    }
+    addOpportunity(newOpp)
+    updateLead(lead.id, { status: 'converti' as LeadStatus, converted_opportunity_id: newOpp.id, updated_at: now })
+    toast.success(`Lead "${lead.company_name}" converti en opportunité dans le pipeline.`)
   }
 
   const handleUpdateStatus = (lead: Lead, status: LeadStatus) => {

@@ -70,7 +70,7 @@ export default function HeuresPaiePage() {
       TIME_ENTRY_STATUS_LABELS[e.status] || e.status,
     ])
     const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

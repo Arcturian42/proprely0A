@@ -57,10 +57,16 @@ export default function ClientsSitesPage() {
     setShowClientForm(true)
   }
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
   const handleSaveClient = () => {
-    if (!clientForm.name) { toast.error('Nom requis'); return }
+    if (!clientForm.name) { toast.error('Le nom du client est requis'); return }
     if (!clientForm.email && !clientForm.phone) {
       toast.error('Au moins un email ou un téléphone est requis')
+      return
+    }
+    if (clientForm.email && !EMAIL_RE.test(clientForm.email)) {
+      toast.error('Le format de l\'email est invalide')
       return
     }
     if (editingClient) {
