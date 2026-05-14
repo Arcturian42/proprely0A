@@ -46,7 +46,7 @@ export default function HeuresPaiePage() {
   const handleConfirmValidation = () => {
     if (!selectedEntry) return
     const hours = parseFloat(validatedHours)
-    if (isNaN(hours) || hours <= 0) { toast.error('Heures invalides'); return }
+    if (isNaN(hours) || hours < 0 || hours > 12) { toast.error('Les heures doivent être entre 0 et 12h'); return }
     const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
     updateTimeEntry(selectedEntry.id, {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
@@ -189,7 +189,7 @@ export default function HeuresPaiePage() {
                   </TableCell>
                   <TableCell className="text-sm">{entry.hourly_cost ? `${entry.hourly_cost} €` : '—'}</TableCell>
                   <TableCell className="text-sm font-medium">
-                    {entry.total_cost ? formatCurrency(entry.total_cost) : '—'}
+                    {entry.total_cost != null ? formatCurrency(entry.total_cost) : '0,00 €'}
                   </TableCell>
                   <TableCell><StatusBadge status={entry.status} /></TableCell>
                   <TableCell>
@@ -232,6 +232,7 @@ export default function HeuresPaiePage() {
                 <Input
                   type="number"
                   min="0"
+                  max="12"
                   step="0.5"
                   value={validatedHours}
                   onChange={e => setValidatedHours(e.target.value)}

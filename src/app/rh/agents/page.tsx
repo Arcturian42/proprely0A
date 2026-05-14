@@ -69,6 +69,22 @@ export default function AgentsPage() {
     if (isNaN(hours) || hours < 1 || hours > 60) { toast.error('Heures/semaine doit être entre 1 et 60'); return }
     const cost = form.hourly_cost ? parseFloat(form.hourly_cost) : null
     if (cost !== null && cost < 0) { toast.error('Le coût horaire ne peut pas être négatif'); return }
+    const phoneRegex = /^0[1-9][0-9]{8}$/
+    if (form.phone && !phoneRegex.test(form.phone.replace(/\s/g, ''))) {
+      toast.error('Téléphone invalide — format attendu: 06 12 34 56 78')
+      return
+    }
+    if (['auto_entrepreneur', 'sous_traitant'].includes(form.contract_type)) {
+      if (!form.business_registration_number) {
+        toast.error('Le SIRET est obligatoire pour les auto-entrepreneurs et sous-traitants')
+        return
+      }
+      const siret = form.business_registration_number.replace(/\s/g, '')
+      if (!/^\d{14}$/.test(siret)) {
+        toast.error('SIRET invalide — doit contenir 14 chiffres')
+        return
+      }
+    }
     const agentData = {
       ...form,
       skills: [],

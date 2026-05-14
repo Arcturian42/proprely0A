@@ -19,14 +19,15 @@ import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, Plus as PlusIcon, X }
 import { toast } from 'sonner'
 
 export default function SopPage() {
-  const { sops, addSop, updateSop, deleteSop } = useAppStore()
+  const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [selectedSop, setSelectedSop] = useState<Sop | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [form, setForm] = useState({
-    title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '',
+    title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '', frequency: '',
   })
+  const [associatedSiteIds, setAssociatedSiteIds] = useState<string[]>([])
   const [checklistItems, setChecklistItems] = useState<{ id: string; text: string }[]>([])
   const [newChecklistItem, setNewChecklistItem] = useState('')
   const [requiredMaterials, setRequiredMaterials] = useState<string[]>([])
@@ -36,10 +37,11 @@ export default function SopPage() {
 
   const handleOpenCreate = () => {
     setEditingSop(null)
-    setForm({ title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '' })
+    setForm({ title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '', frequency: '' })
     setChecklistItems([])
     setRequiredMaterials([])
     setRequiredProducts([])
+    setAssociatedSiteIds([])
     setShowForm(true)
   }
 
@@ -49,10 +51,12 @@ export default function SopPage() {
       title: sop.title, service_type: sop.service_type || '',
       estimated_duration_minutes: sop.estimated_duration_minutes?.toString() || '',
       safety_instructions: sop.safety_instructions || '', notes: sop.notes || '',
+      frequency: (sop as Sop & { frequency?: string }).frequency || '',
     })
     setChecklistItems(sop.checklist_items.map(item => ({ id: item.id, text: item.text })))
     setRequiredMaterials([...sop.required_materials])
     setRequiredProducts([...sop.required_products])
+    setAssociatedSiteIds((sop as Sop & { associated_site_ids?: string[] }).associated_site_ids || [])
     setShowForm(true)
   }
 
@@ -65,6 +69,7 @@ export default function SopPage() {
       required_materials: requiredMaterials,
       required_products: requiredProducts,
       checklist_items: checklistItems,
+      associated_site_ids: associatedSiteIds,
     }
     if (editingSop) {
       updateSop(editingSop.id, { ...sopData, updated_at: new Date().toISOString() })
@@ -157,14 +162,30 @@ export default function SopPage() {
               <DialogTitle>{selectedSop.title}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 text-sm">
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2">
                 {selectedSop.service_type && <Badge variant="secondary">{selectedSop.service_type}</Badge>}
                 {selectedSop.estimated_duration_minutes && (
                   <Badge variant="outline">
                     <Clock className="w-3 h-3 mr-1" />{selectedSop.estimated_duration_minutes} min
                   </Badge>
                 )}
+                {(selectedSop as Sop & { frequency?: string }).frequency && (
+                  <Badge variant="outline">{(selectedSop as Sop & { frequency?: string }).frequency}</Badge>
+                )}
               </div>
+              {(() => {
+                const siteIds = (selectedSop as Sop & { associated_site_ids?: string[] }).associated_site_ids
+                if (siteIds && siteIds.length > 0) {
+                  const linked = sites.filter(s => siteIds.includes(s.id))
+                  return linked.length > 0 ? (
+                    <div>
+                      <p className="font-semibold text-slate-700 mb-1">Sites associés</p>
+                      <div className="flex flex-wrap gap-1">{linked.map(s => <Badge key={s.id} variant="secondary">{s.name}</Badge>)}</div>
+                    </div>
+                  ) : null
+                }
+                return null
+              })()}
 
               {selectedSop.checklist_items.length > 0 && (
                 <div>
@@ -243,6 +264,38 @@ export default function SopPage() {
               <div>
                 <Label>Durée estimée (min)</Label>
                 <Input type="number" value={form.estimated_duration_minutes} onChange={e => setForm(f => ({ ...f, estimated_duration_minutes: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Fréquence</Label>
+                <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Fréquence..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quotidien">Quotidien</SelectItem>
+                    <SelectItem value="hebdomadaire">Hebdomadaire</SelectItem>
+                    <SelectItem value="mensuel">Mensuel</SelectItem>
+                    <SelectItem value="ponctuel">Ponctuel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Sites associés */}
+            <div>
+              <Label className="mb-2 block">Sites associés</Label>
+              <div className="border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2">
+                {sites.map(site => (
+                  <div key={site.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`site-${site.id}`}
+                      checked={associatedSiteIds.includes(site.id)}
+                      onCheckedChange={checked => setAssociatedSiteIds(prev =>
+                        checked ? [...prev, site.id] : prev.filter(id => id !== site.id)
+                      )}
+                    />
+                    <label htmlFor={`site-${site.id}`} className="text-sm cursor-pointer">{site.name}</label>
+                  </div>
+                ))}
+                {sites.length === 0 && <p className="text-xs text-slate-400">Aucun site disponible</p>}
               </div>
             </div>
 

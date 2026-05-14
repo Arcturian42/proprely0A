@@ -146,7 +146,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/commercial/prospection">
+                <Link href="/commercial/pipeline">
                   <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
                     <TrendingUp className="w-4 h-4 text-indigo-600" />
                     <span className="text-sm">Ajouter un lead</span>
