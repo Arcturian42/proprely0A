@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { ServiceType } from '@/types'
 import { Plus, Edit, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 const defaultServiceTypes: ServiceType[] = [
   { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
@@ -36,6 +37,7 @@ export default function ParametresPage() {
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [editingService, setEditingService] = useState<ServiceType | null>(null)
   const [serviceForm, setServiceForm] = useState({ name: '', estimated_duration_minutes: '', indicative_price: '' })
+  const [confirmDeleteService, setConfirmDeleteService] = useState<string | null>(null)
 
   const handleSaveCompany = () => {
     toast.success('Paramètres entreprise sauvegardés')
@@ -145,10 +147,7 @@ export default function ParametresPage() {
                           }}>
                             <Edit className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                            setServiceTypes(prev => prev.filter(s => s.id !== service.id))
-                            toast.success('Type supprimé')
-                          }}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteService(service.id)}>
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </Button>
                         </div>
@@ -220,6 +219,22 @@ export default function ParametresPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDeleteService}
+        onOpenChange={() => setConfirmDeleteService(null)}
+        title="Supprimer le type de prestation"
+        description="Ce type de prestation sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => {
+          if (confirmDeleteService) {
+            setServiceTypes(prev => prev.filter(s => s.id !== confirmDeleteService))
+            toast.success('Type supprimé')
+            setConfirmDeleteService(null)
+          }
+        }}
+      />
     </AdminLayout>
   )
 }

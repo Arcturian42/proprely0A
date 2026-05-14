@@ -6,7 +6,7 @@ import { StatCard } from '@/components/shared/StatCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { mockMissions, mockClients, mockAgents, mockOperationalItems } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { formatDate } from '@/lib/utils'
 import {
   Sun,
@@ -21,10 +21,11 @@ import {
 import Link from 'next/link'
 
 export default function DashboardPage() {
+  const { missions, clients, agents, operationalItems } = useAppStore()
   const today = new Date().toISOString().split('T')[0]
-  const todayMissions = mockMissions.filter(m => m.scheduled_date === today)
-  const pendingItems = mockOperationalItems.filter(o => o.status === 'a_organiser')
-  const issuesMissions = mockMissions.filter(m => m.status === 'probleme_signale')
+  const todayMissions = missions.filter(m => m.scheduled_date === today)
+  const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
+  const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
 
   return (
     <AdminLayout>
@@ -46,7 +47,7 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Clients actifs"
-            value={mockClients.filter(c => c.status === 'actif').length}
+            value={clients.filter(c => c.status === 'actif').length}
             description="contrats en cours"
             icon={Users}
             iconBg="bg-blue-50"
@@ -54,8 +55,8 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Agents disponibles"
-            value={mockAgents.filter(a => a.status === 'disponible').length}
-            description={`sur ${mockAgents.length} agents total`}
+            value={agents.filter(a => a.status === 'disponible').length}
+            description={`sur ${agents.length} agents total`}
             icon={UserCog}
             iconBg="bg-green-50"
             iconColor="text-green-600"
@@ -185,7 +186,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {mockAgents.map(agent => (
+                {agents.map(agent => (
                   <li key={agent.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs">

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { mockAgents } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import { AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR } from '@/lib/constants'
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react'
@@ -28,12 +29,13 @@ const defaultForm = {
 }
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>(mockAgents)
+  const { agents, addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [form, setForm] = useState(defaultForm)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = agents.filter(a => {
     const matchSearch = `${a.first_name} ${a.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,29 +65,34 @@ export default function AgentsPage() {
 
   const handleSave = () => {
     if (!form.first_name || !form.last_name) { toast.error('Prénom et nom requis'); return }
+    const hours = parseInt(form.weekly_availability_hours)
+    if (isNaN(hours) || hours < 1 || hours > 60) { toast.error('Heures/semaine doit être entre 1 et 60'); return }
+    const cost = form.hourly_cost ? parseFloat(form.hourly_cost) : null
+    if (cost !== null && cost < 0) { toast.error('Le coût horaire ne peut pas être négatif'); return }
     const agentData = {
       ...form,
       skills: [],
-      weekly_availability_hours: parseInt(form.weekly_availability_hours) || 35,
-      hourly_cost: form.hourly_cost ? parseFloat(form.hourly_cost) : null,
+      weekly_availability_hours: hours,
+      hourly_cost: cost,
     }
     if (editingAgent) {
-      setAgents(prev => prev.map(a => a.id === editingAgent.id ? { ...a, ...agentData, updated_at: new Date().toISOString() } : a))
+      updateAgent(editingAgent.id, { ...agentData, updated_at: new Date().toISOString() })
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
         id: `agent-${Date.now()}`, company_id: 'company-1', ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setAgents(prev => [...prev, newAgent])
+      addAgent(newAgent)
       toast.success('Agent créé')
     }
     setShowForm(false)
   }
 
   const handleDelete = (id: string) => {
-    setAgents(prev => prev.filter(a => a.id !== id))
+    deleteAgent(id)
     toast.success('Agent supprimé')
+    setConfirmDelete(null)
   }
 
   return (
@@ -188,7 +195,7 @@ export default function AgentsPage() {
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEdit(agent)}>
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(agent.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(agent.id)}>
                     <Trash2 className="w-3 h-3 text-red-500" />
                   </Button>
                 </div>
@@ -292,6 +299,16 @@ export default function AgentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Supprimer l'agent"
+        description="Cette action est irréversible. L'agent sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+      />
     </AdminLayout>
   )
 }

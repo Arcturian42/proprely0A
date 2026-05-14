@@ -14,20 +14,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { mockClients, mockSites } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Client, Site } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function ClientsSitesPage() {
-  const [clients, setClients] = useState<Client[]>(mockClients)
-  const [sites, setSites] = useState<Site[]>(mockSites)
+  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
+  const [confirmDeleteClient, setConfirmDeleteClient] = useState<string | null>(null)
+  const [confirmDeleteSite, setConfirmDeleteSite] = useState<string | null>(null)
 
   const [clientForm, setClientForm] = useState({
     name: '', contact_name: '', email: '', phone: '', billing_address: '',
@@ -58,23 +60,24 @@ export default function ClientsSitesPage() {
   const handleSaveClient = () => {
     if (!clientForm.name) { toast.error('Nom requis'); return }
     if (editingClient) {
-      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...c, ...clientForm, updated_at: new Date().toISOString() } : c))
+      updateClient(editingClient.id, { ...clientForm, updated_at: new Date().toISOString() })
       toast.success('Client mis à jour')
     } else {
       const newClient: Client = {
         id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setClients(prev => [...prev, newClient])
+      addClient(newClient)
       toast.success('Client créé')
     }
     setShowClientForm(false)
   }
 
   const handleDeleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id))
-    setSites(prev => prev.filter(s => s.client_id !== id))
-    toast.success('Client supprimé')
+    const siteCount = sites.filter(s => s.client_id === id).length
+    deleteClient(id)
+    toast.success(`Client supprimé${siteCount > 0 ? ` (${siteCount} site(s) associé(s) supprimé(s))` : ''}`)
+    setConfirmDeleteClient(null)
   }
 
   const handleOpenCreateSite = () => {
@@ -97,10 +100,10 @@ export default function ClientsSitesPage() {
   const handleSaveSite = () => {
     if (!siteForm.name || !siteForm.client_id) { toast.error('Nom et client requis'); return }
     if (editingSite) {
-      setSites(prev => prev.map(s => s.id === editingSite.id ? {
-        ...s, ...siteForm, surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
+      updateSite(editingSite.id, {
+        ...siteForm, surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
         updated_at: new Date().toISOString(),
-      } : s))
+      })
       toast.success('Site mis à jour')
     } else {
       const client = clients.find(c => c.id === siteForm.client_id)
@@ -110,15 +113,16 @@ export default function ClientsSitesPage() {
         sop_id: null, created_from_opportunity_id: null, client,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setSites(prev => [...prev, newSite])
+      addSite(newSite)
       toast.success('Site créé')
     }
     setShowSiteForm(false)
   }
 
   const handleDeleteSite = (id: string) => {
-    setSites(prev => prev.filter(s => s.id !== id))
+    deleteSite(id)
     toast.success('Site supprimé')
+    setConfirmDeleteSite(null)
   }
 
   const filteredClients = clients.filter(c =>
@@ -201,7 +205,7 @@ export default function ClientsSitesPage() {
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
                         <Edit className="w-3 h-3 mr-1" /> Modifier
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteClient(client.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
                         <Trash2 className="w-3 h-3 text-red-500" />
                       </Button>
                     </div>
@@ -252,7 +256,7 @@ export default function ClientsSitesPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
                               <Edit className="w-3 h-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteSite(site.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
                               <Trash2 className="w-3 h-3 text-red-500" />
                             </Button>
                           </div>
@@ -415,6 +419,25 @@ export default function ClientsSitesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDeleteClient}
+        onOpenChange={() => setConfirmDeleteClient(null)}
+        title="Supprimer le client"
+        description={`Tous les sites associés seront également supprimés. Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDeleteClient && handleDeleteClient(confirmDeleteClient)}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteSite}
+        onOpenChange={() => setConfirmDeleteSite(null)}
+        title="Supprimer le site"
+        description="Cette action est irréversible. Le site sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDeleteSite && handleDeleteSite(confirmDeleteSite)}
+      />
     </AdminLayout>
   )
 }

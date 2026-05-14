@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { mockOpportunities, mockClients, mockSites } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -48,11 +49,12 @@ const defaultForm = {
 }
 
 export default function PipelinePage() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities)
+  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const handleOpenCreate = () => {
     setEditingOpp(null)
@@ -87,81 +89,42 @@ export default function PipelinePage() {
     }
 
     if (editingOpp) {
-      setOpportunities(prev =>
-        prev.map(o =>
-          o.id === editingOpp.id
-            ? {
-                ...o,
-                ...form,
-                estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
-                next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-                updated_at: new Date().toISOString(),
-              }
-            : o
-        )
-      )
-      toast.success('Opportunité mise à jour')
-    } else {
-      const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`,
-        company_id: 'company-1',
-        lead_id: null,
-        client_id: null,
-        site_id: null,
+      updateOpportunity(editingOpp.id, {
         ...form,
         estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
         next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-        status: 'ouvert',
-        converted_to_client: false,
-        converted_at: null,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+      })
+      toast.success('Opportunité mise à jour')
+    } else {
+      const newOpp: Opportunity = {
+        id: `opp-${Date.now()}`, company_id: 'company-1',
+        lead_id: null, client_id: null, site_id: null,
+        ...form,
+        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
+        next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
+        status: 'ouvert', converted_to_client: false, converted_at: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setOpportunities(prev => [...prev, newOpp])
+      addOpportunity(newOpp)
       toast.success('Opportunité créée')
     }
     setShowForm(false)
   }
 
   const handleMoveStage = (opp: Opportunity, newStage: OpportunityStage) => {
-    setOpportunities(prev =>
-      prev.map(o =>
-        o.id === opp.id ? { ...o, stage: newStage, updated_at: new Date().toISOString() } : o
-      )
-    )
     if (newStage === 'gagnee' && !opp.converted_to_client) {
-      handleConvertToClient(opp)
+      winOpportunity(opp.id)
+      toast.success(`Opportunité gagnée ! Client "${opp.prospect_name}" et site créés automatiquement.`, { duration: 5000 })
+    } else {
+      updateOpportunity(opp.id, { stage: newStage, updated_at: new Date().toISOString() })
     }
-  }
-
-  const handleConvertToClient = (opp: Opportunity) => {
-    // Create client + site from opportunity
-    const newClient = {
-      id: `client-${Date.now()}`,
-      name: opp.prospect_name,
-      contact_name: opp.contact_name,
-      email: opp.email,
-      phone: opp.phone,
-      billing_address: opp.site_address,
-      city: opp.city,
-      client_type: opp.client_type,
-      status: 'actif',
-    }
-    setOpportunities(prev =>
-      prev.map(o =>
-        o.id === opp.id
-          ? { ...o, stage: 'gagnee', converted_to_client: true, converted_at: new Date().toISOString() }
-          : o
-      )
-    )
-    toast.success(`🎉 Opportunité gagnée ! Client "${opp.prospect_name}" et site créés automatiquement.`, {
-      duration: 5000,
-    })
   }
 
   const handleDelete = (id: string) => {
-    setOpportunities(prev => prev.filter(o => o.id !== id))
+    deleteOpportunity(id)
     setSelectedOpp(null)
+    setConfirmDelete(null)
     toast.success('Opportunité supprimée')
   }
 
@@ -312,7 +275,8 @@ export default function PipelinePage() {
                       size="sm"
                       className="gap-1 bg-green-600 hover:bg-green-700"
                       onClick={() => {
-                        handleConvertToClient(selectedOpp)
+                        winOpportunity(selectedOpp.id)
+                        toast.success(`Opportunité gagnée ! Client "${selectedOpp.prospect_name}" créé automatiquement.`, { duration: 5000 })
                         setSelectedOpp(null)
                       }}
                     >
@@ -326,7 +290,7 @@ export default function PipelinePage() {
               <Button variant="outline" size="sm" onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}>
                 Modifier
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => handleDelete(selectedOpp.id)}>
+              <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(selectedOpp.id)}>
                 Supprimer
               </Button>
             </DialogFooter>
@@ -409,6 +373,16 @@ export default function PipelinePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Supprimer l'opportunité"
+        description="Cette action est irréversible. L'opportunité sera définitivement supprimée."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+      />
     </AdminLayout>
   )
 }

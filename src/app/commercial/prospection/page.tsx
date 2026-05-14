@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { mockLeads } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -35,12 +36,13 @@ const defaultForm = {
 }
 
 export default function ProspectionPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads)
+  const { leads, addLead, updateLead, deleteLead } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [form, setForm] = useState(defaultForm)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = leads.filter(l => {
     const matchSearch = l.company_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -74,45 +76,39 @@ export default function ProspectionPage() {
   }
 
   const handleSave = () => {
-    if (!form.company_name) {
-      toast.error('Nom de l\'entreprise requis')
-      return
-    }
+    if (!form.company_name) { toast.error('Nom de l\'entreprise requis'); return }
+    const score = form.ai_score ? parseInt(form.ai_score) : null
+    if (score !== null && (score < 0 || score > 100)) { toast.error('Le score IA doit être entre 0 et 100'); return }
     if (editingLead) {
-      setLeads(prev => prev.map(l => l.id === editingLead.id ? {
-        ...l, ...form,
-        ai_score: form.ai_score ? parseInt(form.ai_score) : null,
-        updated_at: new Date().toISOString(),
-      } : l))
+      updateLead(editingLead.id, { ...form, ai_score: score, updated_at: new Date().toISOString() })
       toast.success('Lead mis à jour')
     } else {
       const newLead: Lead = {
-        id: `lead-${Date.now()}`,
-        company_id: 'company-1',
-        ...form,
-        ai_score: form.ai_score ? parseInt(form.ai_score) : null,
+        id: `lead-${Date.now()}`, company_id: 'company-1',
+        ...form, ai_score: score,
         converted_opportunity_id: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setLeads(prev => [...prev, newLead])
+      addLead(newLead)
       toast.success('Lead ajouté')
     }
     setShowForm(false)
   }
 
   const handleDelete = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id))
+    deleteLead(id)
     toast.success('Lead supprimé')
+    setConfirmDelete(null)
   }
 
   const handleConvert = (lead: Lead) => {
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'converti' as LeadStatus } : l))
-    toast.success(`Lead "${lead.company_name}" marqué comme converti. Créez l'opportunité dans le pipeline.`)
+    if (lead.status === 'converti') { toast.error('Ce lead a déjà été converti'); return }
+    updateLead(lead.id, { status: 'converti' as LeadStatus })
+    toast.success(`Lead "${lead.company_name}" converti. Créez l'opportunité dans le pipeline.`)
   }
 
   const handleUpdateStatus = (lead: Lead, status: LeadStatus) => {
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status, updated_at: new Date().toISOString() } : l))
+    updateLead(lead.id, { status, updated_at: new Date().toISOString() })
     toast.success('Statut mis à jour')
   }
 
@@ -215,7 +211,7 @@ export default function ProspectionPage() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
                         <ChevronRight className="w-3 h-3 text-green-600" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(lead.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
                         <Trash2 className="w-3 h-3 text-red-500" />
                       </Button>
                     </div>
@@ -308,6 +304,16 @@ export default function ProspectionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Supprimer le lead"
+        description="Cette action est irréversible. Le lead sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+      />
     </AdminLayout>
   )
 }

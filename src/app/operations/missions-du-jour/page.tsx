@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { mockMissions } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { Mission, MissionStatus } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -23,7 +23,7 @@ import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function MissionsDuJourPage() {
-  const [missions, setMissions] = useState<Mission[]>(mockMissions)
+  const { missions, updateMissionStatus } = useAppStore()
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')
 
@@ -37,12 +37,13 @@ export default function MissionsDuJourPage() {
   const weekMissions = missions.filter(m => weekDates.includes(m.scheduled_date))
 
   const handleUpdateStatus = (mission: Mission, status: MissionStatus) => {
-    if (status === 'terminee' || status === 'a_valider') {
+    if (status === 'terminee') {
+      // "Valider" button: open dialog to confirm hours
       setSelectedMission(mission)
       setValidationHours(mission.planned_hours.toString())
     } else {
-      setMissions(prev => prev.map(m => m.id === mission.id ? { ...m, status, updated_at: new Date().toISOString() } : m))
-      toast.success(`Mission mise à jour : ${MISSION_STATUS_LABELS[status]}`)
+      updateMissionStatus(mission.id, status)
+      toast.success(`Mission : ${MISSION_STATUS_LABELS[status]}`)
     }
   }
 
@@ -53,10 +54,8 @@ export default function MissionsDuJourPage() {
       toast.error('Heures invalides')
       return
     }
-    setMissions(prev => prev.map(m => m.id === selectedMission.id ? {
-      ...m, status: 'a_valider' as MissionStatus, updated_at: new Date().toISOString()
-    } : m))
-    toast.success(`Mission terminée – ${hours}h saisies. En attente de validation.`)
+    updateMissionStatus(selectedMission.id, 'terminee', hours)
+    toast.success(`Mission validée — ${hours}h enregistrées`)
     setSelectedMission(null)
   }
 
@@ -143,8 +142,8 @@ export default function MissionsDuJourPage() {
         />
 
         {/* Today stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {(['prevue', 'en_cours', 'a_valider', 'terminee'] as MissionStatus[]).map(status => (
+        <div className="grid grid-cols-5 gap-4 mb-6">
+          {(['prevue', 'en_cours', 'a_valider', 'terminee', 'probleme_signale'] as MissionStatus[]).map(status => (
             <Card key={status}>
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-slate-900">
@@ -206,7 +205,7 @@ export default function MissionsDuJourPage() {
       <Dialog open={!!selectedMission} onOpenChange={() => setSelectedMission(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Terminer la mission</DialogTitle>
+            <DialogTitle>Valider les heures</DialogTitle>
           </DialogHeader>
           {selectedMission && (
             <div className="space-y-4">

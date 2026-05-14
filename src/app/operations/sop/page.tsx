@@ -12,16 +12,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { mockSops } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Sop } from '@/types'
 import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, Plus as PlusIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SopPage() {
-  const [sops, setSops] = useState<Sop[]>(mockSops)
+  const { sops, addSop, updateSop, deleteSop } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [selectedSop, setSelectedSop] = useState<Sop | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [form, setForm] = useState({
     title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '',
   })
@@ -65,22 +67,23 @@ export default function SopPage() {
       checklist_items: checklistItems,
     }
     if (editingSop) {
-      setSops(prev => prev.map(s => s.id === editingSop.id ? { ...s, ...sopData, updated_at: new Date().toISOString() } : s))
+      updateSop(editingSop.id, { ...sopData, updated_at: new Date().toISOString() })
       toast.success('Protocole mis à jour')
     } else {
       const newSop: Sop = {
         id: `sop-${Date.now()}`, company_id: 'company-1', ...sopData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setSops(prev => [...prev, newSop])
+      addSop(newSop)
       toast.success('Protocole créé')
     }
     setShowForm(false)
   }
 
   const handleDelete = (id: string) => {
-    setSops(prev => prev.filter(s => s.id !== id))
+    deleteSop(id)
     toast.success('Protocole supprimé')
+    setConfirmDelete(null)
   }
 
   return (
@@ -129,7 +132,7 @@ export default function SopPage() {
                   <Button variant="outline" size="sm" className="flex-1" onClick={e => { e.stopPropagation(); handleOpenEdit(sop) }}>
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); handleDelete(sop.id) }}>
+                  <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setConfirmDelete(sop.id) }}>
                     <Trash2 className="w-3 h-3 text-red-500" />
                   </Button>
                 </div>
@@ -336,6 +339,16 @@ export default function SopPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Supprimer le protocole"
+        description="Cette action est irréversible. Le protocole SOP sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+      />
     </AdminLayout>
   )
 }

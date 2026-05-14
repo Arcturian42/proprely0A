@@ -17,9 +17,13 @@ import {
   PieChart,
   Settings,
   Sparkles,
+  ChevronUp,
+  User,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 interface NavItem {
   label: string
@@ -136,15 +140,41 @@ export function AppSidebar() {
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-100">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">
-            A
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">Admin</p>
-            <p className="text-xs text-slate-500 truncate">Proprely</p>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors text-left">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm flex-shrink-0">
+                A
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">Admin</p>
+                <p className="text-xs text-slate-500 truncate">Proprely</p>
+              </div>
+              <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-52">
+            <DropdownMenuItem asChild>
+              <Link href="/parametres" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Mon profil
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/parametres" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Paramètres
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
+              window.location.href = '/'
+            }}>
+              <LogOut className="w-4 h-4" />
+              Se déconnecter
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   )

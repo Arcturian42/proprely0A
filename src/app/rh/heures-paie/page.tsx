@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { mockTimeEntries, mockAgents } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -20,7 +20,7 @@ import { CheckCircle2, Download, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function HeuresPaiePage() {
-  const [entries, setEntries] = useState<TimeEntry[]>(mockTimeEntries)
+  const { timeEntries: entries, updateTimeEntry, agents } = useAppStore()
   const [filterAgent, setFilterAgent] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterMonth, setFilterMonth] = useState('')
@@ -48,10 +48,10 @@ export default function HeuresPaiePage() {
     const hours = parseFloat(validatedHours)
     if (isNaN(hours) || hours <= 0) { toast.error('Heures invalides'); return }
     const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
-    setEntries(prev => prev.map(e => e.id === selectedEntry.id ? {
-      ...e, validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
+    updateTimeEntry(selectedEntry.id, {
+      validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
       validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    } : e))
+    })
     toast.success(`${hours}h validées – coût: ${formatCurrency(cost)}`)
     setSelectedEntry(null)
   }
@@ -123,7 +123,7 @@ export default function HeuresPaiePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les agents</SelectItem>
-              {mockAgents.map(a => (
+              {agents.map(a => (
                 <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>
               ))}
             </SelectContent>
