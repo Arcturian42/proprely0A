@@ -59,6 +59,10 @@ export default function ClientsSitesPage() {
 
   const handleSaveClient = () => {
     if (!clientForm.name) { toast.error('Nom requis'); return }
+    if (!clientForm.email && !clientForm.phone) {
+      toast.error('Au moins un email ou un téléphone est requis')
+      return
+    }
     if (editingClient) {
       updateClient(editingClient.id, { ...clientForm, updated_at: new Date().toISOString() })
       toast.success('Client mis à jour')

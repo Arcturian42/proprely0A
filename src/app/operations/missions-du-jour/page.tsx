@@ -23,9 +23,10 @@ import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function MissionsDuJourPage() {
-  const { missions, updateMissionStatus } = useAppStore()
+  const { missions, updateMissionStatus, agents } = useAppStore()
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')
+  const [filterAgent, setFilterAgent] = useState('all')
 
   const today = new Date().toISOString().split('T')[0]
   const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -33,8 +34,11 @@ export default function MissionsDuJourPage() {
     return format(addDays(start, i), 'yyyy-MM-dd')
   })
 
-  const todayMissions = missions.filter(m => m.scheduled_date === today)
-  const weekMissions = missions.filter(m => weekDates.includes(m.scheduled_date))
+  const filterByAgent = (ms: Mission[]) =>
+    filterAgent === 'all' ? ms : ms.filter(m => m.agents?.some(a => a.id === filterAgent))
+
+  const todayMissions = filterByAgent(missions.filter(m => m.scheduled_date === today))
+  const weekMissions = filterByAgent(missions.filter(m => weekDates.includes(m.scheduled_date)))
 
   const handleUpdateStatus = (mission: Mission, status: MissionStatus) => {
     if (status === 'terminee') {
@@ -153,6 +157,21 @@ export default function MissionsDuJourPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Agent filter */}
+        <div className="mb-4">
+          <Select value={filterAgent} onValueChange={setFilterAgent}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Filtrer par agent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les agents</SelectItem>
+              {agents.map(a => (
+                <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Tabs defaultValue="today">

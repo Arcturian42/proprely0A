@@ -17,8 +17,10 @@ import { mockOperationalItems, mockAgents, mockClients, mockSites, mockSops, moc
 import { Agent, Mission, OperationalItem, OperationalItemStatus } from '@/types'
 import { OPERATIONAL_ITEM_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { Plus, ArrowRight, Wrench, Calendar, Users, CheckCircle2 } from 'lucide-react'
+import { Plus, ArrowRight, Wrench, Calendar, Users, CheckCircle2, Search, MoreVertical, Trash2, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 const STATUS_COLUMNS: OperationalItemStatus[] = ['a_organiser', 'en_cours', 'planifie']
 
@@ -31,6 +33,9 @@ export default function CockpitPage() {
   const [missionForm, setMissionForm] = useState({
     scheduled_date: '', start_time: '', planned_hours: '2', sop_id: '', notes: '', priority: 'normale',
   })
+  const [search, setSearch] = useState('')
+  const [viewItem, setViewItem] = useState<OperationalItem | null>(null)
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<string | null>(null)
 
   const handleOpenCreateMission = (item: OperationalItem) => {
     setSelectedItem(item)
@@ -85,7 +90,20 @@ export default function CockpitPage() {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, status, updated_at: new Date().toISOString() } : i))
   }
 
-  const itemsByStatus = (status: OperationalItemStatus) => items.filter(i => i.status === status)
+  const handleDeleteItem = (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id))
+    toast.success('Opération supprimée')
+    setConfirmDeleteItem(null)
+  }
+
+  const filteredItems = items.filter(i =>
+    !search ||
+    i.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    i.site?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    i.title?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const itemsByStatus = (status: OperationalItemStatus) => filteredItems.filter(i => i.status === status)
 
   const STATUS_COLORS: Record<OperationalItemStatus, string> = {
     a_organiser: 'border-t-amber-400',
@@ -124,6 +142,12 @@ export default function CockpitPage() {
           </Card>
         </div>
 
+        {/* Search */}
+        <div className="relative mb-4 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input className="pl-9" placeholder="Rechercher par client ou site..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
         {/* 3-column kanban */}
         <div className="grid grid-cols-3 gap-4">
           {STATUS_COLUMNS.map(status => (
@@ -141,9 +165,26 @@ export default function CockpitPage() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <p className="font-semibold text-sm text-slate-900 flex-1">{item.title}</p>
-                        <Badge variant={item.priority === 'haute' ? 'warning' : 'secondary'} className="ml-2 text-xs">
-                          {item.priority}
-                        </Badge>
+                        <div className="flex items-center gap-1 ml-2">
+                          <Badge variant={item.priority === 'haute' ? 'warning' : 'secondary'} className="text-xs">
+                            {item.priority}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 rounded hover:bg-slate-100" onClick={e => e.stopPropagation()}>
+                                <MoreVertical className="w-3 h-3 text-slate-400" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setViewItem(item)}>
+                                <Eye className="w-3 h-3 mr-2" /> Voir détail
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDeleteItem(item.id)}>
+                                <Trash2 className="w-3 h-3 mr-2" /> Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">{item.client?.name}</p>
                       <p className="text-xs text-slate-400 mb-3">{item.site?.name}</p>
@@ -291,6 +332,36 @@ export default function CockpitPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Item detail dialog */}
+      <Dialog open={!!viewItem} onOpenChange={() => setViewItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Détail de l'opération</DialogTitle>
+          </DialogHeader>
+          {viewItem && (
+            <div className="space-y-3 text-sm">
+              <p><span className="font-medium">Titre:</span> {viewItem.title}</p>
+              <p><span className="font-medium">Client:</span> {viewItem.client?.name}</p>
+              <p><span className="font-medium">Site:</span> {viewItem.site?.name}</p>
+              <p><span className="font-medium">Priorité:</span> {viewItem.priority}</p>
+              <p><span className="font-medium">Statut:</span> {viewItem.status}</p>
+              {viewItem.notes && <p><span className="font-medium">Notes:</span> {viewItem.notes}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewItem(null)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmDeleteItem}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteItem(null) }}
+        title="Supprimer l'opération"
+        description="Cette action est irréversible. Voulez-vous vraiment supprimer cette opération ?"
+        onConfirm={() => confirmDeleteItem && handleDeleteItem(confirmDeleteItem)}
+        variant="destructive"
+      />
     </AdminLayout>
   )
 }
