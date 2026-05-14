@@ -1,0 +1,278 @@
+'use client'
+
+import { useState } from 'react'
+import { AdminLayout } from '@/components/layout/AdminLayout'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { mockMissions, mockAgents, mockClients, mockSites, mockSops } from '@/lib/mock-data'
+import { Mission, MissionStatus } from '@/types'
+import { MISSION_STATUS_LABELS } from '@/lib/constants'
+import { formatDate } from '@/lib/utils'
+import { Plus, ChevronLeft, ChevronRight, Calendar, Clock, Users } from 'lucide-react'
+import { toast } from 'sonner'
+import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
+
+export default function PlanningPage() {
+  const [missions, setMissions] = useState<Mission[]>(mockMissions)
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [showForm, setShowForm] = useState(false)
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+  const [form, setForm] = useState({
+    client_id: '', site_id: '', scheduled_date: '', start_time: '',
+    planned_hours: '2', sop_id: '', notes: '', priority: 'normale', service_type: '',
+  })
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
+
+  const getMissionsForDay = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd')
+    return missions.filter(m => {
+      const match = m.scheduled_date === dateStr
+      const statusMatch = filterStatus === 'all' || m.status === filterStatus
+      return match && statusMatch
+    })
+  }
+
+  const handleSave = () => {
+    if (!form.client_id || !form.site_id || !form.scheduled_date) {
+      toast.error('Client, site et date requis')
+      return
+    }
+    const agents = mockAgents.filter(a => selectedAgents.includes(a.id))
+    const client = mockClients.find(c => c.id === form.client_id)
+    const site = mockSites.find(s => s.id === form.site_id)
+    const sop = mockSops.find(s => s.id === form.sop_id)
+
+    const newMission: Mission = {
+      id: `mission-${Date.now()}`, company_id: 'company-1',
+      client_id: form.client_id, site_id: form.site_id, operational_item_id: null,
+      service_type: form.service_type || null, sop_id: form.sop_id || null,
+      status: 'prevue', scheduled_date: form.scheduled_date,
+      start_time: form.start_time || null, planned_hours: parseFloat(form.planned_hours) || 2,
+      notes: form.notes || null, priority: form.priority,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      client, site, agents, sop,
+    }
+    setMissions(prev => [...prev, newMission])
+    toast.success('Mission planifiée')
+    setShowForm(false)
+  }
+
+  const clientSites = mockSites.filter(s => s.client_id === form.client_id)
+
+  return (
+    <AdminLayout>
+      <div className="p-8">
+        <PageHeader
+          title="Planning des missions"
+          description="Vue calendrier de vos interventions"
+          action={
+            <Button onClick={() => { setForm({ client_id: '', site_id: '', scheduled_date: '', start_time: '', planned_hours: '2', sop_id: '', notes: '', priority: 'normale', service_type: '' }); setSelectedAgents([]); setShowForm(true) }} className="gap-2">
+              <Plus className="w-4 h-4" /> Planifier
+            </Button>
+          }
+        />
+
+        {/* Controls */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="icon" onClick={() => setCurrentWeekStart(d => addDays(d, -7))}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm font-medium text-slate-700">
+              Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}
+            </span>
+            <Button variant="outline" size="icon" onClick={() => setCurrentWeekStart(d => addDays(d, 7))}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+              Aujourd'hui
+            </Button>
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              {Object.entries(MISSION_STATUS_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-2">
+          {weekDays.map((day, idx) => {
+            const dayMissions = getMissionsForDay(day)
+            const isToday = isSameDay(day, new Date())
+            const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+            return (
+              <div key={idx} className="min-h-[200px]">
+                <div className={`text-center py-2 mb-2 rounded-lg ${isToday ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200'}`}>
+                  <p className="text-xs font-medium">{dayNames[idx]}</p>
+                  <p className={`text-lg font-bold ${isToday ? 'text-white' : 'text-slate-900'}`}>
+                    {format(day, 'd')}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {dayMissions.map(mission => (
+                    <div key={mission.id} className="bg-white rounded-lg border border-slate-200 p-2 hover:shadow-sm cursor-pointer">
+                      <p className="text-xs font-semibold text-slate-800 truncate">{mission.client?.name}</p>
+                      <p className="text-xs text-slate-500 truncate">{mission.site?.name}</p>
+                      {mission.start_time && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="w-2.5 h-2.5 text-slate-400" />
+                          <span className="text-xs text-slate-400">{mission.start_time}</span>
+                        </div>
+                      )}
+                      <div className="mt-1">
+                        <StatusBadge status={mission.status} />
+                      </div>
+                    </div>
+                  ))}
+                  {dayMissions.length === 0 && (
+                    <div className="h-12 border-2 border-dashed border-slate-100 rounded-lg" />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* List view below calendar */}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Toutes les missions</h2>
+          <Card>
+            <div className="divide-y divide-slate-100">
+              {missions
+                .filter(m => filterStatus === 'all' || m.status === filterStatus)
+                .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
+                .map(mission => (
+                  <div key={mission.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center min-w-[60px]">
+                        <p className="text-sm font-bold text-slate-900">{formatDate(mission.scheduled_date)}</p>
+                        {mission.start_time && <p className="text-xs text-slate-500">{mission.start_time}</p>}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{mission.client?.name}</p>
+                        <p className="text-sm text-slate-500">{mission.site?.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <Clock className="w-3 h-3" /> {mission.planned_hours}h
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <Users className="w-3 h-3" /> {mission.agents?.length || 0}
+                      </div>
+                      <StatusBadge status={mission.status} />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Create mission form */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Planifier une mission</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div>
+              <Label>Client *</Label>
+              <Select value={form.client_id} onValueChange={v => setForm(f => ({ ...f, client_id: v, site_id: '' }))}>
+                <SelectTrigger><SelectValue placeholder="Choisir un client..." /></SelectTrigger>
+                <SelectContent>
+                  {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Site *</Label>
+              <Select value={form.site_id} onValueChange={v => setForm(f => ({ ...f, site_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Choisir un site..." /></SelectTrigger>
+                <SelectContent>
+                  {clientSites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date *</Label>
+                <Input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Heure</Label>
+                <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Durée (h)</Label>
+                <Input type="number" min="0.5" step="0.5" value={form.planned_hours} onChange={e => setForm(f => ({ ...f, planned_hours: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Priorité</Label>
+                <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normale">Normale</SelectItem>
+                    <SelectItem value="haute">Haute</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Protocole SOP</Label>
+              <Select value={form.sop_id} onValueChange={v => setForm(f => ({ ...f, sop_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Optionnel..." /></SelectTrigger>
+                <SelectContent>
+                  {mockSops.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-2 block">Agents</Label>
+              <div className="space-y-2 border rounded-lg p-3">
+                {mockAgents.map(agent => (
+                  <div key={agent.id} className="flex items-center gap-3">
+                    <Checkbox id={`plan-${agent.id}`} checked={selectedAgents.includes(agent.id)}
+                      onCheckedChange={(checked) => setSelectedAgents(prev => checked ? [...prev, agent.id] : prev.filter(id => id !== agent.id))} />
+                    <label htmlFor={`plan-${agent.id}`} className="text-sm cursor-pointer flex-1">
+                      {agent.first_name} {agent.last_name}
+                    </label>
+                    <StatusBadge status={agent.status} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
+            <Button onClick={handleSave}>Planifier</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  )
+}
