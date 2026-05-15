@@ -13,7 +13,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-[#FBFBFA]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -32,7 +32,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile topbar with hamburger */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 lg:hidden">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[rgba(0,0,0,0.08)] lg:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-md hover:bg-slate-100"
