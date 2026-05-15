@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAppStore } from '@/lib/store'
 
 export default function ParametresPage() {
+  useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
   const {
     serviceTypes, addServiceType, updateServiceType, deleteServiceType,
     companySettings, updateCompanySettings,

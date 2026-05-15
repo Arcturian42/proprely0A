@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'luci
 import { toast } from 'sonner'
 
 export default function ClientsSitesPage() {
+  useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
   const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)

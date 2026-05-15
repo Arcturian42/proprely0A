@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -23,6 +23,7 @@ import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function MissionsDuJourPage() {
+  useEffect(() => { document.title = 'Missions du Jour — Proprely' }, [])
   const { missions, updateMissionStatus, agents } = useAppStore()
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -20,6 +20,7 @@ import { CheckCircle2, Download, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function HeuresPaiePage() {
+  useEffect(() => { document.title = 'Heures & Paie — Proprely' }, [])
   const { timeEntries: entries, updateTimeEntry, agents } = useAppStore()
   const [filterAgent, setFilterAgent] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -56,20 +57,22 @@ export default function HeuresPaiePage() {
     setSelectedEntry(null)
   }
 
+  const escapeCsv = (val: string) => `"${String(val).replace(/"/g, '""')}"`
+
   const handleExportCSV = () => {
     const headers = ['Date', 'Agent', 'Client', 'Site', 'Heures prévues', 'Heures validées', 'Coût horaire', 'Coût total', 'Statut']
     const rows = filtered.map(e => [
-      e.date,
-      `${e.agent?.first_name} ${e.agent?.last_name}`,
-      e.client?.name || '',
-      e.site?.name || '',
-      e.planned_hours,
-      e.validated_hours || '',
-      e.hourly_cost || '',
-      e.total_cost || '',
-      TIME_ENTRY_STATUS_LABELS[e.status] || e.status,
+      escapeCsv(e.date),
+      escapeCsv(`${e.agent?.first_name} ${e.agent?.last_name}`),
+      escapeCsv(e.client?.name || ''),
+      escapeCsv(e.site?.name || ''),
+      escapeCsv(String(e.planned_hours)),
+      escapeCsv(String(e.validated_hours || '')),
+      escapeCsv(String(e.hourly_cost || '')),
+      escapeCsv(String(e.total_cost || '')),
+      escapeCsv(TIME_ENTRY_STATUS_LABELS[e.status] || e.status),
     ])
-    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
+    const csv = [headers.map(escapeCsv), ...rows].map(r => r.join(';')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

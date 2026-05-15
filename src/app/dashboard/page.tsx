@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
@@ -21,6 +22,7 @@ import {
 import Link from 'next/link'
 
 export default function DashboardPage() {
+  useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
   const { missions, clients, agents, operationalItems } = useAppStore()
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
@@ -146,7 +148,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/commercial/pipeline">
+                <Link href="/commercial/prospection">
                   <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
                     <TrendingUp className="w-4 h-4 text-indigo-600" />
                     <span className="text-sm">Ajouter un lead</span>

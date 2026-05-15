@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -29,6 +29,7 @@ const defaultForm = {
 }
 
 export default function AgentsPage() {
+  useEffect(() => { document.title = 'Agents — Proprely' }, [])
   const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,7 @@ const defaultForm = {
 }
 
 export default function PipelinePage() {
+  useEffect(() => { document.title = 'Pipeline — Proprely' }, [])
   const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
@@ -167,6 +168,9 @@ export default function PipelinePage() {
                       key={opp.id}
                       className="cursor-pointer hover:shadow-md transition-shadow"
                       onClick={() => setSelectedOpp(opp)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
                     >
                       <CardContent className="p-4">
                         <p className="font-semibold text-sm text-slate-900 mb-1">{opp.title}</p>

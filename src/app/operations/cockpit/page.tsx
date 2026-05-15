@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -65,6 +65,7 @@ function isSlotConflict(
 }
 
 export default function CockpitPage() {
+  useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
   const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry } = useAppStore()
 
   // Left panel state
@@ -436,6 +437,7 @@ export default function CockpitPage() {
                   <button
                     onClick={() => setCalendarWeek(subWeeks(calendarWeek, 1))}
                     className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                    aria-label="Semaine précédente"
                   >
                     <ChevronLeft className="w-4 h-4 text-slate-600" />
                   </button>
@@ -445,6 +447,7 @@ export default function CockpitPage() {
                   <button
                     onClick={() => setCalendarWeek(addWeeks(calendarWeek, 1))}
                     className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                    aria-label="Semaine suivante"
                   >
                     <ChevronRight className="w-4 h-4 text-slate-600" />
                   </button>
@@ -658,7 +661,7 @@ export default function CockpitPage() {
                           </Badge>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="p-1 rounded hover:bg-slate-100">
+                              <button className="p-1 rounded hover:bg-slate-100" aria-label="Options">
                                 <MoreVertical className="w-3 h-3 text-slate-400" />
                               </button>
                             </DropdownMenuTrigger>
@@ -760,7 +763,7 @@ export default function CockpitPage() {
         onOpenChange={open => { if (!open) setConfirmDeleteItem(null) }}
         title="Supprimer l'opération"
         description="Cette action est irréversible."
-        onConfirm={() => confirmDeleteItem && (() => { deleteOperationalItem(confirmDeleteItem); toast.success('Opération supprimée'); setConfirmDeleteItem(null) })()}
+        onConfirm={() => { if (confirmDeleteItem) { deleteOperationalItem(confirmDeleteItem); toast.success('Opération supprimée'); setConfirmDeleteItem(null) } }}
         variant="destructive"
       />
     </AdminLayout>

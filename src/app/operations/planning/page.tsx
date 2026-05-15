@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -23,6 +23,7 @@ import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
+  useEffect(() => { document.title = 'Planning — Proprely' }, [])
   const { missions, agents, clients, sites, sops, addMission, addTimeEntry } = useAppStore()
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [filterStatus, setFilterStatus] = useState<string>('all')
