@@ -3,12 +3,34 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus
+  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType
 } from '@/types'
 import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
   mockOperationalItems, mockSites, mockSops, mockTimeEntries,
 } from '@/lib/mock-data'
+
+const defaultServiceTypes: ServiceType[] = [
+  { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'st-2', company_id: 'company-1', name: 'Nettoyage médical', estimated_duration_minutes: 90, indicative_price: 120, default_sop_id: 'sop-2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'st-3', company_id: 'company-1', name: 'Vitrerie', estimated_duration_minutes: 180, indicative_price: 200, default_sop_id: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+]
+
+interface CompanySettings {
+  name: string
+  email: string
+  phone: string
+  address: string
+  siret: string
+}
+
+const defaultCompanySettings: CompanySettings = {
+  name: 'Proprely Nettoyage Pro',
+  email: 'contact@proprely.fr',
+  phone: '01 23 45 67 89',
+  address: '10 Rue de la Propreté, Paris',
+  siret: '12345678901234',
+}
 
 interface AppStore {
   agents: Agent[]
@@ -20,6 +42,8 @@ interface AppStore {
   sites: Site[]
   sops: Sop[]
   timeEntries: TimeEntry[]
+  serviceTypes: ServiceType[]
+  companySettings: CompanySettings
 
   // Agents
   addAgent: (agent: Agent) => void
@@ -67,6 +91,14 @@ interface AppStore {
   addTimeEntry: (entry: TimeEntry) => void
   updateTimeEntry: (id: string, data: Partial<TimeEntry>) => void
 
+  // ServiceTypes
+  addServiceType: (serviceType: ServiceType) => void
+  updateServiceType: (id: string, data: Partial<ServiceType>) => void
+  deleteServiceType: (id: string) => void
+
+  // Company settings
+  updateCompanySettings: (settings: Partial<CompanySettings>) => void
+
   // Reset
   resetToMockData: () => void
 }
@@ -84,6 +116,8 @@ export const useAppStore = create<AppStore>()(
       sites: mockSites,
       sops: mockSops,
       timeEntries: mockTimeEntries,
+      serviceTypes: defaultServiceTypes,
+      companySettings: defaultCompanySettings,
 
       // Agents
       addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
@@ -222,6 +256,16 @@ export const useAppStore = create<AppStore>()(
       updateTimeEntry: (id, data) => set(s => ({
         timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te)
       })),
+
+      // ServiceTypes
+      addServiceType: (serviceType) => set(s => ({ serviceTypes: [...s.serviceTypes, serviceType] })),
+      updateServiceType: (id, data) => set(s => ({
+        serviceTypes: s.serviceTypes.map(st => st.id === id ? { ...st, ...data } : st)
+      })),
+      deleteServiceType: (id) => set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) })),
+
+      // Company settings
+      updateCompanySettings: (settings) => set(s => ({ companySettings: { ...s.companySettings, ...settings } })),
 
       resetToMockData: () => set({
         agents: mockAgents, clients: mockClients, leads: mockLeads,

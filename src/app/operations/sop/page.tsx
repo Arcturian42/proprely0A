@@ -51,12 +51,12 @@ export default function SopPage() {
       title: sop.title, service_type: sop.service_type || '',
       estimated_duration_minutes: sop.estimated_duration_minutes?.toString() || '',
       safety_instructions: sop.safety_instructions || '', notes: sop.notes || '',
-      frequency: (sop as Sop & { frequency?: string }).frequency || '',
+      frequency: sop.frequency || '',
     })
     setChecklistItems(sop.checklist_items.map(item => ({ id: item.id, text: item.text })))
     setRequiredMaterials([...sop.required_materials])
     setRequiredProducts([...sop.required_products])
-    setAssociatedSiteIds((sop as Sop & { associated_site_ids?: string[] }).associated_site_ids || [])
+    setAssociatedSiteIds(sop.associated_site_ids || [])
     setShowForm(true)
   }
 
@@ -169,12 +169,12 @@ export default function SopPage() {
                     <Clock className="w-3 h-3 mr-1" />{selectedSop.estimated_duration_minutes} min
                   </Badge>
                 )}
-                {(selectedSop as Sop & { frequency?: string }).frequency && (
-                  <Badge variant="outline">{(selectedSop as Sop & { frequency?: string }).frequency}</Badge>
+                {selectedSop.frequency && (
+                  <Badge variant="outline">{selectedSop.frequency}</Badge>
                 )}
               </div>
               {(() => {
-                const siteIds = (selectedSop as Sop & { associated_site_ids?: string[] }).associated_site_ids
+                const siteIds = selectedSop.associated_site_ids
                 if (siteIds && siteIds.length > 0) {
                   const linked = sites.filter(s => siteIds.includes(s.id))
                   return linked.length > 0 ? (

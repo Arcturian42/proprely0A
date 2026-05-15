@@ -58,7 +58,8 @@ export default function AgentsPage() {
       business_registration_number: agent.business_registration_number || '',
       contract_type: agent.contract_type, weekly_availability_hours: agent.weekly_availability_hours.toString(),
       zone: agent.zone || '', status: agent.status, hourly_cost: agent.hourly_cost?.toString() || '',
-      notes: agent.notes || '', weekly_availability: { ...defaultForm.weekly_availability, ...agent.weekly_availability },
+      notes: agent.notes || '', skills: agent.skills?.join(', ') || '',
+      weekly_availability: { ...defaultForm.weekly_availability, ...agent.weekly_availability },
     })
     setShowForm(true)
   }
@@ -87,7 +88,7 @@ export default function AgentsPage() {
     }
     const agentData = {
       ...form,
-      skills: [],
+      skills: form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
       weekly_availability_hours: hours,
       hourly_cost: cost,
     }
@@ -290,6 +291,10 @@ export default function AgentsPage() {
             <div className="col-span-2">
               <Label>N° SIRET / Auto-entrepreneur</Label>
               <Input value={form.business_registration_number} onChange={e => setForm(f => ({ ...f, business_registration_number: e.target.value }))} />
+            </div>
+            <div className="col-span-2">
+              <Label>Compétences (séparées par des virgules)</Label>
+              <Input value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))} placeholder="Ex: nettoyage industriel, vitrerie" />
             </div>
 
             {/* Weekly availability */}
