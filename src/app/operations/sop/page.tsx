@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, Plus as PlusIcon, X }
 import { toast } from 'sonner'
 
 export default function SopPage() {
+  useEffect(() => { document.title = 'SOPs — Proprely' }, [])
   const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
@@ -51,12 +52,12 @@ export default function SopPage() {
       title: sop.title, service_type: sop.service_type || '',
       estimated_duration_minutes: sop.estimated_duration_minutes?.toString() || '',
       safety_instructions: sop.safety_instructions || '', notes: sop.notes || '',
-      frequency: (sop as Sop & { frequency?: string }).frequency || '',
+      frequency: sop.frequency || '',
     })
     setChecklistItems(sop.checklist_items.map(item => ({ id: item.id, text: item.text })))
     setRequiredMaterials([...sop.required_materials])
     setRequiredProducts([...sop.required_products])
-    setAssociatedSiteIds((sop as Sop & { associated_site_ids?: string[] }).associated_site_ids || [])
+    setAssociatedSiteIds(sop.associated_site_ids || [])
     setShowForm(true)
   }
 
@@ -90,6 +91,21 @@ export default function SopPage() {
     toast.success('Protocole supprimé')
     setConfirmDelete(null)
   }
+
+  const associatedSitesSection = selectedSop
+    ? (() => {
+        const siteIds = (selectedSop as Sop & { associated_site_ids?: string[] }).associated_site_ids
+        if (!siteIds || siteIds.length === 0) return null
+        const linked = sites.filter(s => siteIds.includes(s.id))
+        if (linked.length === 0) return null
+        return (
+          <div>
+            <p className="font-semibold text-slate-700 mb-1">Sites associés</p>
+            <div className="flex flex-wrap gap-1">{linked.map(s => <Badge key={s.id} variant="secondary">{s.name}</Badge>)}</div>
+          </div>
+        )
+      })()
+    : null
 
   return (
     <AdminLayout>
@@ -169,23 +185,11 @@ export default function SopPage() {
                     <Clock className="w-3 h-3 mr-1" />{selectedSop.estimated_duration_minutes} min
                   </Badge>
                 )}
-                {(selectedSop as Sop & { frequency?: string }).frequency && (
-                  <Badge variant="outline">{(selectedSop as Sop & { frequency?: string }).frequency}</Badge>
+                {selectedSop.frequency && (
+                  <Badge variant="outline">{selectedSop.frequency}</Badge>
                 )}
               </div>
-              {(() => {
-                const siteIds = (selectedSop as Sop & { associated_site_ids?: string[] }).associated_site_ids
-                if (siteIds && siteIds.length > 0) {
-                  const linked = sites.filter(s => siteIds.includes(s.id))
-                  return linked.length > 0 ? (
-                    <div>
-                      <p className="font-semibold text-slate-700 mb-1">Sites associés</p>
-                      <div className="flex flex-wrap gap-1">{linked.map(s => <Badge key={s.id} variant="secondary">{s.name}</Badge>)}</div>
-                    </div>
-                  ) : null
-                }
-                return null
-              })()}
+              {associatedSitesSection}
 
               {selectedSop.checklist_items.length > 0 && (
                 <div>

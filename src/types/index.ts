@@ -133,6 +133,8 @@ export interface Sop {
   checklist_items: { id: string; text: string; completed?: boolean }[]
   safety_instructions: string | null
   notes: string | null
+  frequency?: string
+  associated_site_ids?: string[]
   created_at: string
   updated_at: string
 }

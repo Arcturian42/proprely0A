@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -36,7 +36,8 @@ const defaultForm = {
 }
 
 export default function ProspectionPage() {
-  const { leads, addLead, updateLead, deleteLead } = useAppStore()
+  useEffect(() => { document.title = 'Prospection — Proprely' }, [])
+  const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -84,7 +85,7 @@ export default function ProspectionPage() {
       toast.success('Lead mis à jour')
     } else {
       const newLead: Lead = {
-        id: `lead-${Date.now()}`, company_id: 'company-1',
+        id: crypto.randomUUID(), company_id: 'company-1',
         ...form, ai_score: score,
         converted_opportunity_id: null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -103,8 +104,35 @@ export default function ProspectionPage() {
 
   const handleConvert = (lead: Lead) => {
     if (lead.status === 'converti') { toast.error('Ce lead a déjà été converti'); return }
-    updateLead(lead.id, { status: 'converti' as LeadStatus })
-    toast.success(`Lead "${lead.company_name}" converti. Créez l'opportunité dans le pipeline.`)
+    const now = new Date().toISOString()
+    const newOppId = crypto.randomUUID()
+    addOpportunity({
+      id: newOppId,
+      company_id: 'company-1',
+      lead_id: lead.id,
+      client_id: null,
+      site_id: null,
+      title: `Opportunité — ${lead.company_name}`,
+      prospect_name: lead.company_name,
+      contact_name: null,
+      email: lead.email ?? null,
+      phone: lead.phone ?? null,
+      city: lead.city ?? null,
+      site_address: null,
+      client_type: null,
+      service_type: null,
+      estimated_amount: null,
+      stage: 'prise_de_contact',
+      next_action_date: null,
+      notes: lead.notes ?? null,
+      status: 'active',
+      converted_to_client: false,
+      converted_at: null,
+      created_at: now,
+      updated_at: now,
+    })
+    updateLead(lead.id, { status: 'converti' as LeadStatus, converted_opportunity_id: newOppId })
+    toast.success(`Lead "${lead.company_name}" converti en opportunité.`)
   }
 
   const handleUpdateStatus = (lead: Lead, status: LeadStatus) => {

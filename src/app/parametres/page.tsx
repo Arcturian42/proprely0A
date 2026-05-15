@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -17,41 +17,42 @@ import { ServiceType } from '@/types'
 import { Plus, Edit, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-
-const defaultServiceTypes: ServiceType[] = [
-  { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'st-2', company_id: 'company-1', name: 'Nettoyage médical', estimated_duration_minutes: 90, indicative_price: 120, default_sop_id: 'sop-2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'st-3', company_id: 'company-1', name: 'Vitrerie', estimated_duration_minutes: 180, indicative_price: 200, default_sop_id: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-]
+import { useAppStore } from '@/lib/store'
 
 export default function ParametresPage() {
+  useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
+  const {
+    serviceTypes, addServiceType, updateServiceType, deleteServiceType,
+    companySettings, updateCompanySettings,
+  } = useAppStore()
+
   const [companyForm, setCompanyForm] = useState({
-    name: 'Proprely Nettoyage Pro',
-    email: 'contact@proprely.fr',
-    phone: '01 23 45 67 89',
-    address: '10 Rue de la Propreté, Paris',
-    siret: '12345678901234',
+    name: companySettings.name,
+    email: companySettings.email,
+    phone: companySettings.phone,
+    address: companySettings.address,
+    siret: companySettings.siret,
   })
 
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>(defaultServiceTypes)
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [editingService, setEditingService] = useState<ServiceType | null>(null)
   const [serviceForm, setServiceForm] = useState({ name: '', estimated_duration_minutes: '', indicative_price: '' })
   const [confirmDeleteService, setConfirmDeleteService] = useState<string | null>(null)
 
   const handleSaveCompany = () => {
+    updateCompanySettings(companyForm)
     toast.success('Paramètres entreprise sauvegardés')
   }
 
   const handleSaveService = () => {
     if (!serviceForm.name) { toast.error('Nom requis'); return }
     if (editingService) {
-      setServiceTypes(prev => prev.map(s => s.id === editingService.id ? {
-        ...s, ...serviceForm,
+      updateServiceType(editingService.id, {
+        ...serviceForm,
         estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
         indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
         updated_at: new Date().toISOString(),
-      } : s))
+      })
       toast.success('Service mis à jour')
     } else {
       const newService: ServiceType = {
@@ -61,7 +62,7 @@ export default function ParametresPage() {
         default_sop_id: null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
-      setServiceTypes(prev => [...prev, newService])
+      addServiceType(newService)
       toast.success('Type de service créé')
     }
     setShowServiceForm(false)
@@ -229,7 +230,7 @@ export default function ParametresPage() {
         variant="destructive"
         onConfirm={() => {
           if (confirmDeleteService) {
-            setServiceTypes(prev => prev.filter(s => s.id !== confirmDeleteService))
+            deleteServiceType(confirmDeleteService)
             toast.success('Type supprimé')
             setConfirmDeleteService(null)
           }
