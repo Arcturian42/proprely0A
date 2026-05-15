@@ -185,22 +185,26 @@ export default function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3">
-                {agents.map(agent => (
-                  <li key={agent.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs">
-                        {agent.first_name[0]}{agent.last_name[0]}
+              {agents.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">Aucun agent enregistré</p>
+              ) : (
+                <ul className="space-y-3">
+                  {agents.map(agent => (
+                    <li key={agent.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs">
+                          {agent.first_name[0]}{agent.last_name[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{agent.first_name} {agent.last_name}</p>
+                          <p className="text-xs text-slate-500">{agent.zone}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{agent.first_name} {agent.last_name}</p>
-                        <p className="text-xs text-slate-500">{agent.zone}</p>
-                      </div>
-                    </div>
-                    <StatusBadge status={agent.status} />
-                  </li>
-                ))}
-              </ul>
+                      <StatusBadge status={agent.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>

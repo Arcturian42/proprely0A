@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Toaster } from 'sonner'
-import { QueryProvider } from '@/components/providers/QueryProvider'
 
 export const metadata: Metadata = {
   title: 'Proprely Admin',
@@ -12,10 +11,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className="h-full">
       <body className="min-h-full bg-slate-50">
-        <QueryProvider>
-          {children}
-          <Toaster position="top-right" richColors />
-        </QueryProvider>
+        {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   )
