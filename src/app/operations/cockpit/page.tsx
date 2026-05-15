@@ -619,7 +619,7 @@ export default function CockpitPage() {
               <Users className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{agents.filter(a => a.status === 'actif').length}</p>
+              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{agents.filter(a => a.status === 'disponible').length}</p>
               <p className="text-[11px] text-[#94A3B8] mt-0.5">Agents disponibles</p>
             </div>
           </div>
@@ -765,7 +765,7 @@ export default function CockpitPage() {
                   <div key={agent.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-[#E2E8F0] text-[12px] font-medium text-[#475569]">
                     <span className={cn(
                       'w-1.5 h-1.5 rounded-full',
-                      agent.status === 'actif' ? 'bg-emerald-400' : 'bg-[#94A3B8]'
+                      agent.status === 'disponible' ? 'bg-emerald-400' : 'bg-[#94A3B8]'
                     )} />
                     {agent.first_name} {agent.last_name[0]}.
                   </div>
