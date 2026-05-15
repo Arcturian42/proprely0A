@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
-import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,19 +14,19 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Phone, Mail, MapPin, Euro, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Plus, Phone, Mail, MapPin, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const STAGES: OpportunityStage[] = ['lead', 'prise_de_contact', 'decouverte', 'proposition', 'negociation', 'gagnee', 'perdue']
 
-const STAGE_COLORS: Record<OpportunityStage, string> = {
-  lead: 'border-t-slate-400',
-  prise_de_contact: 'border-t-blue-400',
-  decouverte: 'border-t-indigo-400',
-  proposition: 'border-t-violet-400',
-  negociation: 'border-t-amber-400',
-  gagnee: 'border-t-green-500',
-  perdue: 'border-t-red-400',
+const STAGE_DOT_COLORS: Record<OpportunityStage, string> = {
+  lead: 'bg-slate-400',
+  prise_de_contact: 'bg-blue-400',
+  decouverte: 'bg-indigo-400',
+  proposition: 'bg-violet-400',
+  negociation: 'bg-amber-400',
+  gagnee: 'bg-emerald-500',
+  perdue: 'bg-red-400',
 }
 
 const defaultForm = {
@@ -132,79 +129,104 @@ export default function PipelinePage() {
   const oppsByStage = (stage: OpportunityStage) =>
     opportunities.filter(o => o.stage === stage)
 
+  const totalValue = opportunities.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
+  const wonCount = opportunities.filter(o => o.stage === 'gagnee').length
+  const conversionRate = opportunities.length > 0 ? Math.round((wonCount / opportunities.length) * 100) : 0
+
   return (
     <AdminLayout>
-      <div className="p-8">
-        <PageHeader
-          title="Pipeline commercial"
-          description="Suivi de vos opportunités par étape"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="w-4 h-4" /> Nouvelle opportunité
-            </Button>
-          }
-        />
+      <div className="min-h-screen bg-[#F8FAFC] p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-[22px] font-bold text-[#0F172A]">Pipeline commercial</h1>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1 bg-white border border-[#E2E8F0] rounded-full px-3 py-1 text-[12px] font-semibold text-[#475569] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                {opportunities.length} opportunités
+              </span>
+              <span className="inline-flex items-center gap-1 bg-[#EEF2FF] rounded-full px-3 py-1 text-[12px] font-semibold text-[#6366F1]">
+                {formatCurrency(totalValue)}
+              </span>
+              <span className="inline-flex items-center gap-1 bg-emerald-50 rounded-full px-3 py-1 text-[12px] font-semibold text-emerald-700">
+                {conversionRate}% conversion
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center gap-2 bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-[8px] h-9 px-4 text-[13px] font-semibold transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Nouvelle opportunité
+          </button>
+        </div>
 
         {/* Kanban board */}
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
           {STAGES.map(stage => {
             const opps = oppsByStage(stage)
             const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
             return (
-              <div key={stage} className="flex-shrink-0 w-72">
-                <div className={`bg-white rounded-xl border-t-4 shadow-sm ${STAGE_COLORS[stage]} border border-slate-200 mb-3`}>
-                  <div className="p-3 flex items-center justify-between">
-                    <span className="font-semibold text-sm text-slate-800">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
-                    <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">{opps.length}</span>
+              <div key={stage} className="flex flex-col w-[280px] min-w-[280px] flex-shrink-0">
+                {/* Column header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${STAGE_DOT_COLORS[stage]}`} />
+                    <span className="text-[13px] font-bold text-[#0F172A]">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
                   </div>
-                  {total > 0 && (
-                    <div className="px-3 pb-2 text-xs text-slate-500">{formatCurrency(total)}</div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {total > 0 && (
+                      <span className="text-[11px] text-[#94A3B8] font-medium">{formatCurrency(total)}</span>
+                    )}
+                    <div className="w-5 h-5 rounded-full bg-[#F1F5F9] text-[#475569] text-[11px] font-bold flex items-center justify-center">
+                      {opps.length}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {opps.map(opp => (
-                    <Card
-                      key={opp.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => setSelectedOpp(opp)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
-                    >
-                      <CardContent className="p-4">
-                        <p className="font-semibold text-sm text-slate-900 mb-1">{opp.title}</p>
-                        <p className="text-xs text-slate-500 mb-2">{opp.prospect_name}</p>
+                {/* Column body */}
+                <div className="bg-[#F1F5F9] rounded-[12px] p-2 space-y-2 min-h-[200px]">
+                  {opps.map(opp => {
+                    const prob = opp.stage === 'gagnee' ? 100 : opp.stage === 'perdue' ? 0 :
+                      opp.stage === 'negociation' ? 75 : opp.stage === 'proposition' ? 55 :
+                      opp.stage === 'decouverte' ? 35 : opp.stage === 'prise_de_contact' ? 20 : 10
+                    const probColor = prob > 70 ? 'bg-emerald-50 text-emerald-700' : prob > 40 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                    return (
+                      <div
+                        key={opp.id}
+                        className="bg-white rounded-[10px] border border-[#E2E8F0] p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:shadow-[0_3px_8px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all cursor-pointer"
+                        onClick={() => setSelectedOpp(opp)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
+                      >
+                        <p className="text-[13px] font-semibold text-[#0F172A]">{opp.title}</p>
                         {opp.estimated_amount && (
-                          <div className="flex items-center gap-1 text-xs text-slate-600 mb-2">
-                            <Euro className="w-3 h-3" />
-                            {formatCurrency(opp.estimated_amount)}
-                          </div>
+                          <p className="text-[18px] font-bold text-[#6366F1] mt-1">{formatCurrency(opp.estimated_amount)}</p>
                         )}
-                        {opp.city && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="w-3 h-3" />
-                            {opp.city}
-                          </div>
+                        {opp.contact_name && (
+                          <p className="text-[11px] text-[#94A3B8] mt-1">{opp.contact_name}</p>
                         )}
-                        {opp.next_action_date && (
-                          <p className="text-xs text-amber-600 mt-2">
-                            Action: {formatDate(opp.next_action_date)}
-                          </p>
-                        )}
+                        <div className="flex items-center justify-between mt-2">
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${probColor}`}>
+                            {prob}%
+                          </span>
+                          {opp.next_action_date && (
+                            <span className="text-[11px] text-[#94A3B8]">{formatDate(opp.next_action_date)}</span>
+                          )}
+                        </div>
                         {opp.converted_to_client && (
-                          <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
+                          <div className="flex items-center gap-1 text-[11px] text-emerald-600 mt-2">
                             <CheckCircle2 className="w-3 h-3" />
                             Converti en client
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </div>
+                    )
+                  })}
 
                   {opps.length === 0 && (
-                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                      <p className="text-xs text-slate-400">Aucune opportunité</p>
+                    <div className="border-2 border-dashed border-[#E2E8F0] rounded-[10px] p-6 text-center">
+                      <p className="text-[12px] text-[#94A3B8]">Aucune opportunité</p>
                     </div>
                   )}
                 </div>
@@ -214,89 +236,119 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Detail/Edit Dialog */}
+      {/* Detail Dialog */}
       {selectedOpp && (
         <Dialog open={!!selectedOpp} onOpenChange={() => setSelectedOpp(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{selectedOpp.title}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={selectedOpp.stage} />
+              <div className="flex items-start gap-3">
+                <div>
+                  <DialogTitle className="text-[16px] font-bold text-[#0F172A]">{selectedOpp.prospect_name}</DialogTitle>
+                  <div className="mt-1">
+                    <StatusBadge status={selectedOpp.stage} />
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 {selectedOpp.contact_name && (
                   <div>
-                    <p className="text-xs text-slate-500">Contact</p>
-                    <p className="font-medium">{selectedOpp.contact_name}</p>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Contact</p>
+                    <p className="text-[13px] font-medium text-[#0F172A] mt-0.5">{selectedOpp.contact_name}</p>
                   </div>
                 )}
                 {selectedOpp.estimated_amount && (
                   <div>
-                    <p className="text-xs text-slate-500">Montant</p>
-                    <p className="font-medium text-green-600">{formatCurrency(selectedOpp.estimated_amount)}</p>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Montant</p>
+                    <p className="text-[13px] font-medium text-[#6366F1] mt-0.5">{formatCurrency(selectedOpp.estimated_amount)}</p>
                   </div>
                 )}
                 {selectedOpp.phone && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-400" />
-                    <p>{selectedOpp.phone}</p>
+                  <div>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Téléphone</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3 h-3 text-[#94A3B8]" />
+                      <p className="text-[13px] font-medium text-[#0F172A]">{selectedOpp.phone}</p>
+                    </div>
                   </div>
                 )}
                 {selectedOpp.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-slate-400" />
-                    <p className="truncate">{selectedOpp.email}</p>
+                  <div>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Email</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Mail className="w-3 h-3 text-[#94A3B8]" />
+                      <p className="text-[13px] font-medium text-[#0F172A] truncate">{selectedOpp.email}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedOpp.city && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Ville</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 text-[#94A3B8]" />
+                      <p className="text-[13px] font-medium text-[#0F172A]">{selectedOpp.city}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedOpp.next_action_date && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Prochaine action</p>
+                    <p className="text-[13px] font-medium text-amber-600 mt-0.5">{formatDate(selectedOpp.next_action_date)}</p>
                   </div>
                 )}
               </div>
+
               {selectedOpp.notes && (
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-500 mb-1">Notes</p>
-                  <p>{selectedOpp.notes}</p>
+                <div className="border-t border-[#F1F5F9] pt-4">
+                  <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mb-1.5">Notes</p>
+                  <p className="text-[13px] text-[#475569] bg-[#F8FAFC] rounded-[8px] p-3">{selectedOpp.notes}</p>
                 </div>
               )}
-              {/* Stage progression */}
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Changer l'étape</p>
+
+              <div className="border-t border-[#F1F5F9] pt-4">
+                <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mb-2">Changer l'étape</p>
                 <div className="flex flex-wrap gap-2">
                   {STAGES.filter(s => s !== selectedOpp.stage && s !== 'perdue' && s !== 'gagnee').map(s => (
-                    <Button
+                    <button
                       key={s}
-                      variant="outline"
-                      size="sm"
+                      className="inline-flex items-center border border-[#E2E8F0] rounded-[8px] h-8 px-3 text-[12px] font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors"
                       onClick={() => {
                         handleMoveStage(selectedOpp, s)
                         setSelectedOpp(prev => prev ? { ...prev, stage: s } : null)
                       }}
                     >
                       {OPPORTUNITY_STAGE_LABELS[s]}
-                    </Button>
+                    </button>
                   ))}
-                  {!selectedOpp.converted_to_client && (
-                    <Button
-                      size="sm"
-                      className="gap-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        winOpportunity(selectedOpp.id)
-                        toast.success(`Opportunité gagnée ! Client "${selectedOpp.prospect_name}" créé automatiquement.`, { duration: 5000 })
-                        setSelectedOpp(null)
-                      }}
-                    >
-                      <CheckCircle2 className="w-3 h-3" /> Marquer Gagnée
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}>
+            <DialogFooter className="gap-2">
+              {!selectedOpp.converted_to_client && (
+                <button
+                  className="inline-flex items-center gap-1.5 bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-[8px] h-9 px-4 text-[13px] font-semibold transition-colors"
+                  onClick={() => {
+                    winOpportunity(selectedOpp.id)
+                    toast.success(`Opportunité gagnée ! Client "${selectedOpp.prospect_name}" créé automatiquement.`, { duration: 5000 })
+                    setSelectedOpp(null)
+                  }}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Marquer Gagnée
+                </button>
+              )}
+              <button
+                className="inline-flex items-center border border-[#E2E8F0] rounded-[8px] h-9 px-4 text-[13px] font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors"
+                onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}
+              >
                 Modifier
-              </Button>
-              <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(selectedOpp.id)}>
+              </button>
+              <button
+                className="inline-flex items-center border border-red-200 rounded-[8px] h-9 px-4 text-[13px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                onClick={() => setConfirmDelete(selectedOpp.id)}
+              >
                 Supprimer
-              </Button>
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -306,42 +358,54 @@ export default function PipelinePage() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingOpp ? 'Modifier l\'opportunité' : 'Nouvelle opportunité'}</DialogTitle>
+            <DialogTitle className="text-[16px] font-bold text-[#0F172A]">
+              {editingOpp ? "Modifier l'opportunité" : 'Nouvelle opportunité'}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label>Titre *</Label>
-                <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Nettoyage bureaux - Société X" />
+                <Label className="text-[12px] font-semibold text-[#475569]">Titre *</Label>
+                <Input
+                  className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1"
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="Ex: Nettoyage bureaux - Société X"
+                />
               </div>
               <div className="col-span-2">
-                <Label>Nom du prospect *</Label>
-                <Input value={form.prospect_name} onChange={e => setForm(f => ({ ...f, prospect_name: e.target.value }))} placeholder="Nom de l'entreprise" />
+                <Label className="text-[12px] font-semibold text-[#475569]">Nom du prospect *</Label>
+                <Input
+                  className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1"
+                  value={form.prospect_name}
+                  onChange={e => setForm(f => ({ ...f, prospect_name: e.target.value }))}
+                  placeholder="Nom de l'entreprise"
+                />
               </div>
               <div>
-                <Label>Contact</Label>
-                <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Nom complet" />
+                <Label className="text-[12px] font-semibold text-[#475569]">Contact</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Nom complet" />
               </div>
               <div>
-                <Label>Téléphone</Label>
-                <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Téléphone</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
               <div>
-                <Label>Email</Label>
-                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Email</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div>
-                <Label>Ville</Label>
-                <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Ville</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
               </div>
               <div>
-                <Label>Montant estimé (€)</Label>
-                <Input type="number" value={form.estimated_amount} onChange={e => setForm(f => ({ ...f, estimated_amount: e.target.value }))} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Montant estimé (€)</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" type="number" value={form.estimated_amount} onChange={e => setForm(f => ({ ...f, estimated_amount: e.target.value }))} />
               </div>
               <div>
-                <Label>Étape</Label>
+                <Label className="text-[12px] font-semibold text-[#475569]">Étape</Label>
                 <Select value={form.stage} onValueChange={(v) => setForm(f => ({ ...f, stage: v as OpportunityStage }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {STAGES.map(s => (
                       <SelectItem key={s} value={s}>{OPPORTUNITY_STAGE_LABELS[s]}</SelectItem>
@@ -350,13 +414,13 @@ export default function PipelinePage() {
                 </Select>
               </div>
               <div>
-                <Label>Prochaine action</Label>
-                <Input type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Prochaine action</Label>
+                <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
               </div>
               <div>
-                <Label>Type client</Label>
+                <Label className="text-[12px] font-semibold text-[#475569]">Type client</Label>
                 <Select value={form.client_type} onValueChange={(v) => setForm(f => ({ ...f, client_type: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                  <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] mt-1"><SelectValue placeholder="Choisir..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="entreprise">Entreprise</SelectItem>
                     <SelectItem value="professionnel">Professionnel libéral</SelectItem>
@@ -366,14 +430,14 @@ export default function PipelinePage() {
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
+                <Label className="text-[12px] font-semibold text-[#475569]">Notes</Label>
+                <Textarea className="border border-[#E2E8F0] rounded-[8px] px-3 text-[13px] bg-white mt-1" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button onClick={handleSave}>{editingOpp ? 'Mettre à jour' : 'Créer'}</Button>
+            <button className="inline-flex items-center border border-[#E2E8F0] rounded-[8px] h-9 px-4 text-[13px] font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors" onClick={() => setShowForm(false)}>Annuler</button>
+            <button className="inline-flex items-center bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-[8px] h-9 px-4 text-[13px] font-semibold transition-colors" onClick={handleSave}>{editingOpp ? 'Mettre à jour' : 'Créer'}</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

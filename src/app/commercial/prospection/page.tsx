@@ -2,23 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
-import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Phone, Globe } from 'lucide-react'
+import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 
 const defaultForm = {
@@ -33,6 +28,13 @@ const defaultForm = {
   probable_need: '',
   status: 'nouveau' as LeadStatus,
   notes: '',
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  nouveau: 'bg-blue-50 text-blue-700',
+  a_contacter: 'bg-amber-50 text-amber-700',
+  contacte: 'bg-violet-50 text-violet-700',
+  converti: 'bg-emerald-50 text-emerald-700',
 }
 
 export default function ProspectionPage() {
@@ -77,7 +79,7 @@ export default function ProspectionPage() {
   }
 
   const handleSave = () => {
-    if (!form.company_name) { toast.error('Nom de l\'entreprise requis'); return }
+    if (!form.company_name) { toast.error("Nom de l'entreprise requis"); return }
     const score = form.ai_score ? parseInt(form.ai_score) : null
     if (score !== null && (score < 0 || score > 100)) { toast.error('Le score IA doit être entre 0 et 100'); return }
     if (editingLead) {
@@ -140,39 +142,54 @@ export default function ProspectionPage() {
     toast.success('Statut mis à jour')
   }
 
+  const statuses: LeadStatus[] = ['nouveau', 'a_contacter', 'contacte', 'converti']
+  const statsConfig = [
+    { label: 'Total leads', value: leads.length, color: 'text-[#0F172A]' },
+    { label: 'Nouveaux', value: leads.filter(l => l.status === 'nouveau').length, color: 'text-blue-600' },
+    { label: 'Contactés', value: leads.filter(l => l.status === 'contacte').length, color: 'text-violet-600' },
+    { label: 'Convertis', value: leads.filter(l => l.status === 'converti').length, color: 'text-emerald-600' },
+  ]
+
   return (
     <AdminLayout>
-      <div className="p-8">
-        <PageHeader
-          title="Prospection IA"
-          description="Gestion de vos leads et prospects"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="w-4 h-4" /> Nouveau lead
-            </Button>
-          }
-        />
+      <div className="p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[22px] font-bold text-[#0F172A]">Prospection IA</h1>
+            <p className="text-[13px] text-[#475569] mt-0.5">Gestion de vos leads et prospects</p>
+          </div>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center gap-2 bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-[8px] h-9 px-4 text-[13px] font-semibold transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Nouveau lead
+          </button>
+        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {(['nouveau', 'a_contacter', 'contacte', 'converti'] as LeadStatus[]).map(status => (
-            <Card key={status}>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">{leads.filter(l => l.status === status).length}</p>
-                <StatusBadge status={status} />
-              </CardContent>
-            </Card>
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {statsConfig.map(s => (
+            <div key={s.label} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+              <p className={`text-[24px] font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[12px] text-[#94A3B8] font-medium mt-0.5">{s.label}</p>
+            </div>
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input className="pl-9" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
+        {/* Search + filter bar */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+            <input
+              className="pl-9 border border-[#E2E8F0] rounded-[8px] h-9 w-64 text-[13px] bg-white text-[#0F172A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1] transition-all"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] w-44 bg-white">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -184,115 +201,127 @@ export default function ProspectionPage() {
           </Select>
         </div>
 
-        {/* Table */}
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entreprise</TableHead>
-                <TableHead>Secteur</TableHead>
-                <TableHead>Ville</TableHead>
-                <TableHead>Score IA</TableHead>
-                <TableHead>Besoin probable</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(lead => (
-                <TableRow key={lead.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-slate-900">{lead.company_name}</p>
-                      {lead.email && <p className="text-xs text-slate-500">{lead.email}</p>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600">{lead.sector || '—'}</TableCell>
-                  <TableCell className="text-sm">{lead.city || '—'}</TableCell>
-                  <TableCell>
-                    {lead.ai_score ? (
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                        <span className={`font-semibold text-sm ${lead.ai_score >= 80 ? 'text-green-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-slate-500'}`}>
-                          {lead.ai_score}
-                        </span>
-                      </div>
-                    ) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600 max-w-xs truncate">{lead.probable_need || '—'}</TableCell>
-                  <TableCell><StatusBadge status={lead.status} /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
-                        <SelectTrigger className="h-7 text-xs w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(lead)}>
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
-                        <ChevronRight className="w-3 h-3 text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
-                        <Trash2 className="w-3 h-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                    Aucun lead trouvé
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+        {/* Leads table */}
+        <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_2fr_1fr_1fr] bg-[#F8FAFC] border-b border-[#E2E8F0]">
+            {['Entreprise', 'Secteur', 'Ville', 'Score IA', 'Besoin probable', 'Statut', 'Actions'].map(h => (
+              <div key={h} className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide px-4 py-3">{h}</div>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {filtered.map(lead => (
+            <div key={lead.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_2fr_1fr_1fr] items-center px-0 border-b border-[#F1F5F9] last:border-0 hover:bg-[#F8FAFC] transition-colors">
+              {/* Company */}
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="w-8 h-8 rounded-[8px] bg-[#EEF2FF] text-[#6366F1] text-[12px] font-bold flex items-center justify-center flex-shrink-0">
+                  {lead.company_name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#0F172A] truncate">{lead.company_name}</p>
+                  {lead.email && <p className="text-[12px] text-[#475569] truncate">{lead.email}</p>}
+                </div>
+              </div>
+              <div className="px-4 py-3.5 text-[13px] text-[#475569]">{lead.sector || '—'}</div>
+              <div className="px-4 py-3.5 text-[13px] text-[#475569]">{lead.city || '—'}</div>
+              <div className="px-4 py-3.5">
+                {lead.ai_score ? (
+                  <div className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span className={`text-[13px] font-semibold ${lead.ai_score >= 80 ? 'text-emerald-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-[#94A3B8]'}`}>
+                      {lead.ai_score}
+                    </span>
+                  </div>
+                ) : <span className="text-[13px] text-[#94A3B8]">—</span>}
+              </div>
+              <div className="px-4 py-3.5 text-[12px] text-[#475569] truncate">{lead.probable_need || '—'}</div>
+              <div className="px-4 py-3.5">
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[lead.status] || 'bg-slate-100 text-slate-600'}`}>
+                  {LEAD_STATUS_LABELS[lead.status] || lead.status}
+                </span>
+              </div>
+              <div className="px-4 py-3.5">
+                <div className="flex items-center gap-1">
+                  <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
+                    <SelectTrigger className="h-7 text-[11px] w-28 border border-[#E2E8F0] rounded-[6px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <button
+                    className="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#475569] transition-colors"
+                    onClick={() => handleOpenEdit(lead)}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="w-7 h-7 rounded-[6px] flex items-center justify-center text-emerald-500 hover:bg-emerald-50 transition-colors"
+                    onClick={() => handleConvert(lead)}
+                    title="Convertir en opportunité"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="w-7 h-7 rounded-[6px] flex items-center justify-center text-red-400 hover:bg-red-50 transition-colors"
+                    onClick={() => setConfirmDelete(lead.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12 text-[#94A3B8] text-[13px]">
+              Aucun lead trouvé
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Form dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingLead ? 'Modifier le lead' : 'Nouveau lead'}</DialogTitle>
+            <DialogTitle className="text-[16px] font-bold text-[#0F172A]">
+              {editingLead ? 'Modifier le lead' : 'Nouveau lead'}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <Label>Nom de l'entreprise *</Label>
-              <Input value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Nom de l'entreprise *</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} />
             </div>
             <div>
-              <Label>Secteur</Label>
-              <Input value={form.sector} onChange={e => setForm(f => ({ ...f, sector: e.target.value }))} placeholder="Ex: Restauration" />
+              <Label className="text-[12px] font-semibold text-[#475569]">Secteur</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.sector} onChange={e => setForm(f => ({ ...f, sector: e.target.value }))} placeholder="Ex: Restauration" />
             </div>
             <div>
-              <Label>Ville</Label>
-              <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Ville</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
             </div>
             <div>
-              <Label>Email</Label>
-              <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Email</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
-              <Label>Téléphone</Label>
-              <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Téléphone</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
             <div>
-              <Label>Site web</Label>
-              <Input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Site web</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
             </div>
             <div>
-              <Label>Source</Label>
+              <Label className="text-[12px] font-semibold text-[#475569]">Source</Label>
               <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
-                <SelectTrigger><SelectValue placeholder="Source..." /></SelectTrigger>
+                <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] mt-1"><SelectValue placeholder="Source..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="linkedin">LinkedIn</SelectItem>
                   <SelectItem value="google_maps">Google Maps</SelectItem>
@@ -303,13 +332,13 @@ export default function ProspectionPage() {
               </Select>
             </div>
             <div>
-              <Label>Score IA (0-100)</Label>
-              <Input type="number" min="0" max="100" value={form.ai_score} onChange={e => setForm(f => ({ ...f, ai_score: e.target.value }))} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Score IA (0-100)</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" type="number" min="0" max="100" value={form.ai_score} onChange={e => setForm(f => ({ ...f, ai_score: e.target.value }))} />
             </div>
             <div>
-              <Label>Statut</Label>
+              <Label className="text-[12px] font-semibold text-[#475569]">Statut</Label>
               <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as LeadStatus }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
@@ -318,17 +347,17 @@ export default function ProspectionPage() {
               </Select>
             </div>
             <div className="col-span-2">
-              <Label>Besoin probable</Label>
-              <Input value={form.probable_need} onChange={e => setForm(f => ({ ...f, probable_need: e.target.value }))} placeholder="Ex: Nettoyage bureaux 3x/semaine" />
+              <Label className="text-[12px] font-semibold text-[#475569]">Besoin probable</Label>
+              <Input className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white mt-1" value={form.probable_need} onChange={e => setForm(f => ({ ...f, probable_need: e.target.value }))} placeholder="Ex: Nettoyage bureaux 3x/semaine" />
             </div>
             <div className="col-span-2">
-              <Label>Notes</Label>
-              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
+              <Label className="text-[12px] font-semibold text-[#475569]">Notes</Label>
+              <Textarea className="border border-[#E2E8F0] rounded-[8px] px-3 text-[13px] bg-white mt-1" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button onClick={handleSave}>{editingLead ? 'Mettre à jour' : 'Créer'}</Button>
+            <button className="inline-flex items-center border border-[#E2E8F0] rounded-[8px] h-9 px-4 text-[13px] font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors" onClick={() => setShowForm(false)}>Annuler</button>
+            <button className="inline-flex items-center bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-[8px] h-9 px-4 text-[13px] font-semibold transition-colors" onClick={handleSave}>{editingLead ? 'Mettre à jour' : 'Créer'}</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
