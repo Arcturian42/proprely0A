@@ -142,37 +142,35 @@ export default function ProspectionPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
-        <PageHeader
-          title="Prospection IA"
-          description="Gestion de vos leads et prospects"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
+      <div className="p-4 sm:p-6 space-y-5">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Prospection IA</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input className="pl-9 w-full sm:w-64" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <Button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-sm font-medium flex items-center gap-2">
               <Plus className="w-4 h-4" /> Nouveau lead
             </Button>
-          }
-        />
+          </div>
+        </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(['nouveau', 'a_contacter', 'contacte', 'converti'] as LeadStatus[]).map(status => (
-            <Card key={status}>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">{leads.filter(l => l.status === status).length}</p>
-                <StatusBadge status={status} />
-              </CardContent>
-            </Card>
+            <div key={status} className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-2xl font-bold text-gray-900">{leads.filter(l => l.status === status).length}</p>
+              <div className="mt-0.5"><StatusBadge status={status} /></div>
+            </div>
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input className="pl-9" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+        {/* Status filter */}
+        <div className="flex gap-3 flex-wrap">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -185,77 +183,80 @@ export default function ProspectionPage() {
         </div>
 
         {/* Table */}
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entreprise</TableHead>
-                <TableHead>Secteur</TableHead>
-                <TableHead>Ville</TableHead>
-                <TableHead>Score IA</TableHead>
-                <TableHead>Besoin probable</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(lead => (
-                <TableRow key={lead.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-slate-900">{lead.company_name}</p>
-                      {lead.email && <p className="text-xs text-slate-500">{lead.email}</p>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600">{lead.sector || '—'}</TableCell>
-                  <TableCell className="text-sm">{lead.city || '—'}</TableCell>
-                  <TableCell>
-                    {lead.ai_score ? (
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                        <span className={`font-semibold text-sm ${lead.ai_score >= 80 ? 'text-green-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-slate-500'}`}>
-                          {lead.ai_score}
-                        </span>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  {['Entreprise', 'Secteur', 'Ville', 'Score IA', 'Besoin probable', 'Statut', 'Actions'].map(h => (
+                    <th key={h} className="text-xs font-medium text-gray-500 uppercase tracking-wide px-4 py-3 text-left whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(lead => (
+                  <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {lead.company_name[0]}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{lead.company_name}</p>
+                          {lead.email && <p className="text-xs text-gray-400">{lead.email}</p>}
+                        </div>
                       </div>
-                    ) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600 max-w-xs truncate">{lead.probable_need || '—'}</TableCell>
-                  <TableCell><StatusBadge status={lead.status} /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
-                        <SelectTrigger className="h-7 text-xs w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(lead)}>
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
-                        <ChevronRight className="w-3 h-3 text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
-                        <Trash2 className="w-3 h-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                    Aucun lead trouvé
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{lead.sector || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{lead.city || '—'}</td>
+                    <td className="px-4 py-3">
+                      {lead.ai_score ? (
+                        <div className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span className={`font-semibold text-sm ${lead.ai_score >= 80 ? 'text-green-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-gray-500'}`}>
+                            {lead.ai_score}
+                          </span>
+                        </div>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{lead.probable_need || '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
+                          <SelectTrigger className="h-7 text-xs w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
+                              <SelectItem key={k} value={k}>{v}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(lead)}>
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
+                          <ChevronRight className="w-3 h-3 text-green-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
+                          <Trash2 className="w-3 h-3 text-red-500" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-gray-500 text-sm">
+                      Aucun lead trouvé
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Form dialog */}

@@ -13,7 +13,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#F3F4F6]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -24,7 +24,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Sidebar */}
       <div className={cn(
-        'fixed inset-y-0 left-0 z-30 w-[220px] transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-0',
+        'fixed inset-y-0 left-0 z-30 w-60 transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <AppSidebar />
@@ -32,15 +32,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile topbar with hamburger */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E2E8F0] lg:hidden">
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#111827] border-b border-white/10 lg:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-md hover:bg-slate-100"
+            className="p-1.5 rounded-md hover:bg-white/10"
             aria-label="Menu"
           >
-            <Menu className="w-5 h-5 text-slate-600" />
+            <Menu className="w-5 h-5 text-white" />
           </button>
-          <span className="font-semibold text-slate-800">Proprely Admin</span>
+          <span className="font-semibold text-white">Proprely Admin</span>
         </div>
 
         <main className="flex-1 overflow-y-auto">

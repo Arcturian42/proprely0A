@@ -6,22 +6,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
   {
     variants: {
       variant: {
-        default: 'bg-[#6366F1] text-white hover:bg-[#4F46E5] active:scale-[0.98] text-[13px] font-semibold rounded-[8px] shadow-sm',
-        destructive: 'bg-[#EF4444] text-white hover:bg-[#DC2626] text-[13px] font-medium rounded-[8px]',
-        outline: 'border border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#F8FAFC] text-[13px] font-medium rounded-[8px]',
-        secondary: 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0] text-[13px] font-medium rounded-[8px]',
-        ghost: 'text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] text-[13px] font-medium rounded-[8px]',
-        link: 'text-[#6366F1] underline-offset-4 hover:underline',
+        default: 'bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm shadow-sm',
+        destructive: 'bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm',
+        outline: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 rounded-lg text-sm',
+        secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm',
+        ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg text-sm',
+        link: 'text-indigo-600 underline-offset-4 hover:underline text-sm',
       },
       size: {
         default: 'h-9 px-4',
-        sm: 'h-7 px-3 text-[12px]',
-        lg: 'h-10 px-6',
-        icon: 'h-9 w-9',
+        sm: 'h-7 px-3 text-xs',
+        lg: 'h-10 px-5',
+        icon: 'h-8 w-8',
       },
     },
     defaultVariants: {
