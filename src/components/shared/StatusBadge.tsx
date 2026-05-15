@@ -9,42 +9,43 @@ import {
 import { cn } from '@/lib/utils'
 
 const STATUS_STYLE_MAP: Record<string, string> = {
-  // Pale green — active/done
-  en_cours: 'bg-[#EDF3EC] text-[#346538]',
-  actif: 'bg-[#EDF3EC] text-[#346538]',
-  disponible: 'bg-[#EDF3EC] text-[#346538]',
-  terminee: 'bg-[#EDF3EC] text-[#346538]',
-  termine: 'bg-[#EDF3EC] text-[#346538]',
-  qualifie: 'bg-[#EDF3EC] text-[#346538]',
-  converti: 'bg-[#EDF3EC] text-[#346538]',
-  gagnee: 'bg-[#EDF3EC] text-[#346538]',
-  validee: 'bg-[#EDF3EC] text-[#346538]',
-  // Pale blue — planned/scheduled
-  prevue: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  planifie: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  prise_de_contact: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  decouverte: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  nouveau: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  a_contacter: 'bg-[#E1F3FE] text-[#1F6C9F]',
-  // Pale red — issues/cancelled
-  probleme_signale: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  annulee: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  annule: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  rejete: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  absent: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  perdue: 'bg-[#FDEBEC] text-[#9F2F2D]',
-  // Pale yellow — pending validation
-  a_valider: 'bg-[#FBF3DB] text-[#956400]',
-  en_conge: 'bg-[#FBF3DB] text-[#956400]',
-  occupe: 'bg-[#FBF3DB] text-[#956400]',
-  proposition: 'bg-[#FBF3DB] text-[#956400]',
-  negociation: 'bg-[#FBF3DB] text-[#956400]',
-  corrigee: 'bg-[#FBF3DB] text-[#956400]',
-  // Neutral — a_organiser / misc
-  a_organiser: 'bg-[#f7f6f3] text-[#787774]',
-  inactif: 'bg-[#f7f6f3] text-[#787774]',
-  lead: 'bg-[#f7f6f3] text-[#787774]',
-  contacte: 'bg-[#f7f6f3] text-[#787774]',
+  // Green — active/done
+  en_cours: 'bg-emerald-50 text-emerald-700',
+  actif: 'bg-emerald-50 text-emerald-700',
+  disponible: 'bg-emerald-50 text-emerald-700',
+  terminee: 'bg-emerald-50 text-emerald-700',
+  termine: 'bg-emerald-50 text-emerald-700',
+  qualifie: 'bg-emerald-50 text-emerald-700',
+  validee: 'bg-emerald-50 text-emerald-700',
+  // Purple — converted/won
+  converti: 'bg-violet-50 text-violet-700',
+  gagnee: 'bg-violet-50 text-violet-700',
+  // Blue — planned/scheduled
+  prevue: 'bg-blue-50 text-blue-700',
+  planifie: 'bg-blue-50 text-blue-700',
+  prise_de_contact: 'bg-blue-50 text-blue-700',
+  decouverte: 'bg-blue-50 text-blue-700',
+  nouveau: 'bg-blue-50 text-blue-700',
+  a_contacter: 'bg-blue-50 text-blue-700',
+  // Red — issues/cancelled
+  probleme_signale: 'bg-red-50 text-red-700',
+  annulee: 'bg-red-50 text-red-700',
+  annule: 'bg-red-50 text-red-700',
+  rejete: 'bg-red-50 text-red-700',
+  absent: 'bg-red-50 text-red-700',
+  perdue: 'bg-red-50 text-red-700',
+  // Yellow/orange — pending validation
+  a_valider: 'bg-amber-50 text-amber-700',
+  en_conge: 'bg-amber-50 text-amber-700',
+  occupe: 'bg-amber-50 text-amber-700',
+  proposition: 'bg-amber-50 text-amber-700',
+  negociation: 'bg-amber-50 text-amber-700',
+  corrigee: 'bg-amber-50 text-amber-700',
+  // Neutral — misc
+  a_organiser: 'bg-slate-100 text-slate-600',
+  inactif: 'bg-slate-100 text-slate-600',
+  lead: 'bg-slate-100 text-slate-600',
+  contacte: 'bg-slate-100 text-slate-600',
 }
 
 const ALL_LABELS: Record<string, string> = {
@@ -57,11 +58,11 @@ const ALL_LABELS: Record<string, string> = {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLE_MAP[status] || 'bg-[#f7f6f3] text-[#787774]'
+  const style = STATUS_STYLE_MAP[status] || 'bg-slate-100 text-slate-600'
   const label = ALL_LABELS[status] || status
 
   return (
-    <span className={cn('rounded-full text-[11px] font-medium px-2 py-0.5 tracking-[0.02em] inline-flex items-center', style)}>
+    <span className={cn('rounded-full text-[11px] font-semibold px-2.5 py-0.5 inline-flex items-center whitespace-nowrap', style)}>
       {label}
     </span>
   )

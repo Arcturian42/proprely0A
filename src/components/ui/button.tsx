@@ -6,21 +6,21 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B5BDB] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-[#111] text-white hover:bg-[#333] active:scale-[0.98] text-[13px] rounded-[6px] shadow-none',
-        destructive: 'bg-red-500 text-white hover:bg-red-600 text-[13px] rounded-[6px]',
-        outline: 'border border-[rgba(0,0,0,0.12)] bg-white text-[#111] hover:bg-[#f7f6f3] text-[13px] rounded-[6px] shadow-none',
-        secondary: 'border border-[rgba(0,0,0,0.12)] bg-white text-[#111] hover:bg-[#f7f6f3] text-[13px] rounded-[6px] shadow-none',
-        ghost: 'text-[#444] hover:bg-[#f7f6f3] hover:text-[#111] text-[13px] rounded-[6px]',
-        link: 'text-[#3B5BDB] underline-offset-4 hover:underline',
+        default: 'bg-[#6366F1] text-white hover:bg-[#4F46E5] active:scale-[0.98] text-[13px] font-semibold rounded-[8px] shadow-sm',
+        destructive: 'bg-[#EF4444] text-white hover:bg-[#DC2626] text-[13px] font-medium rounded-[8px]',
+        outline: 'border border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#F8FAFC] text-[13px] font-medium rounded-[8px]',
+        secondary: 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0] text-[13px] font-medium rounded-[8px]',
+        ghost: 'text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] text-[13px] font-medium rounded-[8px]',
+        link: 'text-[#6366F1] underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8',
+        default: 'h-9 px-4',
+        sm: 'h-7 px-3 text-[12px]',
+        lg: 'h-10 px-6',
         icon: 'h-9 w-9',
       },
     },

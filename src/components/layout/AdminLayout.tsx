@@ -13,7 +13,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FBFBFA]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -24,7 +24,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Sidebar */}
       <div className={cn(
-        'fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-0',
+        'fixed inset-y-0 left-0 z-30 w-[220px] transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <AppSidebar />
@@ -32,7 +32,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile topbar with hamburger */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[rgba(0,0,0,0.08)] lg:hidden">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E2E8F0] lg:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-md hover:bg-slate-100"

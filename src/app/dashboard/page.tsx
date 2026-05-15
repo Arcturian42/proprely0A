@@ -21,6 +21,12 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+const STATUS_DOT: Record<string, string> = {
+  en_cours: 'bg-emerald-400',
+  prevue: 'bg-blue-400',
+  probleme_signale: 'bg-red-400',
+}
+
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
   const { missions, clients, agents, operationalItems } = useAppStore()
@@ -29,17 +35,26 @@ export default function DashboardPage() {
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
   const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
 
+  const dayName = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date())
+  const dayCapitalized = dayName.charAt(0).toUpperCase() + dayName.slice(1)
+
   return (
     <AdminLayout>
-      <div className="p-8 animate-fade-up">
-        <PageHeader
-          title="Tableau de bord"
-          description={`Bonjour ! Voici un résumé de votre activité du ${formatDate(new Date())}`}
-        />
+      <div className="p-6 space-y-6 fade-up">
+        {/* Greeting */}
+        <div>
+          <p className="text-[12px] font-semibold text-[#94A3B8] uppercase tracking-wider mb-1">
+            {dayCapitalized} · {formatDate(new Date())}
+          </p>
+          <PageHeader
+            title="Bonne journée 👋"
+            description="Voici un résumé de votre activité opérationnelle."
+          />
+        </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="animate-fade-up animate-fade-up-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="fade-up fade-up-1">
             <StatCard
               title="Missions aujourd'hui"
               value={todayMissions.length}
@@ -47,7 +62,7 @@ export default function DashboardPage() {
               icon={Sun}
             />
           </div>
-          <div className="animate-fade-up animate-fade-up-2">
+          <div className="fade-up fade-up-2">
             <StatCard
               title="Clients actifs"
               value={clients.filter(c => c.status === 'actif').length}
@@ -55,7 +70,7 @@ export default function DashboardPage() {
               icon={Users}
             />
           </div>
-          <div className="animate-fade-up animate-fade-up-3">
+          <div className="fade-up fade-up-3">
             <StatCard
               title="Agents disponibles"
               value={agents.filter(a => a.status === 'disponible').length}
@@ -63,7 +78,7 @@ export default function DashboardPage() {
               icon={UserCog}
             />
           </div>
-          <div className="animate-fade-up animate-fade-up-4">
+          <div className="fade-up fade-up-4">
             <StatCard
               title="À organiser"
               value={pendingItems.length}
@@ -77,30 +92,31 @@ export default function DashboardPage() {
           {/* Today's missions */}
           <Card className="card-hover">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base">Missions du jour</CardTitle>
+              <CardTitle>Missions du jour</CardTitle>
               <Link href="/operations/missions-du-jour">
-                <Button variant="ghost" size="sm" className="text-indigo-600">
+                <Button variant="ghost" size="sm" className="text-[#6366F1]">
                   Voir tout <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
               {todayMissions.length === 0 ? (
-                <p className="text-[13px] text-[#787774] py-4 text-center">Aucune mission aujourd'hui</p>
+                <p className="text-[13px] text-[#94A3B8] py-4 text-center">Aucune mission aujourd'hui</p>
               ) : (
-                <ul className="space-y-3">
+                <ul>
                   {todayMissions.map(mission => (
-                    <li key={mission.id} className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
+                    <li key={mission.id} className="flex items-center gap-3 py-3 border-b border-[#F1F5F9] last:border-0">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[mission.status] || 'bg-slate-300'}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-[#111] truncate">
+                        <p className="text-[13px] font-medium text-[#0F172A] truncate">
                           {mission.client?.name} – {mission.site?.name}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="text-xs text-[#787774]">
+                          <span className="text-[11px] text-[#94A3B8] font-mono">
                             {mission.start_time} · {mission.planned_hours}h
-                          </p>
+                          </span>
                           {mission.agents?.map(a => (
-                            <span key={a.id} className="w-6 h-6 rounded-full bg-[#EEF2FF] text-[#3B5BDB] text-[10px] flex items-center justify-center font-medium">
+                            <span key={a.id} className="w-6 h-6 rounded-full bg-[#EEF2FF] text-[#6366F1] text-[10px] flex items-center justify-center font-bold">
                               {a.first_name[0]}
                             </span>
                           ))}
@@ -117,26 +133,27 @@ export default function DashboardPage() {
           {/* Pending operations */}
           <Card className="card-hover">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base">Opérations à organiser</CardTitle>
+              <CardTitle>Opérations à organiser</CardTitle>
               <Link href="/operations/cockpit">
-                <Button variant="ghost" size="sm" className="text-indigo-600">
+                <Button variant="ghost" size="sm" className="text-[#6366F1]">
                   Cockpit <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
               {pendingItems.length === 0 ? (
-                <div className="flex items-center gap-2 py-4 text-center justify-center text-green-600">
+                <div className="flex items-center gap-2 py-4 text-center justify-center text-emerald-600">
                   <CheckCircle2 className="w-4 h-4" />
-                  <p className="text-sm">Tout est organisé !</p>
+                  <p className="text-[13px]">Tout est organisé !</p>
                 </div>
               ) : (
-                <ul className="space-y-3">
+                <ul>
                   {pendingItems.map(item => (
-                    <li key={item.id} className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
+                    <li key={item.id} className="flex items-center gap-3 py-3 border-b border-[#F1F5F9] last:border-0">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0 bg-amber-400" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-[#111] truncate">{item.title}</p>
-                        <p className="text-[11px] text-[#787774]">
+                        <p className="text-[13px] font-medium text-[#0F172A] truncate">{item.title}</p>
+                        <p className="text-[11px] text-[#94A3B8]">
                           {item.client?.name} · {item.site?.name}
                         </p>
                       </div>
@@ -151,33 +168,33 @@ export default function DashboardPage() {
           {/* Quick actions */}
           <Card className="card-hover">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Actions rapides</CardTitle>
+              <CardTitle>Actions rapides</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 <Link href="/commercial/prospection">
-                  <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Ajouter un lead</span>
-                  </Button>
+                  <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-[10px] border border-[#E2E8F0] hover:border-[#6366F1] hover:bg-[#EEF2FF] transition-all cursor-pointer">
+                    <TrendingUp className="w-5 h-5 text-[#6366F1]" />
+                    <span className="text-[12px] font-medium text-[#475569]">Ajouter un lead</span>
+                  </div>
                 </Link>
                 <Link href="/operations/planning">
-                  <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <Calendar className="w-4 h-4" />
-                    <span>Planifier mission</span>
-                  </Button>
+                  <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-[10px] border border-[#E2E8F0] hover:border-[#6366F1] hover:bg-[#EEF2FF] transition-all cursor-pointer">
+                    <Calendar className="w-5 h-5 text-[#6366F1]" />
+                    <span className="text-[12px] font-medium text-[#475569]">Planifier mission</span>
+                  </div>
                 </Link>
                 <Link href="/rh/agents">
-                  <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <UserCog className="w-4 h-4" />
-                    <span>Nouvel agent</span>
-                  </Button>
+                  <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-[10px] border border-[#E2E8F0] hover:border-[#6366F1] hover:bg-[#EEF2FF] transition-all cursor-pointer">
+                    <UserCog className="w-5 h-5 text-[#6366F1]" />
+                    <span className="text-[12px] font-medium text-[#475569]">Nouvel agent</span>
+                  </div>
                 </Link>
                 <Link href="/commercial/clients-sites">
-                  <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <Users className="w-4 h-4" />
-                    <span>Nouveau client</span>
-                  </Button>
+                  <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-[10px] border border-[#E2E8F0] hover:border-[#6366F1] hover:bg-[#EEF2FF] transition-all cursor-pointer">
+                    <Users className="w-5 h-5 text-[#6366F1]" />
+                    <span className="text-[12px] font-medium text-[#475569]">Nouveau client</span>
+                  </div>
                 </Link>
               </div>
             </CardContent>
@@ -186,28 +203,26 @@ export default function DashboardPage() {
           {/* Agents availability */}
           <Card className="card-hover">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base">Disponibilité agents</CardTitle>
+              <CardTitle>Disponibilité agents</CardTitle>
               <Link href="/rh/agents">
-                <Button variant="ghost" size="sm" className="text-indigo-600">
+                <Button variant="ghost" size="sm" className="text-[#6366F1]">
                   Gérer <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
               {agents.length === 0 ? (
-                <p className="text-[13px] text-[#787774] text-center py-4">Aucun agent enregistré</p>
+                <p className="text-[13px] text-[#94A3B8] text-center py-4">Aucun agent enregistré</p>
               ) : (
-                <ul className="space-y-3">
+                <ul>
                   {agents.map(agent => (
-                    <li key={agent.id} className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#3B5BDB] font-medium text-[10px]">
-                          {agent.first_name[0]}{agent.last_name[0]}
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium text-[#111]">{agent.first_name} {agent.last_name}</p>
-                          <p className="text-[11px] text-[#787774]">{agent.zone}</p>
-                        </div>
+                    <li key={agent.id} className="flex items-center gap-3 py-3 border-b border-[#F1F5F9] last:border-0">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 text-[#6366F1] font-bold text-[12px] flex items-center justify-center flex-shrink-0">
+                        {agent.first_name[0]}{agent.last_name[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-[#0F172A]">{agent.first_name} {agent.last_name}</p>
+                        <p className="text-[11px] text-[#94A3B8]">{agent.zone}</p>
                       </div>
                       <StatusBadge status={agent.status} />
                     </li>
