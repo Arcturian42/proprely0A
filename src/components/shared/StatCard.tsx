@@ -13,21 +13,18 @@ interface StatCardProps {
 
 export function StatCard({ title, value, description, icon: Icon, trend }: StatCardProps) {
   return (
-    <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 card-hover">
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-[12px] font-semibold text-[#94A3B8] uppercase tracking-wider">{title}</p>
-        {Icon && (
-          <div className="w-8 h-8 rounded-[8px] bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-center">
-            <Icon className="w-4 h-4 text-[#6366F1]" />
-          </div>
-        )}
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
+        {Icon && <Icon className="w-4 h-4 text-gray-400" />}
       </div>
-      <p className="text-[32px] font-bold text-[#0F172A] leading-none tracking-tight">{value}</p>
-      {description && <p className="text-[12px] text-[#94A3B8] mt-2">{description}</p>}
+      <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">{value}</p>
+      {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
       {trend && (
-        <p className={cn('text-[12px] font-medium mt-2', trend.value >= 0 ? 'text-emerald-600' : 'text-red-500')}>
-          {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
-        </p>
+        <div className={cn('flex items-center gap-1 text-xs font-medium mt-2', trend.value >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+          <span>{trend.value >= 0 ? '↑' : '↓'}</span>
+          <span>{Math.abs(trend.value)}% {trend.label}</span>
+        </div>
       )}
     </div>
   )

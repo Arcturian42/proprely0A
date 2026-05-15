@@ -42,10 +42,10 @@ const STATUS_STYLE_MAP: Record<string, string> = {
   negociation: 'bg-amber-50 text-amber-700',
   corrigee: 'bg-amber-50 text-amber-700',
   // Neutral — misc
-  a_organiser: 'bg-slate-100 text-slate-600',
-  inactif: 'bg-slate-100 text-slate-600',
-  lead: 'bg-slate-100 text-slate-600',
-  contacte: 'bg-slate-100 text-slate-600',
+  a_organiser: 'bg-gray-100 text-gray-600',
+  inactif: 'bg-gray-100 text-gray-600',
+  lead: 'bg-gray-100 text-gray-600',
+  contacte: 'bg-gray-100 text-gray-600',
 }
 
 const ALL_LABELS: Record<string, string> = {
@@ -58,11 +58,11 @@ const ALL_LABELS: Record<string, string> = {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLE_MAP[status] || 'bg-slate-100 text-slate-600'
+  const style = STATUS_STYLE_MAP[status] || 'bg-gray-100 text-gray-600'
   const label = ALL_LABELS[status] || status
 
   return (
-    <span className={cn('rounded-full text-[11px] font-semibold px-2.5 py-0.5 inline-flex items-center whitespace-nowrap', style)}>
+    <span className={cn('inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap', style)}>
       {label}
     </span>
   )
