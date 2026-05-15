@@ -24,12 +24,12 @@ const defaultForm = {
   first_name: '', last_name: '', phone: '', email: '', specialty: '',
   business_registration_number: '', contract_type: 'cdi' as ContractType,
   weekly_availability_hours: '35', zone: '', status: 'disponible' as AgentStatus,
-  hourly_cost: '', notes: '',
+  hourly_cost: '', notes: '', skills: '',
   weekly_availability: { lundi: true, mardi: true, mercredi: true, jeudi: true, vendredi: true, samedi: false, dimanche: false },
 }
 
 export default function AgentsPage() {
-  const { agents, addAgent, updateAgent, deleteAgent } = useAppStore()
+  const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -96,7 +96,7 @@ export default function AgentsPage() {
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
-        id: `agent-${Date.now()}`, company_id: 'company-1', ...agentData,
+        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addAgent(newAgent)
@@ -106,6 +106,12 @@ export default function AgentsPage() {
   }
 
   const handleDelete = (id: string) => {
+    const hasActiveMissions = missions.some(m => m.agents?.some(a => a.id === id))
+    if (hasActiveMissions) {
+      toast.error('Impossible de supprimer cet agent : il est affecté à des missions actives.')
+      setConfirmDelete(null)
+      return
+    }
     deleteAgent(id)
     toast.success('Agent supprimé')
     setConfirmDelete(null)

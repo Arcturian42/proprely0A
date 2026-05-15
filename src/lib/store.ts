@@ -71,16 +71,6 @@ interface AppStore {
   resetToMockData: () => void
 }
 
-// Helper: enrich missions with agents, client, site
-function enrichMissions(missions: Mission[], agents: Agent[], clients: Client[], sites: Site[], sops: Sop[]): Mission[] {
-  return missions.map(m => ({
-    ...m,
-    client: clients.find(c => c.id === m.client_id),
-    site: sites.find(s => s.id === m.site_id),
-    sop: sops.find(s => s.id === m.sop_id),
-    agents: agents.filter(a => m.agents?.some(ma => ma.id === a.id)),
-  }))
-}
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -109,10 +99,17 @@ export const useAppStore = create<AppStore>()(
       updateClient: (id, data) => set(s => ({
         clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c)
       })),
-      deleteClient: (id) => set(s => ({
-        clients: s.clients.filter(c => c.id !== id),
-        sites: s.sites.filter(s2 => s2.client_id !== id),
-      })),
+      deleteClient: (id) => set(s => {
+        const deletedMissionIds = new Set(
+          s.missions.filter(m => m.client_id === id || m.client?.id === id).map(m => m.id)
+        )
+        return {
+          clients: s.clients.filter(c => c.id !== id),
+          sites: s.sites.filter(s2 => s2.client_id !== id),
+          missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
+          timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+        }
+      }),
 
       // Sites
       addSite: (site) => set(s => ({ sites: [...s.sites, site] })),
@@ -139,9 +136,9 @@ export const useAppStore = create<AppStore>()(
         const opp = state.opportunities.find(o => o.id === id)
         if (!opp || opp.converted_to_client) return
 
-        const clientId = `client-${Date.now()}`
-        const siteId = `site-${Date.now()}`
-        const itemId = `item-${Date.now()}`
+        const clientId = crypto.randomUUID()
+        const siteId = crypto.randomUUID()
+        const itemId = crypto.randomUUID()
         const now = new Date().toISOString()
 
         const newClient: Client = {

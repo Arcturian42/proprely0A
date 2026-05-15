@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { mockMissions, mockAgents, mockClients, mockSites, mockSops } from '@/lib/mock-data'
+import { useAppStore } from '@/lib/store'
 import { Mission, MissionStatus } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -23,7 +23,7 @@ import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
-  const [missions, setMissions] = useState<Mission[]>(mockMissions)
+  const { missions, agents, clients, sites, sops, addMission, addTimeEntry } = useAppStore()
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -49,27 +49,50 @@ export default function PlanningPage() {
       toast.error('Client, site et date requis')
       return
     }
-    const agents = mockAgents.filter(a => selectedAgents.includes(a.id))
-    const client = mockClients.find(c => c.id === form.client_id)
-    const site = mockSites.find(s => s.id === form.site_id)
-    const sop = mockSops.find(s => s.id === form.sop_id)
+    const missionAgents = agents.filter(a => selectedAgents.includes(a.id))
+    const client = clients.find(c => c.id === form.client_id)
+    const site = sites.find(s => s.id === form.site_id)
+    const sop = sops.find(s => s.id === form.sop_id)
+    const missionId = crypto.randomUUID()
+    const now = new Date().toISOString()
 
     const newMission: Mission = {
-      id: `mission-${Date.now()}`, company_id: 'company-1',
+      id: missionId, company_id: 'company-1',
       client_id: form.client_id, site_id: form.site_id, operational_item_id: null,
       service_type: form.service_type || null, sop_id: form.sop_id || null,
       status: 'prevue', scheduled_date: form.scheduled_date,
       start_time: form.start_time || null, planned_hours: parseFloat(form.planned_hours) || 2,
       notes: form.notes || null, priority: form.priority,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      client, site, agents, sop,
+      created_at: now, updated_at: now,
+      client, site, agents: missionAgents, sop,
     }
-    setMissions(prev => [...prev, newMission])
+    addMission(newMission)
+
+    for (const agent of missionAgents) {
+      addTimeEntry({
+        id: crypto.randomUUID(),
+        company_id: 'company-1',
+        mission_id: missionId,
+        agent_id: agent.id,
+        client_id: form.client_id,
+        site_id: form.site_id,
+        date: form.scheduled_date,
+        planned_hours: parseFloat(form.planned_hours) || 2,
+        validated_hours: null,
+        hourly_cost: agent.hourly_cost ?? null,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: now,
+        updated_at: now,
+      })
+    }
+
     toast.success('Mission planifiée')
     setShowForm(false)
   }
 
-  const clientSites = mockSites.filter(s => s.client_id === form.client_id)
+  const clientSites = sites.filter(s => s.client_id === form.client_id)
 
   return (
     <AdminLayout>
@@ -200,7 +223,7 @@ export default function PlanningPage() {
               <Select value={form.client_id} onValueChange={v => setForm(f => ({ ...f, client_id: v, site_id: '' }))}>
                 <SelectTrigger><SelectValue placeholder="Choisir un client..." /></SelectTrigger>
                 <SelectContent>
-                  {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -243,14 +266,14 @@ export default function PlanningPage() {
               <Select value={form.sop_id} onValueChange={v => setForm(f => ({ ...f, sop_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Optionnel..." /></SelectTrigger>
                 <SelectContent>
-                  {mockSops.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                  {sops.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label className="mb-2 block">Agents</Label>
               <div className="space-y-2 border rounded-lg p-3">
-                {mockAgents.map(agent => (
+                {agents.map(agent => (
                   <div key={agent.id} className="flex items-center gap-3">
                     <Checkbox id={`plan-${agent.id}`} checked={selectedAgents.includes(agent.id)}
                       onCheckedChange={(checked) => setSelectedAgents(prev => checked ? [...prev, agent.id] : prev.filter(id => id !== agent.id))} />
