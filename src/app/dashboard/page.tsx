@@ -89,8 +89,8 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Missions du jour</CardTitle>
               <Link href="/operations/missions-du-jour">
-                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700">
-                  Voir tout <ArrowRight className="w-3 h-3 ml-1" />
+                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                  Voir tout <ArrowRight className="w-3 h-3" />
                 </Button>
               </Link>
             </CardHeader>
@@ -106,18 +106,16 @@ export default function DashboardPage() {
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {mission.client?.name} – {mission.site?.name}
                         </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs text-gray-500 font-mono">
-                            {mission.start_time} · {mission.planned_hours}h
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {mission.start_time} · {mission.planned_hours}h
+                        </p>
+                      </div>
+                      <div className="flex -space-x-1">
+                        {mission.agents?.map(a => (
+                          <span key={a.id} className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border-2 border-white flex items-center justify-center">
+                            {a.first_name[0]}
                           </span>
-                          <div className="flex -space-x-1">
-                            {mission.agents?.map(a => (
-                              <span key={a.id} className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border-2 border-white flex items-center justify-center">
-                                {a.first_name[0]}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                        ))}
                       </div>
                       <StatusBadge status={mission.status} />
                     </li>
@@ -132,8 +130,8 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Opérations à organiser</CardTitle>
               <Link href="/operations/cockpit">
-                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700">
-                  Cockpit <ArrowRight className="w-3 h-3 ml-1" />
+                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                  Cockpit <ArrowRight className="w-3 h-3" />
                 </Button>
               </Link>
             </CardHeader>
@@ -210,8 +208,8 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Disponibilité agents</CardTitle>
               <Link href="/rh/agents">
-                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700">
-                  Gérer <ArrowRight className="w-3 h-3 ml-1" />
+                <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                  Gérer <ArrowRight className="w-3 h-3" />
                 </Button>
               </Link>
             </CardHeader>

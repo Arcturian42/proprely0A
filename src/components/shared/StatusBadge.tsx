@@ -34,14 +34,14 @@ const STATUS_STYLE_MAP: Record<string, string> = {
   rejete: 'bg-red-50 text-red-700',
   absent: 'bg-red-50 text-red-700',
   perdue: 'bg-red-50 text-red-700',
-  // Yellow/orange — pending validation
+  // Amber — pending validation
   a_valider: 'bg-amber-50 text-amber-700',
   en_conge: 'bg-amber-50 text-amber-700',
   occupe: 'bg-amber-50 text-amber-700',
   proposition: 'bg-amber-50 text-amber-700',
   negociation: 'bg-amber-50 text-amber-700',
   corrigee: 'bg-amber-50 text-amber-700',
-  // Neutral — misc
+  // Gray — misc
   a_organiser: 'bg-gray-100 text-gray-600',
   inactif: 'bg-gray-100 text-gray-600',
   lead: 'bg-gray-100 text-gray-600',

@@ -140,143 +140,143 @@ export default function ClientsSitesPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
-        <PageHeader title="Clients & Sites" description="Gestion de votre portefeuille clients et sites" />
-
-        <div className="flex gap-3 mb-6">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input className="pl-9" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="p-4 sm:p-6 space-y-5">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Clients & Sites</h1>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input className="pl-9 w-full sm:w-64" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
 
         <Tabs defaultValue="clients">
-          <TabsList className="mb-6">
+          <TabsList className="mb-5">
             <TabsTrigger value="clients">Clients ({clients.length})</TabsTrigger>
             <TabsTrigger value="sites">Sites ({sites.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="clients">
             <div className="flex justify-end mb-4">
-              <Button onClick={handleOpenCreateClient} className="gap-2">
+              <Button onClick={handleOpenCreateClient} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Nouveau client
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map(client => (
-                <Card key={client.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{client.name}</CardTitle>
-                        {client.client_type && (
-                          <Badge variant="secondary" className="mt-1 text-xs">{client.client_type}</Badge>
-                        )}
-                      </div>
-                      <Badge variant={client.status === 'actif' ? 'success' : 'secondary'}>
-                        {client.status}
-                      </Badge>
+                <div key={client.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+                  {/* Header */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-sm">
+                      {client.name.slice(0, 2).toUpperCase()}
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {client.contact_name && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Building2 className="w-3 h-3" />
-                        {client.contact_name}
-                      </div>
-                    )}
-                    {client.phone && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Phone className="w-3 h-3" />
-                        {client.phone}
-                      </div>
-                    )}
-                    {client.email && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Mail className="w-3 h-3" />
-                        <span className="truncate">{client.email}</span>
-                      </div>
-                    )}
-                    {client.city && (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <MapPin className="w-3 h-3" />
-                        {client.city}
-                      </div>
-                    )}
-                    <div className="text-xs text-slate-400">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{client.name}</p>
+                      {client.client_type && (
+                        <p className="text-xs text-gray-500 mt-0.5">{client.client_type}</p>
+                      )}
+                    </div>
+                    <StatusBadge status={client.status} />
+                  </div>
+                  {/* Info rows */}
+                  {client.contact_name && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1.5">
+                      <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      {client.contact_name}
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1.5">
+                      <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                      {client.phone}
+                    </div>
+                  )}
+                  {client.email && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1.5">
+                      <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{client.email}</span>
+                    </div>
+                  )}
+                  {client.city && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1.5">
+                      <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                      {client.city}
+                    </div>
+                  )}
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">
                       {sites.filter(s => s.client_id === client.id).length} site(s)
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
-                        <Edit className="w-3 h-3 mr-1" /> Modifier
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditClient(client)}>
+                        <Edit className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
-                        <Trash2 className="w-3 h-3 text-red-500" />
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteClient(client.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
               {filteredClients.length === 0 && (
-                <div className="col-span-3 text-center py-12 text-slate-500">Aucun client trouvé</div>
+                <div className="col-span-full text-center py-12 text-gray-500 text-sm">Aucun client trouvé</div>
               )}
             </div>
           </TabsContent>
 
           <TabsContent value="sites">
             <div className="flex justify-end mb-4">
-              <Button onClick={handleOpenCreateSite} className="gap-2">
+              <Button onClick={handleOpenCreateSite} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Nouveau site
               </Button>
             </div>
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Site</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Adresse</TableHead>
-                    <TableHead>Surface</TableHead>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Fréquence</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSites.map(site => {
-                    const client = clients.find(c => c.id === site.client_id)
-                    return (
-                      <TableRow key={site.id}>
-                        <TableCell>
-                          <p className="font-medium text-slate-900">{site.name}</p>
-                          {site.access_code && <p className="text-xs text-slate-500">Code: {site.access_code}</p>}
-                        </TableCell>
-                        <TableCell className="text-sm">{client?.name || '—'}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{site.address || '—'}</TableCell>
-                        <TableCell className="text-sm">{site.surface_area ? `${site.surface_area} m²` : '—'}</TableCell>
-                        <TableCell className="text-sm">{site.service_type || '—'}</TableCell>
-                        <TableCell className="text-sm">{site.frequency || '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
-                              <Trash2 className="w-3 h-3 text-red-500" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  {filteredSites.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">Aucun site trouvé</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {['Site', 'Client', 'Adresse', 'Surface', 'Service', 'Fréquence', 'Actions'].map(h => (
+                        <th key={h} className="text-xs font-medium text-gray-500 uppercase tracking-wide px-4 py-3 text-left whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSites.map(site => {
+                      const client = clients.find(c => c.id === site.client_id)
+                      return (
+                        <tr key={site.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-0">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900 text-sm">{site.name}</p>
+                            {site.access_code && <p className="text-xs text-gray-500">Code: {site.access_code}</p>}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{client?.name || '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{site.address || '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{site.surface_area ? `${site.surface_area} m²` : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{site.service_type || '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{site.frequency || '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {filteredSites.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-8 text-gray-500 text-sm">Aucun site trouvé</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
