@@ -234,67 +234,77 @@ export default function CockpitPage() {
       <AdminLayout>
         <div className="flex flex-col h-full">
           {/* Top bar */}
-          <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-200 bg-white">
+          <div className="flex items-center gap-4 px-6 py-4 border-b border-[#E2E8F0] bg-white">
             <button
               onClick={() => setAssigningItem(null)}
-              className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-2 text-[13px] text-[#475569] hover:text-[#0F172A] transition-colors font-medium"
             >
               <ChevronLeft className="w-4 h-4" /> Retour au cockpit
             </button>
-            <div className="h-4 w-px bg-slate-200" />
+            <div className="h-4 w-px bg-[#E2E8F0]" />
             <div className="flex items-center gap-3 flex-1">
-              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-amber-50 rounded-[8px] flex items-center justify-center">
                 <Building2 className="w-4 h-4 text-amber-600" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900 text-sm">{assigningItem.client?.name}</p>
-                <p className="text-xs text-slate-500">{assigningItem.site?.name}</p>
+                <p className="font-semibold text-[#0F172A] text-[13px]">{assigningItem.client?.name}</p>
+                <p className="text-[11px] text-[#94A3B8]">{assigningItem.site?.name}</p>
               </div>
               {assigningItem.site?.address && (
-                <div className="flex items-center gap-1 text-xs text-slate-400 ml-2">
+                <div className="flex items-center gap-1 text-[11px] text-[#94A3B8] ml-2">
                   <MapPin className="w-3 h-3" /> {assigningItem.site.address}
                 </div>
               )}
             </div>
-            <Button onClick={handleCreateMission} className="gap-2" disabled={hasConflict}>
+            <button
+              onClick={handleCreateMission}
+              disabled={hasConflict}
+              className="flex items-center gap-2 h-9 px-4 bg-[#6366F1] text-white text-[13px] font-semibold rounded-[8px] hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <CheckCircle2 className="w-4 h-4" /> Confirmer la mission
-            </Button>
+            </button>
           </div>
 
           <div className="flex flex-1 overflow-hidden">
             {/* ── Left: Mission form ──────────────────────────────────────────── */}
-            <div className="w-80 flex-shrink-0 border-r border-slate-200 bg-white overflow-y-auto p-6 space-y-6">
+            <div className="w-80 flex-shrink-0 border-r border-[#E2E8F0] bg-white overflow-y-auto p-6 space-y-6">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-indigo-600" /> Détails de la mission
+                <h2 className="text-[13px] font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#6366F1]" /> Détails de la mission
                 </h2>
 
                 {/* Date + heure (sélectionnables via calendrier) */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
-                    <Label className="text-xs">Date *</Label>
+                    <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Date *</Label>
                     <Input
                       type="date"
                       value={missionForm.scheduled_date}
                       onChange={e => setMissionForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                      className={errors.scheduled_date ? 'border-red-400' : ''}
+                      className={cn(
+                        'border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white focus:ring-2 focus:ring-[#6366F1]',
+                        errors.scheduled_date && 'border-red-400'
+                      )}
                     />
-                    {errors.scheduled_date && <p className="text-xs text-red-500 mt-1">{errors.scheduled_date}</p>}
+                    {errors.scheduled_date && <p className="text-[11px] text-red-500 mt-1">{errors.scheduled_date}</p>}
                   </div>
                   <div>
-                    <Label className="text-xs">Heure *</Label>
+                    <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Heure *</Label>
                     <Input
                       type="time"
                       value={missionForm.start_time}
                       onChange={e => setMissionForm(f => ({ ...f, start_time: e.target.value }))}
-                      className={errors.start_time ? 'border-red-400' : ''}
+                      className={cn(
+                        'border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white focus:ring-2 focus:ring-[#6366F1]',
+                        errors.start_time && 'border-red-400'
+                      )}
                     />
-                    {errors.start_time && <p className="text-xs text-red-500 mt-1">{errors.start_time}</p>}
+                    {errors.start_time && <p className="text-[11px] text-red-500 mt-1">{errors.start_time}</p>}
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <Label className="text-xs">Durée (heures) *</Label>
+                  <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Durée (heures) *</Label>
                   <Input
                     type="number"
                     min="0.5"
@@ -302,15 +312,18 @@ export default function CockpitPage() {
                     step="0.5"
                     value={missionForm.planned_hours}
                     onChange={e => setMissionForm(f => ({ ...f, planned_hours: e.target.value }))}
-                    className={errors.planned_hours ? 'border-red-400' : ''}
+                    className={cn(
+                      'border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white focus:ring-2 focus:ring-[#6366F1]',
+                      errors.planned_hours && 'border-red-400'
+                    )}
                   />
-                  {errors.planned_hours && <p className="text-xs text-red-500 mt-1">{errors.planned_hours}</p>}
+                  {errors.planned_hours && <p className="text-[11px] text-red-500 mt-1">{errors.planned_hours}</p>}
                 </div>
 
                 <div className="mb-4">
-                  <Label className="text-xs">Priorité</Label>
+                  <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Priorité</Label>
                   <Select value={missionForm.priority} onValueChange={v => setMissionForm(f => ({ ...f, priority: v }))}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="normale">Normale</SelectItem>
                       <SelectItem value="haute">Haute</SelectItem>
@@ -320,9 +333,9 @@ export default function CockpitPage() {
                 </div>
 
                 <div className="mb-4">
-                  <Label className="text-xs">Protocole SOP</Label>
+                  <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Protocole SOP</Label>
                   <Select value={missionForm.sop_id} onValueChange={v => setMissionForm(f => ({ ...f, sop_id: v }))}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                    <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] bg-white"><SelectValue placeholder="Aucun" /></SelectTrigger>
                     <SelectContent>
                       {sops.map(sop => (
                         <SelectItem key={sop.id} value={sop.id}>{sop.title}</SelectItem>
@@ -332,25 +345,26 @@ export default function CockpitPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">Notes</Label>
+                  <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Notes</Label>
                   <Textarea
                     rows={3}
                     value={missionForm.notes}
                     onChange={e => setMissionForm(f => ({ ...f, notes: e.target.value }))}
                     placeholder="Instructions spécifiques..."
+                    className="border border-[#E2E8F0] rounded-[8px] px-3 text-[13px] bg-white focus:ring-2 focus:ring-[#6366F1]"
                   />
                 </div>
               </div>
 
-              <Separator />
+              <div className="border-t border-[#F1F5F9]" />
 
               {/* Agent selector */}
               <div>
-                <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-indigo-600" /> Choisir un agent *
+                <h2 className="text-[13px] font-semibold text-[#0F172A] mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#6366F1]" /> Choisir un agent *
                 </h2>
                 {errors.agent && (
-                  <p className="text-xs text-red-500 mb-2 flex items-center gap-1">
+                  <p className="text-[11px] text-red-500 mb-2 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" /> {errors.agent}
                   </p>
                 )}
@@ -367,44 +381,44 @@ export default function CockpitPage() {
                         onClick={() => !isUnavailable && setSelectedAgentId(isSelected ? null : agent.id)}
                         disabled={isUnavailable}
                         className={cn(
-                          'w-full text-left rounded-xl border-2 p-3 transition-all',
-                          isSelected && !conflict && 'border-indigo-500 bg-indigo-50',
+                          'w-full text-left rounded-[10px] border-2 p-3 transition-all',
+                          isSelected && !conflict && 'border-[#6366F1] bg-[#EEF2FF]',
                           isSelected && conflict && 'border-red-400 bg-red-50',
-                          !isSelected && !isUnavailable && 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50',
-                          isUnavailable && 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed',
+                          !isSelected && !isUnavailable && 'border-[#E2E8F0] hover:border-[#6366F1] hover:bg-[#F8FAFC]',
+                          isUnavailable && 'border-[#F1F5F9] bg-[#F8FAFC] opacity-50 cursor-not-allowed',
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <div className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
-                            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600',
+                            'w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0',
+                            isSelected ? 'bg-[#6366F1] text-white' : 'bg-[#EEF2FF] text-[#6366F1]',
                           )}>
                             {agent.first_name[0]}{agent.last_name[0]}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-slate-900 truncate">
+                              <p className="text-[13px] font-medium text-[#0F172A] truncate">
                                 {agent.first_name} {agent.last_name}
                               </p>
                               {isSelected && !conflict && (
-                                <Badge className="text-xs bg-indigo-600 text-white py-0">Sélectionné</Badge>
+                                <span className="text-[11px] bg-[#6366F1] text-white px-1.5 py-0.5 rounded-full">Sélectionné</span>
                               )}
                               {isSelected && conflict && (
-                                <Badge variant="destructive" className="text-xs py-0">Conflit</Badge>
+                                <span className="text-[11px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">Conflit</span>
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <StatusBadge status={agent.status} />
-                              <span className="text-xs text-slate-400">{weekHours}h/{agent.weekly_availability_hours}h cette semaine</span>
+                              <span className="text-[11px] text-[#94A3B8]">{weekHours}h/{agent.weekly_availability_hours}h cette semaine</span>
                             </div>
                           </div>
                         </div>
                         {/* Weekly load bar */}
-                        <div className="mt-2 h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1 bg-[#E2E8F0] rounded-full overflow-hidden">
                           <div
                             className={cn(
                               'h-full rounded-full transition-all',
-                              weekHours / agent.weekly_availability_hours > 0.8 ? 'bg-amber-400' : 'bg-indigo-400',
+                              weekHours / agent.weekly_availability_hours > 0.8 ? 'bg-amber-400' : 'bg-[#6366F1]',
                             )}
                             style={{ width: `${Math.min(100, (weekHours / agent.weekly_availability_hours) * 100)}%` }}
                           />
@@ -417,7 +431,7 @@ export default function CockpitPage() {
 
               {/* Conflict warning */}
               {hasConflict && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2 text-xs text-red-700">
+                <div className="rounded-[8px] bg-red-50 border border-red-200 p-3 flex items-start gap-2 text-[12px] text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <p>Cet agent a déjà une mission sur ce créneau. Choisissez une autre date/heure ou un autre agent.</p>
                 </div>
@@ -425,10 +439,10 @@ export default function CockpitPage() {
             </div>
 
             {/* ── Right: Agent availability calendar ─────────────────────────── */}
-            <div className="flex-1 overflow-auto bg-slate-50 p-6">
+            <div className="flex-1 overflow-auto bg-[#F8FAFC] p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-indigo-600" />
+                <h2 className="text-[13px] font-semibold text-[#0F172A] flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#6366F1]" />
                   {selectedAgentId
                     ? `Disponibilités — ${agents.find(a => a.id === selectedAgentId)?.first_name} ${agents.find(a => a.id === selectedAgentId)?.last_name}`
                     : 'Sélectionnez un agent pour voir ses disponibilités'}
@@ -436,24 +450,24 @@ export default function CockpitPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCalendarWeek(subWeeks(calendarWeek, 1))}
-                    className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                    className="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white flex items-center justify-center hover:bg-[#F8FAFC] transition-colors"
                     aria-label="Semaine précédente"
                   >
-                    <ChevronLeft className="w-4 h-4 text-slate-600" />
+                    <ChevronLeft className="w-4 h-4 text-[#475569]" />
                   </button>
-                  <span className="text-sm font-medium text-slate-700 w-40 text-center">
+                  <span className="text-[13px] font-medium text-[#0F172A] w-44 text-center">
                     {format(calendarWeek, 'dd MMM', { locale: fr })} – {format(addDays(calendarWeek, 6), 'dd MMM yyyy', { locale: fr })}
                   </span>
                   <button
                     onClick={() => setCalendarWeek(addWeeks(calendarWeek, 1))}
-                    className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                    className="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white flex items-center justify-center hover:bg-[#F8FAFC] transition-colors"
                     aria-label="Semaine suivante"
                   >
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                    <ChevronRight className="w-4 h-4 text-[#475569]" />
                   </button>
                   <button
                     onClick={() => setCalendarWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-                    className="text-xs text-indigo-600 hover:underline ml-2"
+                    className="text-[12px] text-[#6366F1] hover:underline ml-2 font-medium"
                   >
                     Aujourd'hui
                   </button>
@@ -461,25 +475,25 @@ export default function CockpitPage() {
               </div>
 
               {/* Calendar grid */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
                 {/* Header */}
-                <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: '48px repeat(7, 1fr)' }}>
-                  <div className="border-r border-slate-100" />
+                <div className="grid border-b border-[#E2E8F0]" style={{ gridTemplateColumns: '48px repeat(7, 1fr)' }}>
+                  <div className="border-r border-[#F1F5F9]" />
                   {weekDays.map(day => {
                     const isToday = isSameDay(day, new Date())
                     const isSelected = missionForm.scheduled_date === format(day, 'yyyy-MM-dd')
                     return (
                       <div key={day.toISOString()} className={cn(
-                        'py-3 text-center border-r border-slate-100 last:border-0',
-                        isSelected && 'bg-indigo-50',
+                        'py-3 text-center border-r border-[#F1F5F9] last:border-0',
+                        isSelected && 'bg-[#EEF2FF]',
                       )}>
-                        <p className={cn('text-xs font-medium uppercase tracking-wide', isToday ? 'text-indigo-600' : 'text-slate-500')}>
+                        <p className={cn('text-[11px] font-bold uppercase tracking-wide', isToday ? 'text-[#6366F1]' : 'text-[#94A3B8]')}>
                           {format(day, 'EEE', { locale: fr })}
                         </p>
                         <p className={cn(
                           'text-lg font-bold mt-0.5',
-                          isToday ? 'text-indigo-600' : 'text-slate-800',
-                          isSelected && 'text-indigo-700',
+                          isToday ? 'text-[#6366F1]' : 'text-[#0F172A]',
+                          isSelected && 'text-[#6366F1]',
                         )}>
                           {format(day, 'd')}
                         </p>
@@ -491,10 +505,10 @@ export default function CockpitPage() {
                 {/* Time grid */}
                 <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                   {HOURS.map(hour => (
-                    <div key={hour} className="grid border-b border-slate-100 last:border-0" style={{ gridTemplateColumns: '48px repeat(7, 1fr)', minHeight: '40px' }}>
+                    <div key={hour} className="grid border-b border-[#F1F5F9] last:border-0" style={{ gridTemplateColumns: '48px repeat(7, 1fr)', minHeight: '40px' }}>
                       {/* Hour label */}
-                      <div className="border-r border-slate-100 px-2 py-1 flex items-start">
-                        <span className="text-xs text-slate-400 font-mono">{String(hour).padStart(2, '0')}h</span>
+                      <div className="border-r border-[#F1F5F9] px-2 py-1 flex items-start">
+                        <span className="text-[11px] text-[#94A3B8] font-mono">{String(hour).padStart(2, '0')}h</span>
                       </div>
                       {/* Day cells */}
                       {weekDays.map(day => {
@@ -526,27 +540,27 @@ export default function CockpitPage() {
                             key={day.toISOString()}
                             onClick={() => !isPast && !isOccupied && selectedAgentId && handleCalendarSlotClick(day, hour)}
                             className={cn(
-                              'border-r border-slate-100 last:border-0 relative transition-colors',
-                              !isPast && !isOccupied && selectedAgentId && 'cursor-pointer hover:bg-indigo-50',
-                              isPast && 'bg-slate-50',
-                              isOccupied && 'bg-rose-50',
-                              isSelectedSlot && 'bg-indigo-100',
+                              'border-r border-[#F1F5F9] last:border-0 relative transition-colors',
+                              !isPast && !isOccupied && selectedAgentId && 'cursor-pointer hover:bg-[#EEF2FF]',
+                              isPast && 'bg-[#F8FAFC]',
+                              isOccupied && 'bg-red-50',
+                              isSelectedSlot && 'bg-[#EEF2FF]',
                             )}
                           >
                             {/* Occupied block */}
                             {isOccupied && !slotMission && (
-                              <div className="absolute inset-0 bg-rose-100 border-l-2 border-rose-400" />
+                              <div className="absolute inset-0 bg-red-100 border-l-2 border-red-400" />
                             )}
                             {/* Mission start */}
                             {slotMission && (
-                              <div className="absolute inset-x-0.5 top-0.5 rounded bg-rose-500 text-white text-xs px-1.5 py-0.5 z-10 truncate leading-tight">
+                              <div className="absolute inset-x-0.5 top-0.5 rounded-[4px] bg-red-500 text-white text-[11px] px-1.5 py-0.5 z-10 truncate leading-tight">
                                 {slotMission.client?.name}
                                 <span className="opacity-75 ml-1">{slotMission.planned_hours}h</span>
                               </div>
                             )}
                             {/* Selected slot indicator */}
                             {isSelectedSlot && (
-                              <div className="absolute inset-x-0.5 top-0.5 rounded bg-indigo-500 text-white text-xs px-1.5 py-0.5 z-10 leading-tight">
+                              <div className="absolute inset-x-0.5 top-0.5 rounded-[4px] bg-[#6366F1] text-white text-[11px] px-1.5 py-0.5 z-10 leading-tight">
                                 ← Sélectionné
                               </div>
                             )}
@@ -559,17 +573,17 @@ export default function CockpitPage() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-6 mt-3 text-xs text-slate-500">
+              <div className="flex items-center gap-6 mt-3 text-[12px] text-[#94A3B8]">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-rose-400" />
+                  <div className="w-3 h-3 rounded-[3px] bg-red-400" />
                   <span>Déjà occupé</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-indigo-400" />
+                  <div className="w-3 h-3 rounded-[3px] bg-[#6366F1]" />
                   <span>Créneau sélectionné</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-white border border-slate-300" />
+                  <div className="w-3 h-3 rounded-[3px] bg-white border border-[#E2E8F0]" />
                   <span>Disponible (cliquer pour sélectionner)</span>
                 </div>
               </div>
@@ -583,175 +597,179 @@ export default function CockpitPage() {
   // ── MAIN COCKPIT VIEW ──────────────────────────────────────────────────────
   return (
     <AdminLayout>
-      <div className="flex flex-col h-full">
-        <div className="p-8 flex-1 overflow-auto">
-          <PageHeader
-            title="Cockpit opérationnel"
-            description="Organisez et assignez les missions aux agents"
-          />
+      <div className="min-h-screen bg-[#F8FAFC] p-6">
+        <PageHeader
+          title="Cockpit opérationnel"
+          description="Organisez et assignez les missions aux agents"
+        />
 
-          {/* KPIs */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-600">{toOrganize.length}</p>
-                  <p className="text-xs text-slate-500">À organiser</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-green-600">{planned.length}</p>
-                  <p className="text-xs text-slate-500">Planifiées</p>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Top stats row: 4 mini stat cards */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[8px] bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{missions.filter(m => m.scheduled_date === new Date().toISOString().split('T')[0]).length}</p>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">Missions aujourd'hui</p>
+            </div>
           </div>
+          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[8px] bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{agents.filter(a => a.status === 'actif').length}</p>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">Agents disponibles</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[8px] bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{toOrganize.length}</p>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">En attente</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[8px] bg-red-50 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-4 h-4 text-red-600" />
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{missions.filter(m => m.status === 'probleme_signale').length}</p>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">Problèmes</p>
+            </div>
+          </div>
+        </div>
 
-          <div className="flex gap-6">
-            {/* ── Left: À organiser ─────────────────────────────────────────── */}
-            <div className="w-96 flex-shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  À organiser
-                  <Badge variant="secondary">{toOrganize.length}</Badge>
-                </h2>
-              </div>
-
-              {/* Search */}
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  className="pl-9 h-9 text-sm"
-                  placeholder="Rechercher..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-3">
-                {toOrganize.map(item => (
-                  <Card key={item.id} className="hover:shadow-md transition-shadow border-l-4 border-l-amber-400">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-slate-900 truncate">{item.client?.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{item.site?.name}</p>
-                          {item.site?.address && (
-                            <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3" /> {item.site.address}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 ml-2">
-                          <Badge
-                            variant={item.priority === 'haute' ? 'destructive' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {item.priority}
-                          </Badge>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="p-1 rounded hover:bg-slate-100" aria-label="Options">
-                                <MoreVertical className="w-3 h-3 text-slate-400" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDeleteItem(item.id)}>
-                                <Trash2 className="w-3 h-3 mr-2" /> Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-
-                      {item.site?.service_type && (
-                        <Badge variant="outline" className="text-xs mb-3">{item.site.service_type}</Badge>
-                      )}
-
-                      {item.source === 'pipeline' && (
-                        <p className="text-xs text-indigo-600 mb-2 flex items-center gap-1">
-                          <ArrowRight className="w-3 h-3" /> Issu du pipeline commercial
-                        </p>
-                      )}
-
-                      <Button
-                        size="sm"
-                        className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 mt-1"
-                        onClick={() => handleOpenAssign(item)}
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        Assigner la mission
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {toOrganize.length === 0 && (
-                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
-                    <CheckCircle2 className="w-10 h-10 text-green-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 font-medium">Tout est organisé</p>
-                    <p className="text-xs text-slate-400 mt-1">Aucune opération en attente</p>
-                  </div>
-                )}
-              </div>
+        {/* Two-column layout */}
+        <div className="grid grid-cols-[1fr_340px] gap-5">
+          {/* ── Left: Missions récentes ─────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-[15px] font-bold text-[#0F172A] flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Missions récentes
+              </h2>
             </div>
 
-            {/* ── Right: Missions planifiées ────────────────────────────────── */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                  Missions récentes
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                {missions.slice(0, 10).map(mission => (
-                  <Card key={mission.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-slate-900 truncate">{mission.client?.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{mission.site?.name}</p>
-                        </div>
-                        <StatusBadge status={mission.status} />
-                      </div>
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {format(parseISO(mission.scheduled_date), 'dd/MM/yyyy', { locale: fr })}
-                          {mission.start_time && ` à ${mission.start_time}`}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {mission.planned_hours}h
-                          {mission.agents && mission.agents.length > 0 && (
-                            <span className="ml-1 flex items-center gap-1">
-                              · <Users className="w-3 h-3" />
-                              {mission.agents.map(a => `${a.first_name} ${a.last_name[0]}.`).join(', ')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {missions.length === 0 && (
-                  <div className="col-span-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
-                    <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">Aucune mission planifiée</p>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {missions.slice(0, 10).map(mission => (
+                <div key={mission.id} className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-[#0F172A] truncate">{mission.client?.name}</p>
+                      <p className="text-[11px] text-[#94A3B8] truncate">{mission.site?.name}</p>
+                    </div>
+                    <StatusBadge status={mission.status} />
                   </div>
-                )}
+                  <div className="text-[11px] text-[#475569] space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-[#94A3B8]" />
+                      {format(parseISO(mission.scheduled_date), 'dd/MM/yyyy', { locale: fr })}
+                      {mission.start_time && ` à ${mission.start_time}`}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[#94A3B8]" /> {mission.planned_hours}h
+                      {mission.agents && mission.agents.length > 0 && (
+                        <span className="ml-1 flex items-center gap-1">
+                          · <Users className="w-3 h-3 text-[#94A3B8]" />
+                          {mission.agents.map(a => `${a.first_name} ${a.last_name[0]}.`).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {missions.length === 0 && (
+                <div className="col-span-2 border-2 border-dashed border-[#E2E8F0] rounded-[14px] p-8 text-center">
+                  <Calendar className="w-10 h-10 text-[#94A3B8] mx-auto mb-2" />
+                  <p className="text-[13px] text-[#475569]">Aucune mission planifiée</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right: Assignment panel ──────────────────────────────────────── */}
+          <div>
+            <h2 className="text-[15px] font-bold text-[#0F172A] mb-4">Opérations à organiser</h2>
+
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
+              <input
+                className="w-full border border-[#E2E8F0] rounded-[8px] h-9 pl-9 pr-3 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                placeholder="Rechercher..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2 mb-5">
+              {toOrganize.map(item => (
+                <div key={item.id} className="bg-[#F8FAFC] rounded-[10px] border border-[#E2E8F0] p-3 mb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-[#0F172A] truncate">{item.client?.name}</p>
+                      <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">{item.site?.name}</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <span className={cn(
+                        'text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+                        item.priority === 'urgente' ? 'bg-red-50 text-red-700' :
+                        item.priority === 'haute' ? 'bg-amber-50 text-amber-700' :
+                        'bg-blue-50 text-blue-700'
+                      )}>
+                        {item.priority}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded-[4px] hover:bg-[#E2E8F0] transition-colors" aria-label="Options">
+                            <MoreVertical className="w-3 h-3 text-[#94A3B8]" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDeleteItem(item.id)}>
+                            <Trash2 className="w-3 h-3 mr-2" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  <button
+                    className="w-full mt-2 h-8 text-[12px] bg-[#6366F1] text-white rounded-[6px] font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5"
+                    onClick={() => handleOpenAssign(item)}
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    Assigner la mission
+                  </button>
+                </div>
+              ))}
+
+              {toOrganize.length === 0 && (
+                <div className="border-2 border-dashed border-[#E2E8F0] rounded-[10px] p-6 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
+                  <p className="text-[12px] text-[#475569] font-medium">Tout est organisé</p>
+                  <p className="text-[11px] text-[#94A3B8] mt-0.5">Aucune opération en attente</p>
+                </div>
+              )}
+            </div>
+
+            {/* Agent availability section */}
+            <div className="border-t border-[#F1F5F9] pt-4">
+              <h3 className="text-[12px] font-semibold text-[#475569] mb-3">Disponibilité des agents</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {agents.map(agent => (
+                  <div key={agent.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-[#E2E8F0] text-[12px] font-medium text-[#475569]">
+                    <span className={cn(
+                      'w-1.5 h-1.5 rounded-full',
+                      agent.status === 'actif' ? 'bg-emerald-400' : 'bg-[#94A3B8]'
+                    )} />
+                    {agent.first_name} {agent.last_name[0]}.
+                  </div>
+                ))}
               </div>
             </div>
           </div>
