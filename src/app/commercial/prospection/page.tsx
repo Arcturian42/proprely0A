@@ -626,6 +626,8 @@ export default function ProspectionPage() {
 
   const aiLeadsCount = leads.filter(l => l.source === 'prospection_ia').length
 
+  const [isMockMode, setIsMockMode] = useState(false)
+
   const handleLaunch = async (filters: ProspectionFilters) => {
     setIsLoading(true)
     setError(null)
@@ -635,10 +637,16 @@ export default function ProspectionPage() {
         toast.error('Aucun prospect qualifié trouvé. Réduisez le score minimum ou élargissez les filtres.')
         return
       }
+      const mock = results.some(r => r._isMock)
+      setIsMockMode(mock)
       setProspects(results)
       setStats({ loaded: results.length, accepted: 0, rejected: 0 })
       setView('swiping')
-      toast.success(`${results.length} prospects analysés et scorés`)
+      if (mock) {
+        toast.info('API Sirene indisponible — affichage en mode démonstration', { duration: 4000 })
+      } else {
+        toast.success(`${results.length} prospects analysés et scorés`)
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur de connexion à l\'API Sirene'
       setError(msg)
@@ -736,6 +744,16 @@ export default function ProspectionPage() {
             <span className="text-xs text-slate-400">{stats.accepted} ajoutés · {stats.rejected} passés</span>
           )}
         </div>
+
+        {/* Mock mode banner */}
+        {isMockMode && view === 'swiping' && (
+          <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5">
+            <span className="text-amber-600 text-xs">⚠️</span>
+            <p className="text-xs text-amber-700 font-medium">
+              Mode démonstration — données fictives représentatives (API Sirene temporairement inaccessible)
+            </p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
