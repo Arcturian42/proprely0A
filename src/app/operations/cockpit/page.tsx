@@ -597,84 +597,62 @@ export default function CockpitPage() {
   // ── MAIN COCKPIT VIEW ──────────────────────────────────────────────────────
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#F8FAFC] p-6">
-        <PageHeader
-          title="Cockpit opérationnel"
-          description="Organisez et assignez les missions aux agents"
-        />
+      <div className="p-4 sm:p-6 space-y-5">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Cockpit opérationnel</h1>
+        </div>
 
-        {/* Top stats row: 4 mini stat cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-[8px] bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{missions.filter(m => m.scheduled_date === new Date().toISOString().split('T')[0]).length}</p>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">Missions aujourd'hui</p>
-            </div>
+        {/* Top stats row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <Calendar className="w-4 h-4 text-gray-400 mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{missions.filter(m => m.scheduled_date === new Date().toISOString().split('T')[0]).length}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Missions aujourd'hui</p>
           </div>
-          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-[8px] bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{agents.filter(a => a.status === 'disponible').length}</p>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">Agents disponibles</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <Users className="w-4 h-4 text-gray-400 mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{agents.filter(a => a.status === 'disponible').length}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Agents disponibles</p>
           </div>
-          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-[8px] bg-amber-50 flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{toOrganize.length}</p>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">En attente</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <AlertCircle className="w-4 h-4 text-gray-400 mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{toOrganize.length}</p>
+            <p className="text-xs text-gray-500 mt-0.5">En attente</p>
           </div>
-          <div className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-[8px] bg-red-50 flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">{missions.filter(m => m.status === 'probleme_signale').length}</p>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">Problèmes</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <AlertCircle className="w-4 h-4 text-gray-400 mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{missions.filter(m => m.status === 'probleme_signale').length}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Problèmes</p>
           </div>
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-[1fr_340px] gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5">
           {/* ── Left: Missions récentes ─────────────────────────────────────── */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-[15px] font-bold text-[#0F172A] flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Missions récentes
-              </h2>
-            </div>
-
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Missions récentes</h2>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
               {missions.slice(0, 10).map(mission => (
-                <div key={mission.id} className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-4">
+                <div key={mission.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-[#0F172A] truncate">{mission.client?.name}</p>
-                      <p className="text-[11px] text-[#94A3B8] truncate">{mission.site?.name}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{mission.client?.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{mission.site?.name}</p>
                     </div>
                     <StatusBadge status={mission.status} />
                   </div>
-                  <div className="text-[11px] text-[#475569] space-y-1">
+                  <div className="text-xs text-gray-500 space-y-1">
                     <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-[#94A3B8]" />
+                      <Calendar className="w-3 h-3 text-gray-400" />
                       {format(parseISO(mission.scheduled_date), 'dd/MM/yyyy', { locale: fr })}
                       {mission.start_time && ` à ${mission.start_time}`}
                     </div>
                     <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#94A3B8]" /> {mission.planned_hours}h
+                      <Clock className="w-3 h-3 text-gray-400" /> {mission.planned_hours}h
                       {mission.agents && mission.agents.length > 0 && (
                         <span className="ml-1 flex items-center gap-1">
-                          · <Users className="w-3 h-3 text-[#94A3B8]" />
+                          · <Users className="w-3 h-3 text-gray-400" />
                           {mission.agents.map(a => `${a.first_name} ${a.last_name[0]}.`).join(', ')}
                         </span>
                       )}
@@ -684,9 +662,9 @@ export default function CockpitPage() {
               ))}
 
               {missions.length === 0 && (
-                <div className="col-span-2 border-2 border-dashed border-[#E2E8F0] rounded-[14px] p-8 text-center">
-                  <Calendar className="w-10 h-10 text-[#94A3B8] mx-auto mb-2" />
-                  <p className="text-[13px] text-[#475569]">Aucune mission planifiée</p>
+                <div className="col-span-2 border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+                  <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Aucune mission planifiée</p>
                 </div>
               )}
             </div>

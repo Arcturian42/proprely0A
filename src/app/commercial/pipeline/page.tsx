@@ -162,14 +162,14 @@ export default function PipelinePage() {
         </div>
 
         {/* Kanban board */}
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6">
           {STAGES.map(stage => {
             const opps = oppsByStage(stage)
             const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
             return (
-              <div key={stage} className="flex-shrink-0 w-72">
+              <div key={stage} className="flex-shrink-0 w-[260px]">
                 {/* Column header */}
-                <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center justify-between mb-2 px-0.5">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${STAGE_DOT_COLORS[stage]}`} />
                     <span className="text-sm font-semibold text-gray-900">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
@@ -178,14 +178,14 @@ export default function PipelinePage() {
                     {total > 0 && (
                       <span className="text-xs text-gray-400">{formatCurrency(total)}</span>
                     )}
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-md font-medium">
                       {opps.length}
                     </span>
                   </div>
                 </div>
 
                 {/* Column body */}
-                <div className="bg-gray-50 rounded-xl p-2 space-y-2 min-h-[120px]">
+                <div className="bg-gray-100/80 rounded-xl p-2 space-y-2 min-h-[80px]">
                   {opps.map(opp => {
                     const prob = opp.estimated_amount && opp.estimated_amount > 0 ? 75 : 50
                     const probColor = prob > 70
@@ -213,8 +213,8 @@ export default function PipelinePage() {
                         {!opp.contact_name && opp.prospect_name && (
                           <p className="text-xs text-gray-500 mt-0.5">{opp.prospect_name}</p>
                         )}
-                        <div className="flex items-center justify-between mt-2.5">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${probColor}`}>
+                        <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-100">
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${probColor}`}>
                             {prob}%
                           </span>
                           {opp.next_action_date && (
@@ -232,7 +232,7 @@ export default function PipelinePage() {
                   })}
 
                   {opps.length === 0 && (
-                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                    <div className="rounded-lg p-6 text-center">
                       <p className="text-xs text-gray-400">Aucune opportunité</p>
                     </div>
                   )}
