@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -14,6 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import { AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR } from '@/lib/constants'
+
+const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -30,24 +32,22 @@ export default function AgentsPage() {
   const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
-
-  useEffect(() => {
-    const saved = localStorage.getItem('proprely-filter-agents')
-    if (saved) {
-      const { search: s, status } = JSON.parse(saved)
-      setSearch(s || '')
-      setFilterStatus(status || 'all')
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('proprely-filter-agents', JSON.stringify({ search, status: filterStatus }))
-  }, [search, filterStatus])
-
   const [showForm, setShowForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [availSlots, setAvailSlots] = useState<{ day: string; start: string; end: string; enabled: boolean }[]>(
+    DAYS_FULL.map(day => ({ day, enabled: false, start: '08:00', end: '17:00' }))
+  )
+
+  const initAvailSlots = useCallback((agent: typeof editingAgent) => {
+    return DAYS_FULL.map(day => ({
+      day,
+      enabled: agent?.availability?.some(a => a.startsWith(day)) ?? false,
+      start: agent?.availability?.find(a => a.startsWith(day))?.match(/(\d{2}:\d{2})-/)?.[1] ?? '08:00',
+      end: agent?.availability?.find(a => a.startsWith(day))?.match(/-(\d{2}:\d{2})/)?.[1] ?? '17:00',
+    }))
+  }, [])
 
   const filtered = agents.filter(a => {
     const matchSearch = `${a.first_name} ${a.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
@@ -59,6 +59,7 @@ export default function AgentsPage() {
   const handleOpenCreate = () => {
     setEditingAgent(null)
     setForm(defaultForm)
+    setAvailSlots(DAYS_FULL.map(day => ({ day, enabled: false, start: '08:00', end: '17:00' })))
     setShowForm(true)
   }
 
@@ -73,6 +74,7 @@ export default function AgentsPage() {
       notes: agent.notes || '', skills: agent.skills?.join(', ') || '',
       weekly_availability: { ...defaultForm.weekly_availability, ...agent.weekly_availability },
     })
+    setAvailSlots(initAvailSlots(agent))
     setShowForm(true)
   }
 
@@ -98,11 +100,15 @@ export default function AgentsPage() {
         return
       }
     }
+    const availability = availSlots
+      .filter(s => s.enabled)
+      .map(s => `${s.day} ${s.start}-${s.end}`)
     const agentData = {
       ...form,
       skills: form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
       weekly_availability_hours: hours,
       hourly_cost: cost,
+      availability,
     }
     if (editingAgent) {
       updateAgent(editingAgent.id, { ...agentData, updated_at: new Date().toISOString() })
@@ -261,10 +267,10 @@ export default function AgentsPage() {
 
               {/* Footer */}
               <div className="flex justify-end gap-1 mt-4 pt-3 border-t border-gray-100">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(agent)} aria-label="Modifier l'agent">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(agent)}>
                   <Edit className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(agent.id)} aria-label="Supprimer l'agent">
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(agent.id)}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -396,19 +402,51 @@ export default function AgentsPage() {
               />
             </div>
 
-            {/* Weekly availability */}
+            {/* Weekly availability with time slots */}
             <div className="col-span-2">
-              <label className="text-[12px] font-semibold text-[#475569] mb-2 block">Disponibilités hebdomadaires</label>
-              <div className="flex gap-2">
-                {DAYS_KEYS.map((day, idx) => (
-                  <div key={day} className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-[#94A3B8]">{DAYS_FR[idx]}</span>
-                    <Checkbox
-                      checked={(form.weekly_availability as Record<string, boolean>)[day] || false}
-                      onCheckedChange={(checked) => setForm(f => ({
-                        ...f, weekly_availability: { ...f.weekly_availability, [day]: !!checked }
-                      }))}
+              <span className="text-xs font-medium text-gray-700 mb-2 block">Disponibilités</span>
+              <div className="border border-gray-100 rounded-lg px-3 py-1">
+                {availSlots.map((slot, idx) => (
+                  <div key={slot.day} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                    <input
+                      type="checkbox"
+                      checked={slot.enabled}
+                      onChange={e => {
+                        const next = [...availSlots]
+                        next[idx] = { ...next[idx], enabled: e.target.checked }
+                        setAvailSlots(next)
+                        // Also sync weekly_availability
+                        const dayKey = DAYS_KEYS[idx]
+                        setForm(f => ({ ...f, weekly_availability: { ...f.weekly_availability, [dayKey]: e.target.checked } }))
+                      }}
+                      className="w-4 h-4 rounded accent-indigo-600"
                     />
+                    <span className="text-sm text-gray-700 w-20 flex-shrink-0">{slot.day}</span>
+                    {slot.enabled && (
+                      <>
+                        <input
+                          type="time"
+                          value={slot.start}
+                          onChange={e => {
+                            const next = [...availSlots]
+                            next[idx] = { ...next[idx], start: e.target.value }
+                            setAvailSlots(next)
+                          }}
+                          className="border border-gray-200 rounded-lg h-8 px-2 text-xs w-24"
+                        />
+                        <span className="text-xs text-gray-400">→</span>
+                        <input
+                          type="time"
+                          value={slot.end}
+                          onChange={e => {
+                            const next = [...availSlots]
+                            next[idx] = { ...next[idx], end: e.target.value }
+                            setAvailSlots(next)
+                          }}
+                          className="border border-gray-200 rounded-lg h-8 px-2 text-xs w-24"
+                        />
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

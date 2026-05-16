@@ -2,6 +2,15 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+
+function checkStorageSize() {
+  try {
+    const data = localStorage.getItem('proprely-store')
+    if (data && data.length > 500_000) {
+      console.warn(`[Proprely] Store size: ${(data.length / 1024).toFixed(0)}KB — consider archiving old data`)
+    }
+  } catch {}
+}
 import {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType
 } from '@/types'
@@ -44,6 +53,7 @@ interface AppStore {
   timeEntries: TimeEntry[]
   serviceTypes: ServiceType[]
   companySettings: CompanySettings
+  dashboardKpis: ('missions' | 'clients' | 'agents' | 'items' | 'revenue' | 'conversion')[]
 
   // Agents
   addAgent: (agent: Agent) => void
@@ -99,6 +109,9 @@ interface AppStore {
   // Company settings
   updateCompanySettings: (settings: Partial<CompanySettings>) => void
 
+  // Dashboard KPIs
+  setDashboardKpis: (kpis: AppStore['dashboardKpis']) => void
+
   // Reset
   resetToMockData: () => void
 }
@@ -118,6 +131,7 @@ export const useAppStore = create<AppStore>()(
       timeEntries: mockTimeEntries,
       serviceTypes: defaultServiceTypes,
       companySettings: defaultCompanySettings,
+      dashboardKpis: ['missions', 'clients', 'agents', 'items'] as AppStore['dashboardKpis'],
 
       // Agents
       addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
@@ -267,6 +281,9 @@ export const useAppStore = create<AppStore>()(
       // Company settings
       updateCompanySettings: (settings) => set(s => ({ companySettings: { ...s.companySettings, ...settings } })),
 
+      // Dashboard KPIs
+      setDashboardKpis: (kpis) => set({ dashboardKpis: kpis }),
+
       resetToMockData: () => set({
         agents: mockAgents, clients: mockClients, leads: mockLeads,
         missions: mockMissions, opportunities: mockOpportunities,
@@ -276,6 +293,14 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'proprely-store',
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version === 0 || version === 1) return persistedState as AppStore
+        return persistedState as AppStore
+      },
+      onRehydrateStorage: () => () => {
+        checkStorageSize()
+      },
     }
   )
 )

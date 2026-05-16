@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { StatCard } from '@/components/shared/StatCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAppStore } from '@/lib/store'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import {
   Sun,
   Users,
@@ -17,6 +18,8 @@ import {
   Calendar,
   CheckCircle2,
   TrendingUp,
+  Settings,
+  BarChart2,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -26,9 +29,22 @@ const STATUS_DOT: Record<string, string> = {
   probleme_signale: 'bg-red-400',
 }
 
+type KpiId = 'missions' | 'clients' | 'agents' | 'items' | 'revenue' | 'conversion'
+
+const KPI_LABELS: Record<KpiId, string> = {
+  missions: "Missions aujourd'hui",
+  clients: 'Clients actifs',
+  agents: 'Agents disponibles',
+  items: 'À organiser',
+  revenue: 'CA estimé (gagné)',
+  conversion: 'Taux conversion',
+}
+
+const ALL_KPI_IDS: KpiId[] = ['missions', 'clients', 'agents', 'items', 'revenue', 'conversion']
+
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
-  const { missions, clients, agents, operationalItems } = useAppStore()
+  const { missions, clients, agents, operationalItems, opportunities, dashboardKpis, setDashboardKpis } = useAppStore()
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
@@ -44,6 +60,50 @@ export default function DashboardPage() {
   const dayName = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date())
   const dayCapitalized = dayName.charAt(0).toUpperCase() + dayName.slice(1)
 
+  // Conversion rate
+  const closedOpps = opportunities.filter(o => o.stage === 'gagnee' || o.stage === 'perdue')
+  const wonOpps = opportunities.filter(o => o.stage === 'gagnee')
+  const conversionRate = closedOpps.length > 0 ? Math.round((wonOpps.length / closedOpps.length) * 100) : 0
+
+  const KPI_CONFIG: Record<KpiId, { title: string; icon: React.ElementType; getValue: () => string | number; desc: string }> = {
+    missions: { title: "Missions aujourd'hui", icon: Sun, getValue: () => todayMissions.length, desc: `${activeMissionsCount} active${activeMissionsCount > 1 ? 's' : ''}` },
+    clients: { title: 'Clients actifs', icon: Users, getValue: () => clients.filter(c => c.status === 'actif').length, desc: 'contrats en cours' },
+    agents: { title: 'Agents disponibles', icon: UserCog, getValue: () => availableAgentsCount, desc: `sur ${agents.length} agents total` },
+    items: { title: 'À organiser', icon: AlertCircle, getValue: () => pendingItems.length, desc: 'opérations en attente' },
+    revenue: { title: 'CA estimé (gagné)', icon: TrendingUp, getValue: () => formatCurrency(wonOpps.reduce((s, o) => s + (o.estimated_amount || 0), 0)), desc: 'opportunités gagnées' },
+    conversion: { title: 'Taux conversion', icon: BarChart2, getValue: () => `${conversionRate}%`, desc: 'opps gagnées/fermées' },
+  }
+
+  // Customization dialog
+  const [showCustomize, setShowCustomize] = useState(false)
+  const [pendingKpis, setPendingKpis] = useState<KpiId[]>(dashboardKpis)
+
+  const handleOpenCustomize = () => {
+    setPendingKpis(dashboardKpis)
+    setShowCustomize(true)
+  }
+
+  const handleToggleKpi = (id: KpiId) => {
+    setPendingKpis(prev => {
+      if (prev.includes(id)) {
+        if (prev.length <= 2) return prev // enforce minimum 2
+        return prev.filter(k => k !== id)
+      }
+      return [...prev, id]
+    })
+  }
+
+  const handleSaveKpis = () => {
+    setDashboardKpis(pendingKpis)
+    setShowCustomize(false)
+  }
+
+  const colClass = dashboardKpis.length >= 4
+    ? 'grid-cols-2 lg:grid-cols-4'
+    : dashboardKpis.length === 3
+    ? 'grid-cols-2 lg:grid-cols-3'
+    : 'grid-cols-2'
+
   return (
     <AdminLayout>
       <div className="p-6 space-y-6 animate-in">
@@ -53,42 +113,22 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500">Bonjour 👋</p>
             <h1 className="text-2xl font-semibold text-gray-900">{dayCapitalized} · {formatDate(new Date())}</h1>
           </div>
+          <Button variant="ghost" size="sm" onClick={handleOpenCustomize} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700">
+            <Settings className="w-4 h-4" />
+            Personnaliser
+          </Button>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="delay-1 animate-in">
-            <StatCard
-              title="Missions aujourd'hui"
-              value={todayMissions.length}
-              description={`${activeMissionsCount} active${activeMissionsCount > 1 ? 's' : ''}`}
-              icon={Sun}
-            />
-          </div>
-          <div className="delay-2 animate-in">
-            <StatCard
-              title="Clients actifs"
-              value={clients.filter(c => c.status === 'actif').length}
-              description="contrats en cours"
-              icon={Users}
-            />
-          </div>
-          <div className="delay-3 animate-in">
-            <StatCard
-              title="Agents disponibles"
-              value={availableAgentsCount}
-              description={`sur ${agents.length} agents total`}
-              icon={UserCog}
-            />
-          </div>
-          <div className="delay-4 animate-in">
-            <StatCard
-              title="À organiser"
-              value={pendingItems.length}
-              description="opérations en attente"
-              icon={AlertCircle}
-            />
-          </div>
+        <div className={`grid ${colClass} gap-4`}>
+          {dashboardKpis.map((kpiId, i) => {
+            const cfg = KPI_CONFIG[kpiId]
+            return (
+              <div key={kpiId} className={`delay-${i + 1} animate-in`}>
+                <StatCard title={cfg.title} value={cfg.getValue()} description={cfg.desc} icon={cfg.icon} />
+              </div>
+            )
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -244,6 +284,43 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Customization dialog */}
+      <Dialog open={showCustomize} onOpenChange={setShowCustomize}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[17px] font-bold text-[#0F172A]">Personnaliser les KPIs</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {ALL_KPI_IDS.map(id => {
+              const isSelected = pendingKpis.includes(id)
+              const isDisabled = isSelected && pendingKpis.length <= 2
+              return (
+                <label key={id} className={`flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer hover:bg-gray-50 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    disabled={isDisabled}
+                    onChange={() => handleToggleKpi(id)}
+                    className="w-4 h-4 rounded accent-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700">{KPI_LABELS[id]}</span>
+                </label>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 px-1">Minimum 2 KPIs requis.</p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCustomize(false)}>Annuler</Button>
+            <button
+              onClick={handleSaveKpis}
+              className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-semibold rounded-[8px] transition-colors"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   )
 }
