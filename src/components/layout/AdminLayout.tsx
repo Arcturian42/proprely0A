@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { AppSidebar } from './AppSidebar'
-import { Menu } from 'lucide-react'
+import { Menu, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -11,6 +12,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isLoading = useAppStore(s => s.isLoading)
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FBFBFA]">
@@ -43,7 +45,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <span className="font-semibold text-slate-800">Proprely Admin</span>
         </div>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <p className="text-sm text-slate-500">Chargement des données…</p>
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </div>

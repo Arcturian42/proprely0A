@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getOrCreateUserProfile } from '@/lib/supabase/db'
 import { useAppStore } from '@/lib/store'
+import { toast } from 'sonner'
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { initializeFromDB, clearStore, companyId } = useAppStore()
+  const { initializeFromDB, clearStore } = useAppStore()
   const initialized = useRef(false)
 
   useEffect(() => {
@@ -27,19 +28,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         })
       } catch (err) {
         console.error('[AppProvider] init error:', err)
+        initialized.current = false
+        const msg = err instanceof Error ? err.message : 'Erreur de chargement des données'
+        toast.error(`Impossible de charger vos données : ${msg}. Rechargez la page.`)
       }
     }
 
-    // Initialize on mount if user is already logged in
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        initUser(user.id, user.user_metadata?.company_name)
-      }
-    })
-
-    // Listen to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         initialized.current = false
         initUser(session.user.id, session.user.user_metadata?.company_name)
       }
