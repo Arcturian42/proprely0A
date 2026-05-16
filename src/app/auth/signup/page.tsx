@@ -63,22 +63,30 @@ export default function SignupPage() {
 
   async function onSubmit(data: SignupFormData) {
     setServerError(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          company_name: data.companyName,
-        },
-      },
+
+    // 1. Create company + user via server API (uses service role key)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email, password: data.password, companyName: data.companyName }),
     })
-    if (error) {
-      setServerError(error.message)
+    const json = await res.json()
+    if (!res.ok) {
+      setServerError(json.error ?? 'Erreur lors de la création du compte')
       return
     }
-    setSuccess(true)
-    // Redirect — if email confirmation is disabled this goes straight to dashboard
+
+    // 2. Sign in immediately with the created credentials
+    const supabase = createClient()
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    })
+    if (signInError) {
+      setServerError('Compte créé mais connexion échouée. Essayez de vous connecter.')
+      return
+    }
+
     router.push('/dashboard')
   }
 

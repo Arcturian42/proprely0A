@@ -27,10 +27,21 @@ function LoadingSkeleton() {
   )
 }
 
+async function ensureUserRow() {
+  // If the users table has no row for this user (old signup before trigger), fix it
+  const res = await fetch('/api/auth/fix-user', { method: 'POST' })
+  return res.ok
+}
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    // Ensure user row exists before fetching data
+    ensureUserRow().then(() => loadData())
+  }, [])
+
+  function loadData() {
     Promise.all([
       fetchAgents(),
       fetchClients(),
@@ -84,10 +95,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setReady(true)
     }).catch((err) => {
       console.error('DataProvider: failed to hydrate store', err)
-      // Still render children so the app isn't stuck
       setReady(true)
     })
-  }, [])
+  }
 
   if (!ready) return <LoadingSkeleton />
   return <>{children}</>
