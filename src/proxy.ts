@@ -27,6 +27,10 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow public routes
+  if (pathname.startsWith('/auth/callback')) {
+    return supabaseResponse
+  }
+
   if (pathname.startsWith('/login')) {
     if (user) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
