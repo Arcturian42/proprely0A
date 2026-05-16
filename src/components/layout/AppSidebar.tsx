@@ -166,8 +166,10 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
-              window.location.href = '/'
+            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={async () => {
+              const { createClient } = await import('@/lib/supabase/client')
+              await createClient().auth.signOut()
+              window.location.href = '/auth/login'
             }}>
               <LogOut className="w-4 h-4" />
               Se déconnecter
