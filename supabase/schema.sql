@@ -1,7 +1,7 @@
 -- Proprely Admin - Database Schema
 
 -- Companies (tenants)
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   email TEXT,
@@ -13,7 +13,7 @@ CREATE TABLE companies (
 );
 
 -- Leads (prospects)
-CREATE TABLE leads (
+CREATE TABLE IF NOT EXISTS leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   company_name TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE leads (
 );
 
 -- Opportunities (pipeline)
-CREATE TABLE opportunities (
+CREATE TABLE IF NOT EXISTS opportunities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   lead_id UUID REFERENCES leads(id),
@@ -60,7 +60,7 @@ CREATE TABLE opportunities (
 );
 
 -- Clients
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE clients (
 );
 
 -- Sites
-CREATE TABLE sites (
+CREATE TABLE IF NOT EXISTS sites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -98,7 +98,7 @@ CREATE TABLE sites (
 );
 
 -- SOPs (Standard Operating Procedures)
-CREATE TABLE sops (
+CREATE TABLE IF NOT EXISTS sops (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE sops (
 );
 
 -- Agents
-CREATE TABLE agents (
+CREATE TABLE IF NOT EXISTS agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   first_name TEXT NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE agents (
 );
 
 -- Operational items (cockpit)
-CREATE TABLE operational_items (
+CREATE TABLE IF NOT EXISTS operational_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES clients(id),
@@ -155,7 +155,7 @@ CREATE TABLE operational_items (
 );
 
 -- Missions
-CREATE TABLE missions (
+CREATE TABLE IF NOT EXISTS missions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES clients(id),
@@ -174,7 +174,7 @@ CREATE TABLE missions (
 );
 
 -- Mission agents (many-to-many)
-CREATE TABLE mission_agents (
+CREATE TABLE IF NOT EXISTS mission_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mission_id UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
@@ -183,7 +183,7 @@ CREATE TABLE mission_agents (
 );
 
 -- Time entries
-CREATE TABLE time_entries (
+CREATE TABLE IF NOT EXISTS time_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   mission_id UUID NOT NULL REFERENCES missions(id),
@@ -202,7 +202,7 @@ CREATE TABLE time_entries (
 );
 
 -- Service types
-CREATE TABLE service_types (
+CREATE TABLE IF NOT EXISTS service_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -214,7 +214,7 @@ CREATE TABLE service_types (
 );
 
 -- User profiles (links auth.users to companies)
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -287,12 +287,12 @@ CREATE POLICY "mission_agents_isolation" ON mission_agents
   );
 
 -- Indexes
-CREATE INDEX idx_leads_company ON leads(company_id);
-CREATE INDEX idx_opportunities_company ON opportunities(company_id);
-CREATE INDEX idx_clients_company ON clients(company_id);
-CREATE INDEX idx_sites_client ON sites(client_id);
-CREATE INDEX idx_agents_company ON agents(company_id);
-CREATE INDEX idx_missions_scheduled_date ON missions(scheduled_date);
-CREATE INDEX idx_missions_company ON missions(company_id);
-CREATE INDEX idx_time_entries_agent ON time_entries(agent_id);
-CREATE INDEX idx_time_entries_date ON time_entries(date);
+CREATE INDEX IF NOT EXISTS idx_leads_company ON leads(company_id);
+CREATE INDEX IF NOT EXISTS idx_opportunities_company ON opportunities(company_id);
+CREATE INDEX IF NOT EXISTS idx_clients_company ON clients(company_id);
+CREATE INDEX IF NOT EXISTS idx_sites_client ON sites(client_id);
+CREATE INDEX IF NOT EXISTS idx_agents_company ON agents(company_id);
+CREATE INDEX IF NOT EXISTS idx_missions_scheduled_date ON missions(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_missions_company ON missions(company_id);
+CREATE INDEX IF NOT EXISTS idx_time_entries_agent ON time_entries(agent_id);
+CREATE INDEX IF NOT EXISTS idx_time_entries_date ON time_entries(date);
