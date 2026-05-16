@@ -18,12 +18,13 @@ import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Client, Site } from '@/types'
 import { formatDate } from '@/lib/utils'
-import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
-  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
+  const { clients, sites, missions, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
@@ -79,6 +80,14 @@ export default function ClientsSitesPage() {
   }
 
   const handleDeleteClient = (id: string) => {
+    const activeMissions = missions.filter(
+      m => m.client_id === id && ['prevue', 'en_cours', 'a_valider'].includes(m.status)
+    )
+    if (activeMissions.length > 0) {
+      toast.error(`Impossible de supprimer ce client : ${activeMissions.length} mission(s) active(s) en cours. Terminez ou réassignez-les d'abord.`)
+      setConfirmDeleteClient(null)
+      return
+    }
     const siteCount = sites.filter(s => s.client_id === id).length
     deleteClient(id)
     toast.success(`Client supprimé${siteCount > 0 ? ` (${siteCount} site(s) associé(s) supprimé(s))` : ''}`)
@@ -207,8 +216,13 @@ export default function ClientsSitesPage() {
                       {sites.filter(s => s.client_id === client.id).length} site(s)
                     </div>
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
-                        <Edit className="w-3 h-3 mr-1" /> Modifier
+                      <Link href={`/commercial/clients/${client.id}`} className="flex-1">
+                        <Button variant="default" size="sm" className="w-full gap-1">
+                          Voir le détail <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                      <Button variant="outline" size="sm" onClick={() => handleOpenEditClient(client)}>
+                        <Edit className="w-3 h-3" />
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
                         <Trash2 className="w-3 h-3 text-red-500" />
