@@ -62,17 +62,23 @@ export function parsedDataToLineItems(data: ParsedQuoteData, suggestion: QuoteSu
   const visitsPerMonth = parseFrequencyToMonthlyVisits(data.frequency)
 
   if (data.surfaces.length > 0) {
+    const total = totalSurface(data)
     for (const s of data.surfaces) {
-      const unitPrice = suggestion.recommended_price / totalSurface(data) / visitsPerMonth
+      // Guard against division by zero if all surface areas are 0
+      const unitPrice = total > 0
+        ? suggestion.recommended_price / total / visitsPerMonth
+        : suggestion.recommended_price / visitsPerMonth
       items.push({
-        id: `li-${Date.now()}-${Math.random()}`,
+        id: `li-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         service: `${data.service_type ?? 'Nettoyage'} — ${s.type}`,
         surface: s.area,
         surface_unit: s.unit,
         frequency: data.frequency,
         unit_price: Math.round(unitPrice * 100) / 100,
         quantity: visitsPerMonth,
-        total: Math.round(unitPrice * s.area * visitsPerMonth * 100) / 100,
+        total: total > 0
+          ? Math.round(unitPrice * s.area * visitsPerMonth * 100) / 100
+          : Math.round(suggestion.recommended_price / data.surfaces.length * 100) / 100,
       })
     }
   } else {

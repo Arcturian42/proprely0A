@@ -100,7 +100,7 @@ export function QuotePDF({ quote, lead }: QuotePDFProps) {
         margin: { left: margin, right: margin },
       })
 
-      y = (doc as any).lastAutoTable.finalY + 8
+      y = ((doc as any).lastAutoTable?.finalY ?? y) + 8
 
       // Cost breakdown
       autoTable(doc, {
@@ -140,7 +140,7 @@ export function QuotePDF({ quote, lead }: QuotePDFProps) {
       doc.text('TOTAL TTC :', rightX + 5, totalsY + 31)
       doc.text(`${quote.total_ttc.toFixed(2)} €`, rightX + rightW - 5, totalsY + 31, { align: 'right' })
 
-      y = Math.max((doc as any).lastAutoTable.finalY, totalsY + 40) + 10
+      y = Math.max((doc as any).lastAutoTable?.finalY ?? totalsY, totalsY + 40) + 10
 
       // Notes
       if (quote.notes) {

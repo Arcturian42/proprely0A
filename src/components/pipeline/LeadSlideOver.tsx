@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { PipelineLead } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { PIPELINE_STATUS_LABELS } from '@/lib/pipeline-actions'
@@ -52,6 +52,7 @@ export function LeadSlideOver({ lead, onClose }: LeadSlideOverProps) {
     }
   }, [handleKeyDown])
 
+  const [activeTab, setActiveTab] = useState('resume')
   const value = lead.value_monthly ?? lead.value_total ?? 0
   const primaryContact = leadContacts.find(c => c.is_primary)
 
@@ -59,6 +60,12 @@ export function LeadSlideOver({ lead, onClose }: LeadSlideOverProps) {
     if (action === 'link') {
       navigator.clipboard.writeText(`${window.location.origin}/pipeline/${lead.id}`)
       toast.success('Lien copié !')
+    } else if (action === 'email') {
+      setActiveTab('emails')
+    } else if (action === 'call') {
+      setActiveTab('calls')
+    } else if (action === 'meeting') {
+      setActiveTab('tasks')
     }
   }
 
@@ -114,7 +121,7 @@ export function LeadSlideOver({ lead, onClose }: LeadSlideOverProps) {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="resume" className="flex-1 flex flex-col min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="flex-shrink-0 border-b border-slate-100 px-3">
             <TabsList className="h-auto bg-transparent rounded-none gap-0 p-0 overflow-x-auto flex flex-nowrap">
               {([

@@ -18,7 +18,6 @@ interface TabSettingsProps {
 }
 
 const ALL_STATUSES: PipelineStatus[] = ['nouveau', 'a_qualifier', 'devis_a_preparer', 'devis_envoye', 'en_discussion', 'gagne', 'perdu', 'archive']
-const STAGES = ['prospect', 'lead', 'qualified', 'customer', 'former'] as const
 
 export function TabSettings({ lead, onClose }: TabSettingsProps) {
   const { updateLead, deleteLead } = usePipelineStore()

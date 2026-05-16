@@ -229,7 +229,7 @@ export const usePipelineStore = create<PipelineStore>()(
         set(s => ({
           leads: s.leads.map(l => l.id === id ? { ...l, status, updated_at: new Date().toISOString() } : l),
           activities: prev ? [...s.activities, {
-            id: `a-${Date.now()}`,
+            id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
             lead_id: id, company_id: 'company-1',
             type: 'status_change' as const,
             content: `Statut changé → ${status}`,
@@ -240,12 +240,12 @@ export const usePipelineStore = create<PipelineStore>()(
       },
 
       addContact: (c) => set(s => ({ contacts: [...s.contacts, c] })),
-      updateContact: (id, data) => set(s => ({ contacts: s.contacts.map(c => c.id === id ? { ...c, ...data } : c) })),
+      updateContact: (id, data) => set(s => ({ contacts: s.contacts.map(c => c.id === id ? { ...c, ...data, updated_at: new Date().toISOString() } : c) })),
       deleteContact: (id) => set(s => ({ contacts: s.contacts.filter(c => c.id !== id) })),
 
       addTask: (t) => set(s => ({
         tasks: [...s.tasks, t],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: t.lead_id, company_id: t.company_id, type: 'task' as const, content: `Tâche créée : ${t.title}`, author: t.assigned_to, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: t.lead_id, company_id: t.company_id, type: 'task' as const, content: `Tâche créée : ${t.title}`, author: t.assigned_to, created_at: new Date().toISOString() }],
       })),
       updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
       deleteTask: (id) => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
@@ -253,33 +253,33 @@ export const usePipelineStore = create<PipelineStore>()(
 
       addNote: (n) => set(s => ({
         notes: [...s.notes, n],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: n.lead_id, company_id: n.company_id, type: 'note' as const, content: n.content.substring(0, 100), author: n.author, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: n.lead_id, company_id: n.company_id, type: 'note' as const, content: n.content.substring(0, 100), author: n.author, created_at: new Date().toISOString() }],
       })),
       updateNote: (id, data) => set(s => ({ notes: s.notes.map(n => n.id === id ? { ...n, ...data, updated_at: new Date().toISOString() } : n) })),
       deleteNote: (id) => set(s => ({ notes: s.notes.filter(n => n.id !== id) })),
 
       addQuote: (q) => set(s => ({
         quotes: [...s.quotes, q],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: q.lead_id, company_id: q.company_id, type: 'quote' as const, content: `Devis ${q.quote_number} créé`, author: 'Utilisateur', related_id: q.id, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: q.lead_id, company_id: q.company_id, type: 'quote' as const, content: `Devis ${q.quote_number} créé`, author: 'Utilisateur', related_id: q.id, created_at: new Date().toISOString() }],
       })),
       updateQuote: (id, data) => set(s => ({ quotes: s.quotes.map(q => q.id === id ? { ...q, ...data, updated_at: new Date().toISOString() } : q) })),
       deleteQuote: (id) => set(s => ({ quotes: s.quotes.filter(q => q.id !== id) })),
 
       addEmail: (e) => set(s => ({
         emails: [...s.emails, e],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: e.lead_id, company_id: e.company_id, type: 'email' as const, content: `Email envoyé : ${e.subject}`, author: 'Utilisateur', related_id: e.id, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: e.lead_id, company_id: e.company_id, type: 'email' as const, content: `Email envoyé : ${e.subject}`, author: 'Utilisateur', related_id: e.id, created_at: new Date().toISOString() }],
       })),
 
       addCall: (c) => set(s => ({
         calls: [...s.calls, c],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: c.lead_id, company_id: c.company_id, type: 'call' as const, content: `Appel ${c.direction === 'outbound' ? 'sortant' : 'entrant'} — ${c.outcome}`, author: c.made_by, related_id: c.id, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: c.lead_id, company_id: c.company_id, type: 'call' as const, content: `Appel ${c.direction === 'outbound' ? 'sortant' : 'entrant'} — ${c.outcome}`, author: c.made_by, related_id: c.id, created_at: new Date().toISOString() }],
       })),
       updateCall: (id, data) => set(s => ({ calls: s.calls.map(c => c.id === id ? { ...c, ...data } : c) })),
       deleteCall: (id) => set(s => ({ calls: s.calls.filter(c => c.id !== id) })),
 
       addFile: (f) => set(s => ({
         files: [...s.files, f],
-        activities: [...s.activities, { id: `a-${Date.now()}`, lead_id: f.lead_id, company_id: f.company_id, type: 'file' as const, content: `Fichier ajouté : ${f.name}`, author: f.uploader, related_id: f.id, created_at: new Date().toISOString() }],
+        activities: [...s.activities, { id: `a-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, lead_id: f.lead_id, company_id: f.company_id, type: 'file' as const, content: `Fichier ajouté : ${f.name}`, author: f.uploader, related_id: f.id, created_at: new Date().toISOString() }],
       })),
       deleteFile: (id) => set(s => ({ files: s.files.filter(f => f.id !== id) })),
 
