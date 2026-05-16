@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function POST(request: Request) {
   const { email, password, companyName } = await request.json()
@@ -14,19 +16,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
   }
 
-  // 1. Create company first
-  const { data: company, error: companyError } = await supabaseAdmin
+  const admin = getAdminClient()
+
+  const { data: company, error: companyError } = await admin
     .from('companies')
     .insert({ name: companyName, email })
     .select()
     .single()
 
   if (companyError || !company) {
-    return NextResponse.json({ error: 'Impossible de créer l\'entreprise' }, { status: 500 })
+    return NextResponse.json({ error: "Impossible de créer l'entreprise" }, { status: 500 })
   }
 
-  // 2. Create auth user with company_id in metadata (trigger will create users row)
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -38,8 +40,7 @@ export async function POST(request: Request) {
   })
 
   if (authError || !authData.user) {
-    // Rollback company
-    await supabaseAdmin.from('companies').delete().eq('id', company.id)
+    await admin.from('companies').delete().eq('id', company.id)
     return NextResponse.json({ error: authError?.message ?? 'Erreur de création du compte' }, { status: 500 })
   }
 
