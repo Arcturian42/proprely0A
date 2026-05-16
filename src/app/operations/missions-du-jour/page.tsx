@@ -80,124 +80,103 @@ export default function MissionsDuJourPage() {
   }
 
   const MissionCard = ({ mission }: { mission: Mission }) => (
-    <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
-      <div className="flex gap-4">
-        {/* Left accent bar */}
-        <div className={cn('w-1 rounded-full flex-shrink-0', getStatusAccentColor(mission.status))} />
-
-        {/* Time column */}
-        <div className="w-16 flex-shrink-0 text-center">
-          <p className="text-[18px] font-bold text-[#0F172A] leading-none">
-            {mission.start_time ? mission.start_time.slice(0, 5) : '—'}
-          </p>
-          <p className="text-[11px] text-[#94A3B8] mt-1">{mission.planned_hours}h</p>
-        </div>
-
-        {/* Main column */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-[#0F172A]">{mission.client?.name}</p>
-          {mission.site?.name && (
-            <p className="text-[12px] text-[#475569] flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3 h-3 flex-shrink-0" /> {mission.site.name}
-            </p>
-          )}
-          {mission.site?.address && (
-            <p className="text-[11px] text-[#94A3B8] mt-0.5">{mission.site.address}
-              {mission.site.access_code && <span className="ml-1">(Code: {mission.site.access_code})</span>}
-            </p>
-          )}
-
-          {/* Agents row */}
-          {mission.agents && mission.agents.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {mission.agents.map(agent => (
-                <div key={agent.id} className="flex items-center gap-1">
-                  <div className="w-6 h-6 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[10px] font-bold text-[#6366F1]">
-                    {agent.first_name[0]}{agent.last_name[0]}
-                  </div>
-                  <span className="text-[11px] text-[#475569]">{agent.first_name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {mission.sop && (
-            <div className="flex items-center gap-1 text-[11px] text-[#6366F1] mt-2">
-              <BookOpen className="w-3 h-3" />
-              Protocole: {mission.sop.title}
-            </div>
-          )}
-
-          {mission.notes && (
-            <div className="bg-amber-50 rounded-[6px] px-2.5 py-1.5 mt-2 text-[11px] text-amber-700">
-              {mission.notes}
-            </div>
-          )}
-        </div>
-
-        {/* Right column: status + actions */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <StatusBadge status={mission.status} />
-          <div className="flex flex-col gap-1.5 mt-1">
-            {mission.status === 'prevue' && (
-              <button
-                className="bg-[#6366F1] text-white rounded-[8px] h-8 px-3 text-[12px] font-semibold hover:bg-indigo-700 transition-colors"
-                onClick={() => handleUpdateStatus(mission, 'en_cours')}
-              >
-                Démarrer
-              </button>
-            )}
-            {mission.status === 'en_cours' && (
-              <>
-                <button
-                  className="bg-emerald-500 text-white rounded-[8px] h-8 px-3 text-[12px] font-semibold hover:bg-emerald-600 transition-colors"
-                  onClick={() => handleUpdateStatus(mission, 'a_valider')}
-                >
-                  Terminer
-                </button>
-                <button
-                  className="bg-red-50 text-red-600 border border-red-200 rounded-[8px] h-8 px-3 text-[12px] font-medium hover:bg-red-100 transition-colors"
-                  onClick={() => handleUpdateStatus(mission, 'probleme_signale')}
-                >
-                  Signaler problème
-                </button>
-              </>
-            )}
-            {mission.status === 'a_valider' && (
-              <button
-                className="bg-[#6366F1] text-white rounded-[8px] h-8 px-3 text-[12px] font-semibold hover:bg-indigo-700 transition-colors"
-                onClick={() => handleUpdateStatus(mission, 'terminee')}
-              >
-                Valider
-              </button>
-            )}
-            {mission.status === 'terminee' && (
-              <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
-                <CheckCircle2 className="w-3 h-3" /> Validée
-              </div>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex">
+      {/* Status bar */}
+      <div className={cn('w-1 flex-shrink-0', getStatusAccentColor(mission.status))} />
+      {/* Content */}
+      <div className="flex-1 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-base font-semibold text-gray-900">{mission.client?.name}</p>
+            {mission.site?.name && (
+              <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                <MapPin className="w-3 h-3 flex-shrink-0" /> {mission.site.name}
+              </p>
             )}
           </div>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <StatusBadge status={mission.status} />
+            <div className="flex flex-col gap-1.5">
+              {mission.status === 'prevue' && (
+                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => handleUpdateStatus(mission, 'en_cours')}>
+                  Démarrer
+                </Button>
+              )}
+              {mission.status === 'en_cours' && (
+                <>
+                  <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => handleUpdateStatus(mission, 'a_valider')}>
+                    Terminer
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleUpdateStatus(mission, 'probleme_signale')}>
+                    Signaler problème
+                  </Button>
+                </>
+              )}
+              {mission.status === 'a_valider' && (
+                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => handleUpdateStatus(mission, 'terminee')}>
+                  Valider
+                </Button>
+              )}
+              {mission.status === 'terminee' && (
+                <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                  <CheckCircle2 className="w-3 h-3" /> Validée
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Agent row */}
+        {mission.agents && mission.agents.length > 0 && (
+          <div className="flex items-center gap-2 mt-3">
+            {mission.agents.map(agent => (
+              <div key={agent.id} className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center">
+                  {agent.first_name[0]}{agent.last_name[0]}
+                </div>
+                <span className="text-xs text-gray-600">{agent.first_name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Action row */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+          <span className="text-xs font-mono text-gray-400 flex-1">
+            {mission.start_time ? mission.start_time.slice(0, 5) : '—'} · {mission.planned_hours}h
+          </span>
+          {mission.sop && (
+            <div className="flex items-center gap-1 text-xs text-indigo-600">
+              <BookOpen className="w-3 h-3" /> {mission.sop.title}
+            </div>
+          )}
+        </div>
+
+        {mission.notes && (
+          <div className="bg-amber-50 rounded-md px-2.5 py-1.5 mt-2 text-xs text-amber-700">
+            {mission.notes}
+          </div>
+        )}
       </div>
     </div>
   )
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4">
         {/* Date header */}
-        <div>
-          <p className="text-[13px] font-semibold text-[#6366F1] uppercase tracking-wide">Aujourd'hui</p>
-          <p className="text-[28px] font-bold text-[#0F172A]">
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest">AUJOURD'HUI</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">
             {format(new Date(), 'EEEE d MMMM yyyy', { locale: fr })}
           </p>
         </div>
 
         {/* Today stats */}
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
           {(['prevue', 'en_cours', 'a_valider', 'terminee', 'probleme_signale'] as MissionStatus[]).map(status => (
-            <div key={status} className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.06)] p-3 text-center">
-              <p className="text-[22px] font-bold text-[#0F172A] leading-none">
+            <div key={status} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900">
                 {missions.filter(m => m.scheduled_date === today && m.status === status).length}
               </p>
               <div className="mt-1.5">
@@ -207,15 +186,15 @@ export default function MissionsDuJourPage() {
           ))}
         </div>
 
-        {/* Agent filter bar: horizontal scrollable pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        {/* Agent filter bar */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 flex-nowrap">
           <button
             onClick={() => setFilterAgent('all')}
             className={cn(
-              'px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all cursor-pointer flex-shrink-0',
+              'flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer whitespace-nowrap',
               filterAgent === 'all'
-                ? 'bg-[#6366F1] text-white border-[#6366F1]'
-                : 'border-[#E2E8F0] text-[#475569] bg-white hover:border-[#6366F1]'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
             )}
           >
             Tous les agents
@@ -225,10 +204,10 @@ export default function MissionsDuJourPage() {
               key={a.id}
               onClick={() => setFilterAgent(a.id)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all cursor-pointer flex-shrink-0',
+                'flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer whitespace-nowrap',
                 filterAgent === a.id
-                  ? 'bg-[#6366F1] text-white border-[#6366F1]'
-                  : 'border-[#E2E8F0] text-[#475569] bg-white hover:border-[#6366F1]'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
               )}
             >
               {a.first_name} {a.last_name}
@@ -236,17 +215,17 @@ export default function MissionsDuJourPage() {
           ))}
         </div>
 
-        {/* Status tabs */}
+        {/* Status filter pills */}
         <div className="flex gap-2 flex-wrap">
           {(['all', 'prevue', 'en_cours', 'a_valider', 'terminee', 'probleme_signale'] as const).map(s => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all cursor-pointer',
+                'px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer',
                 filterStatus === s
-                  ? 'bg-[#6366F1] text-white border-[#6366F1]'
-                  : 'border-[#E2E8F0] text-[#475569] bg-white hover:border-[#6366F1]'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
               )}
             >
               {s === 'all' ? 'Tous' : MISSION_STATUS_LABELS[s]}
@@ -255,20 +234,16 @@ export default function MissionsDuJourPage() {
         </div>
 
         <Tabs defaultValue="today">
-          <TabsList className="mb-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] p-1">
-            <TabsTrigger value="today" className="text-[13px] rounded-[6px]">
-              Aujourd'hui ({todayMissions.length})
-            </TabsTrigger>
-            <TabsTrigger value="week" className="text-[13px] rounded-[6px]">
-              Cette semaine ({weekMissions.length})
-            </TabsTrigger>
+          <TabsList className="mb-4">
+            <TabsTrigger value="today">Aujourd'hui ({todayMissions.length})</TabsTrigger>
+            <TabsTrigger value="week">Cette semaine ({weekMissions.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="today">
             {todayMissions.length === 0 ? (
-              <div className="text-center py-16 text-[#94A3B8]">
-                <CheckCircle2 className="w-16 h-16 mx-auto text-[#E2E8F0] mb-4" />
-                <p className="text-[15px] font-medium text-[#475569]">Aucune mission aujourd'hui</p>
+              <div className="text-center py-16 text-gray-400">
+                <CheckCircle2 className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+                <p className="text-sm font-medium text-gray-500">Aucune mission aujourd'hui</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -288,11 +263,11 @@ export default function MissionsDuJourPage() {
                 if (dayMissions.length === 0) return null
                 return (
                   <div key={date}>
-                    <h3 className="text-[13px] font-semibold text-[#475569] mb-3 flex items-center gap-2">
-                      <div className={cn('w-2 h-2 rounded-full', date === today ? 'bg-[#6366F1]' : 'bg-[#94A3B8]')} />
+                    <h3 className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                      <div className={cn('w-2 h-2 rounded-full', date === today ? 'bg-indigo-500' : 'bg-gray-300')} />
                       {format(new Date(date + 'T12:00:00'), 'EEEE d MMMM', { locale: fr })}
                       {date === today && (
-                        <span className="text-[11px] bg-[#EEF2FF] text-[#6366F1] font-semibold px-2 py-0.5 rounded-full ml-1">
+                        <span className="text-xs bg-indigo-50 text-indigo-600 font-semibold px-2 py-0.5 rounded-full ml-1">
                           Aujourd'hui
                         </span>
                       )}
@@ -320,37 +295,20 @@ export default function MissionsDuJourPage() {
           </DialogHeader>
           {selectedMission && (
             <div className="space-y-4">
-              <div className="bg-[#F8FAFC] rounded-[10px] border border-[#E2E8F0] p-3 text-[13px]">
-                <p className="font-semibold text-[#0F172A]">{selectedMission.client?.name}</p>
-                <p className="text-[#475569]">{selectedMission.site?.name}</p>
-                <p className="text-[#94A3B8] mt-0.5">Prévu: {selectedMission.planned_hours}h</p>
+              <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 text-sm">
+                <p className="font-semibold text-gray-900">{selectedMission.client?.name}</p>
+                <p className="text-gray-500">{selectedMission.site?.name}</p>
+                <p className="text-gray-400 mt-0.5">Prévu: {selectedMission.planned_hours}h</p>
               </div>
               <div>
-                <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Heures réalisées</Label>
-                <Input
-                  type="number"
-                  min="0.5"
-                  step="0.5"
-                  value={validationHours}
-                  onChange={e => setValidationHours(e.target.value)}
-                  className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white focus:ring-2 focus:ring-[#6366F1]"
-                />
+                <Label className="text-xs font-medium text-gray-700 mb-1 block">Heures réalisées</Label>
+                <Input type="number" min="0.5" step="0.5" value={validationHours} onChange={e => setValidationHours(e.target.value)} />
               </div>
             </div>
           )}
           <DialogFooter>
-            <button
-              onClick={() => setSelectedMission(null)}
-              className="h-9 px-4 text-[13px] font-medium text-[#475569] border border-[#E2E8F0] rounded-[8px] bg-white hover:bg-[#F8FAFC] transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleValidate}
-              className="h-9 px-4 text-[13px] font-semibold text-white bg-[#6366F1] rounded-[8px] hover:bg-indigo-700 transition-colors"
-            >
-              Valider
-            </button>
+            <Button variant="outline" onClick={() => setSelectedMission(null)}>Annuler</Button>
+            <Button onClick={handleValidate} className="bg-indigo-600 hover:bg-indigo-700 text-white">Valider</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

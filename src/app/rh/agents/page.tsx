@@ -122,25 +122,22 @@ export default function AgentsPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5 bg-[#F8FAFC] min-h-screen">
+      <div className="p-4 sm:p-6 space-y-5">
         {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-bold text-[#0F172A]">Agents d'entretien</h1>
-            <p className="text-[13px] text-[#94A3B8] mt-0.5">Gestion de votre équipe d'agents</p>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Agents d'entretien</h1>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
-              <input
-                className="border border-[#E2E8F0] rounded-[8px] h-9 pl-9 pr-3 text-[13px] bg-white text-[#0F172A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1] w-56"
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                className="pl-9 w-56"
                 placeholder="Rechercher un agent..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-36">
+              <SelectTrigger className="w-36 h-9 text-sm">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -148,48 +145,45 @@ export default function AgentsPage() {
                 {Object.entries(AGENT_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
               </SelectContent>
             </Select>
-            <button
-              onClick={handleOpenCreate}
-              className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] flex items-center gap-2 transition-colors"
-            >
+            <Button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm font-medium flex items-center gap-2">
               <Plus className="w-3.5 h-3.5" /> Nouvel agent
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'AGENTS AU TOTAL', value: totalAgents },
-            { label: 'DISPONIBLES', value: disponibles },
-            { label: 'EN CONGÉ', value: enConge },
+            { label: 'Agents au total', value: totalAgents },
+            { label: 'Disponibles', value: disponibles },
+            { label: 'En congé', value: enConge },
           ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 text-center">
-              <p className="text-[24px] font-bold text-[#0F172A]">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mt-1">{stat.label}</p>
+            <div key={stat.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* Agent cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(agent => (
             <div
               key={agent.id}
-              className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow"
             >
               {/* Avatar */}
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 text-[#6366F1] text-[18px] font-bold flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-700 text-lg font-bold flex items-center justify-center mx-auto">
                 {agent.first_name[0]}{agent.last_name[0]}
               </div>
 
               {/* Name */}
-              <p className="text-[15px] font-bold text-[#0F172A] text-center mt-3">
+              <p className="text-sm font-semibold text-gray-900 text-center mt-3">
                 {agent.first_name} {agent.last_name}
               </p>
 
-              {/* Role / zone */}
-              <p className="text-[12px] text-[#94A3B8] text-center mt-0.5">
+              {/* Zone */}
+              <p className="text-xs text-gray-400 text-center mt-0.5">
                 {agent.specialty || CONTRACT_TYPE_LABELS[agent.contract_type]}{agent.zone ? ` · ${agent.zone}` : ''}
               </p>
 
@@ -198,82 +192,73 @@ export default function AgentsPage() {
                 <StatusBadge status={agent.status} />
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-[#F1F5F9] mt-4 pt-4">
-                {/* Info rows */}
-                <div className="space-y-1.5">
-                  {agent.phone && (
-                    <div className="flex items-center gap-2 text-[12px] text-[#475569]">
-                      <Phone className="w-3.5 h-3.5 text-[#94A3B8] flex-shrink-0" />
-                      {agent.phone}
-                    </div>
-                  )}
-                  {agent.email && (
-                    <div className="flex items-center gap-2 text-[12px] text-[#475569]">
-                      <Mail className="w-3.5 h-3.5 text-[#94A3B8] flex-shrink-0" />
-                      <span className="truncate">{agent.email}</span>
-                    </div>
-                  )}
-                  {agent.zone && (
-                    <div className="flex items-center gap-2 text-[12px] text-[#475569]">
-                      <MapPin className="w-3.5 h-3.5 text-[#94A3B8] flex-shrink-0" />
-                      {agent.zone}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-[12px] text-[#475569]">
-                    <span className="w-3.5 h-3.5 flex-shrink-0 flex items-center justify-center text-[#94A3B8] font-bold text-[10px]">h</span>
-                    {agent.weekly_availability_hours}h/sem · {CONTRACT_TYPE_LABELS[agent.contract_type]}
-                  </div>
-                </div>
-
-                {/* Skills */}
-                {agent.skills && agent.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {agent.skills.map(skill => (
-                      <span key={skill} className="text-[10px] bg-[#EEF2FF] text-[#6366F1] px-2 py-0.5 rounded-full font-medium">
-                        {skill}
-                      </span>
-                    ))}
+              {/* Divider + info rows */}
+              <div className="border-t border-gray-100 mt-4 pt-4 space-y-1.5">
+                {agent.phone && (
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Phone className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    {agent.phone}
                   </div>
                 )}
+                {agent.email && (
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="truncate">{agent.email}</span>
+                  </div>
+                )}
+                {agent.zone && (
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    {agent.zone}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <span className="w-3.5 h-3.5 flex-shrink-0 text-gray-400 font-bold text-[10px] flex items-center justify-center">h</span>
+                  {agent.weekly_availability_hours}h/sem · {CONTRACT_TYPE_LABELS[agent.contract_type]}
+                </div>
+              </div>
 
-                {/* Availability days */}
-                <div className="flex gap-1 mt-3">
-                  {DAYS_KEYS.map((day, idx) => (
-                    <div
-                      key={day}
-                      className={`w-6 h-6 rounded text-[10px] flex items-center justify-center font-medium ${
-                        agent.weekly_availability[day]
-                          ? 'bg-[#EEF2FF] text-[#6366F1]'
-                          : 'bg-[#F8FAFC] text-[#94A3B8]'
-                      }`}
-                    >
-                      {DAYS_FR[idx][0]}
-                    </div>
+              {/* Skills */}
+              {agent.skills && agent.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-3">
+                  {agent.skills.map(skill => (
+                    <span key={skill} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">
+                      {skill}
+                    </span>
                   ))}
                 </div>
+              )}
 
-                {/* Bottom actions */}
-                <div className="mt-4 flex justify-end gap-1">
-                  <button
-                    onClick={() => handleOpenEdit(agent)}
-                    className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-[#475569] hover:bg-[#F8FAFC] transition-colors"
+              {/* Availability days */}
+              <div className="flex gap-1 mt-3">
+                {DAYS_KEYS.map((day, idx) => (
+                  <div
+                    key={day}
+                    className={`w-6 h-6 rounded text-[10px] flex items-center justify-center font-medium ${
+                      agent.weekly_availability[day]
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'bg-gray-50 text-gray-400'
+                    }`}
                   >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(agent.id)}
-                    className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-red-400 hover:bg-red-50 hover:border-red-200 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                    {DAYS_FR[idx][0]}
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-1 mt-4 pt-3 border-t border-gray-100">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(agent)}>
+                  <Edit className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(agent.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
           ))}
 
           {filtered.length === 0 && (
-            <div className="col-span-4 text-center py-16 text-[#94A3B8] text-[13px]">
+            <div className="col-span-full text-center py-16 text-gray-400 text-sm">
               Aucun agent trouvé
             </div>
           )}

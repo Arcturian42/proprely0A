@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { ServiceType } from '@/types'
 import { Plus, Edit, Trash2, Save, Bell, Building2, Layers } from 'lucide-react'
 import { toast } from 'sonner'
@@ -69,26 +70,25 @@ export default function ParametresPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-3xl bg-[#F8FAFC] min-h-screen">
+      <div className="p-4 sm:p-6 max-w-2xl">
         {/* Header */}
-        <div className="mb-5">
-          <h1 className="text-[22px] font-bold text-[#0F172A]">Paramètres</h1>
-          <p className="text-[13px] text-[#94A3B8] mt-0.5">Configuration de votre espace Proprely</p>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-gray-900">Paramètres</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Configuration de votre espace Proprely</p>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-[#F1F5F9] rounded-[8px] p-1 flex gap-1 w-fit mb-5">
+        {/* Tabs bar */}
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6">
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[13px] font-semibold transition-all ${
-                  activeTab === tab.key
-                    ? 'bg-white shadow-sm text-[#0F172A]'
-                    : 'text-[#94A3B8] hover:text-[#475569]'
-                }`}
+                className={activeTab === tab.key
+                  ? 'bg-white shadow-sm text-gray-900 rounded-md px-4 py-1.5 text-sm font-medium cursor-pointer flex items-center gap-2'
+                  : 'px-4 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-md cursor-pointer transition-colors flex items-center gap-2'
+                }
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
@@ -99,124 +99,96 @@ export default function ParametresPage() {
 
         {/* Company tab */}
         {activeTab === 'company' && (
-          <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-5">
-            <div className="p-5 border-b border-[#F1F5F9]">
-              <p className="text-[15px] font-bold text-[#0F172A]">Informations entreprise</p>
-              <p className="text-[12px] text-[#94A3B8] mt-0.5">Vos coordonnées et informations légales</p>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-sm font-semibold text-gray-900">Informations entreprise</p>
+              <p className="text-xs text-gray-500 mt-0.5">Vos coordonnées et informations légales</p>
             </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Nom de l'entreprise</label>
-                  <input
-                    className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                    value={companyForm.name}
-                    onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))}
-                  />
+            <div className="p-5">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Nom de l'entreprise</label>
+                    <Input value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Email</label>
+                    <Input type="email" value={companyForm.email} onChange={e => setCompanyForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Téléphone</label>
+                    <Input value={companyForm.phone} onChange={e => setCompanyForm(f => ({ ...f, phone: e.target.value }))} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Adresse</label>
+                    <Input value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">N° SIRET</label>
+                    <Input value={companyForm.siret} onChange={e => setCompanyForm(f => ({ ...f, siret: e.target.value }))} />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Email</label>
-                  <input
-                    type="email"
-                    className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                    value={companyForm.email}
-                    onChange={e => setCompanyForm(f => ({ ...f, email: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Téléphone</label>
-                  <input
-                    className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                    value={companyForm.phone}
-                    onChange={e => setCompanyForm(f => ({ ...f, phone: e.target.value }))}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Adresse</label>
-                  <input
-                    className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                    value={companyForm.address}
-                    onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-[12px] font-semibold text-[#475569] mb-1 block">N° SIRET</label>
-                  <input
-                    className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                    value={companyForm.siret}
-                    onChange={e => setCompanyForm(f => ({ ...f, siret: e.target.value }))}
-                  />
-                </div>
+                <Button onClick={handleSaveCompany} className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2">
+                  <Save className="w-3.5 h-3.5" /> Sauvegarder
+                </Button>
               </div>
-              <button
-                onClick={handleSaveCompany}
-                className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] flex items-center gap-2 transition-colors"
-              >
-                <Save className="w-3.5 h-3.5" /> Sauvegarder
-              </button>
             </div>
           </div>
         )}
 
         {/* Services tab */}
         {activeTab === 'services' && (
-          <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-5">
-            <div className="p-5 border-b border-[#F1F5F9] flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-[15px] font-bold text-[#0F172A]">Types de services</p>
-                <p className="text-[12px] text-[#94A3B8] mt-0.5">Gérez les prestations proposées</p>
+                <p className="text-sm font-semibold text-gray-900">Types de services</p>
+                <p className="text-xs text-gray-500 mt-0.5">Gérez les prestations proposées</p>
               </div>
-              <button
+              <Button
                 onClick={() => { setEditingService(null); setServiceForm({ name: '', estimated_duration_minutes: '', indicative_price: '' }); setShowServiceForm(true) }}
-                className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] flex items-center gap-2 transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm font-medium flex items-center gap-2"
               >
                 <Plus className="w-3.5 h-3.5" /> Nouveau type
-              </button>
+              </Button>
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
                     {['Nom', 'Durée estimée', 'Prix indicatif', 'Actions'].map(h => (
-                      <th key={h} className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide px-5 py-3 text-left">{h}</th>
+                      <th key={h} className="text-xs font-medium text-gray-500 uppercase tracking-wide px-4 py-3 text-left">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {serviceTypes.map(service => (
-                    <tr key={service.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors">
-                      <td className="px-5 py-3 text-[13px] font-semibold text-[#0F172A]">{service.name}</td>
-                      <td className="px-5 py-3 text-[13px] text-[#475569]">{service.estimated_duration_minutes ? `${service.estimated_duration_minutes} min` : <span className="text-[#94A3B8]">—</span>}</td>
-                      <td className="px-5 py-3 text-[13px] text-[#475569]">{service.indicative_price ? `${service.indicative_price} €` : <span className="text-[#94A3B8]">—</span>}</td>
-                      <td className="px-5 py-3">
+                    <tr key={service.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-0">
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{service.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{service.estimated_duration_minutes ? `${service.estimated_duration_minutes} min` : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{service.indicative_price ? `${service.indicative_price} €` : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button
-                            className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-[#475569] hover:bg-[#F8FAFC] transition-colors"
-                            onClick={() => {
-                              setEditingService(service)
-                              setServiceForm({
-                                name: service.name,
-                                estimated_duration_minutes: service.estimated_duration_minutes?.toString() || '',
-                                indicative_price: service.indicative_price?.toString() || '',
-                              })
-                              setShowServiceForm(true)
-                            }}
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                            setEditingService(service)
+                            setServiceForm({
+                              name: service.name,
+                              estimated_duration_minutes: service.estimated_duration_minutes?.toString() || '',
+                              indicative_price: service.indicative_price?.toString() || '',
+                            })
+                            setShowServiceForm(true)
+                          }}>
                             <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-red-400 hover:bg-red-50 hover:border-red-200 transition-colors"
-                            onClick={() => setConfirmDeleteService(service.id)}
-                          >
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDeleteService(service.id)}>
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {serviceTypes.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="text-center py-10 text-[13px] text-[#94A3B8]">Aucun type de service</td>
+                      <td colSpan={4} className="text-center py-10 text-sm text-gray-400">Aucun type de service</td>
                     </tr>
                   )}
                 </tbody>
@@ -227,10 +199,10 @@ export default function ParametresPage() {
 
         {/* Notifications tab */}
         {activeTab === 'notifications' && (
-          <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-5">
-            <div className="p-5 border-b border-[#F1F5F9]">
-              <p className="text-[15px] font-bold text-[#0F172A]">Préférences de notifications</p>
-              <p className="text-[12px] text-[#94A3B8] mt-0.5">Gérez vos alertes et rappels</p>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-sm font-semibold text-gray-900">Préférences de notifications</p>
+              <p className="text-xs text-gray-500 mt-0.5">Gérez vos alertes et rappels</p>
             </div>
             <div className="p-5 space-y-1">
               {[
@@ -238,17 +210,17 @@ export default function ParametresPage() {
                 { label: 'Alertes problèmes', desc: 'Notification immédiate si problème signalé', active: true },
                 { label: 'Résumé hebdomadaire', desc: 'Email récapitulatif chaque lundi matin', active: false },
               ].map((item, idx, arr) => (
-                <div key={item.label} className={`flex items-center justify-between py-3.5 ${idx < arr.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}>
+                <div key={item.label} className={`flex items-center justify-between py-3.5 ${idx < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                   <div>
-                    <p className="text-[13px] font-semibold text-[#0F172A]">{item.label}</p>
-                    <p className="text-[12px] text-[#94A3B8] mt-0.5">{item.desc}</p>
+                    <p className="text-sm font-semibold text-gray-900">{item.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${item.active ? 'bg-emerald-50 text-emerald-700' : 'bg-[#F1F5F9] text-[#94A3B8]'}`}>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${item.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                     {item.active ? 'Activé' : 'Désactivé'}
                   </span>
                 </div>
               ))}
-              <p className="text-[12px] text-[#94A3B8] pt-2">Configuration des notifications disponible prochainement.</p>
+              <p className="text-xs text-gray-400 pt-2">Configuration des notifications disponible prochainement.</p>
             </div>
           </div>
         )}
@@ -264,40 +236,23 @@ export default function ParametresPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Nom *</label>
-              <input
-                className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                value={serviceForm.name}
-                onChange={e => setServiceForm(f => ({ ...f, name: e.target.value }))}
-              />
+              <label className="text-xs font-medium text-gray-700 mb-1 block">Nom *</label>
+              <Input value={serviceForm.name} onChange={e => setServiceForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
-              <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Durée estimée (min)</label>
-              <input
-                type="number"
-                className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                value={serviceForm.estimated_duration_minutes}
-                onChange={e => setServiceForm(f => ({ ...f, estimated_duration_minutes: e.target.value }))}
-              />
+              <label className="text-xs font-medium text-gray-700 mb-1 block">Durée estimée (min)</label>
+              <Input type="number" value={serviceForm.estimated_duration_minutes} onChange={e => setServiceForm(f => ({ ...f, estimated_duration_minutes: e.target.value }))} />
             </div>
             <div>
-              <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Prix indicatif (€)</label>
-              <input
-                type="number"
-                className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
-                value={serviceForm.indicative_price}
-                onChange={e => setServiceForm(f => ({ ...f, indicative_price: e.target.value }))}
-              />
+              <label className="text-xs font-medium text-gray-700 mb-1 block">Prix indicatif (€)</label>
+              <Input type="number" value={serviceForm.indicative_price} onChange={e => setServiceForm(f => ({ ...f, indicative_price: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowServiceForm(false)}>Annuler</Button>
-            <button
-              onClick={handleSaveService}
-              className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] transition-colors"
-            >
+            <Button onClick={handleSaveService} className="bg-indigo-600 hover:bg-indigo-700 text-white">
               {editingService ? 'Mettre à jour' : 'Créer'}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

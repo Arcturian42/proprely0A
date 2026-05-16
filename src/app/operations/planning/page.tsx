@@ -99,110 +99,106 @@ export default function PlanningPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6">
-        <PageHeader
-          title="Planning des missions"
-          description="Vue calendrier de vos interventions"
-          action={
-            <button
+      <div className="p-4 sm:p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Planning des missions</h1>
+          <div className="flex items-center gap-3">
+            {/* Week nav */}
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
+                onClick={() => setCurrentWeekStart(d => addDays(d, -7))}
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-500" />
+              </button>
+              <span className="text-sm font-medium text-gray-700 px-2">
+                Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}
+              </span>
+              <button
+                className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
+                onClick={() => setCurrentWeekStart(d => addDays(d, 7))}
+              >
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+              </button>
+              <button
+                className="text-xs text-indigo-600 font-medium hover:underline ml-1"
+                onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+              >
+                Aujourd'hui
+              </button>
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-40 h-9 text-sm">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                {Object.entries(MISSION_STATUS_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
               onClick={() => {
                 setForm({ client_id: '', site_id: '', scheduled_date: '', start_time: '', planned_hours: '2', sop_id: '', notes: '', priority: 'normale', service_type: '' })
                 setSelectedAgents([])
                 setShowForm(true)
               }}
-              className="flex items-center gap-2 h-9 px-4 bg-[#6366F1] text-white text-[13px] font-semibold rounded-[8px] hover:bg-indigo-700 transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm font-medium flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Nouvelle mission
-            </button>
-          }
-        />
-
-        {/* Controls */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <button
-              className="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white flex items-center justify-center hover:bg-[#F8FAFC] transition-colors"
-              onClick={() => setCurrentWeekStart(d => addDays(d, -7))}
-            >
-              <ChevronLeft className="w-4 h-4 text-[#475569]" />
-            </button>
-            <span className="text-[15px] font-bold text-[#0F172A] px-2">
-              Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}
-            </span>
-            <button
-              className="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white flex items-center justify-center hover:bg-[#F8FAFC] transition-colors"
-              onClick={() => setCurrentWeekStart(d => addDays(d, 7))}
-            >
-              <ChevronRight className="w-4 h-4 text-[#475569]" />
-            </button>
-            <button
-              className="text-[12px] text-[#6366F1] font-medium hover:underline ml-1"
-              onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-            >
-              Aujourd'hui
-            </button>
+            </Button>
           </div>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40 border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] bg-white">
-              <SelectValue placeholder="Statut" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous</SelectItem>
-              {Object.entries(MISSION_STATUS_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
-        {/* Calendar header: day labels */}
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {weekDays.map((day, idx) => {
-            const isToday = isSameDay(day, new Date())
-            return (
-              <div key={idx} className="text-center">
-                <p className={cn('text-[12px] font-bold uppercase', isToday ? 'text-[#6366F1]' : 'text-[#94A3B8]')}>
-                  {dayNames[idx]}
-                </p>
-                <p className={cn('text-[18px] font-bold mt-0.5', isToday ? 'text-[#6366F1]' : 'text-[#0F172A]')}>
-                  {format(day, 'd')}
-                </p>
-              </div>
-            )
-          })}
-        </div>
+        {/* Calendar card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Day headers */}
+          <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+            {weekDays.map((day, idx) => {
+              const isToday = isSameDay(day, new Date())
+              return (
+                <div key={idx} className="text-center py-2.5">
+                  <p className={cn('text-xs font-medium uppercase', isToday ? 'text-indigo-600 font-semibold' : 'text-gray-400')}>
+                    {dayNames[idx]}
+                  </p>
+                  <p className={cn('text-lg font-bold mt-0.5', isToday ? 'text-indigo-600' : 'text-gray-900')}>
+                    {format(day, 'd')}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
 
-        {/* Calendar grid */}
-        <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
-          <div className="grid grid-cols-7">
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 min-h-[400px] sm:min-h-[500px]">
             {weekDays.map((day, idx) => {
               const dayMissions = getMissionsForDay(day)
               const isToday = isSameDay(day, new Date())
               return (
                 <div key={idx} className={cn(
-                  'border-r border-[#F1F5F9] last:border-0 min-h-[500px] p-2',
-                  isToday && 'bg-[#EEF2FF]/30'
+                  'border-r border-gray-100 last:border-r-0 p-2 min-h-[80px]',
+                  isToday && 'bg-indigo-50/30'
                 )}>
                   {dayMissions.map(mission => (
                     <div
                       key={mission.id}
-                      className="mb-2 p-2.5 rounded-[8px] border-l-[3px] bg-[#EEF2FF] border-l-[#6366F1] hover:shadow-sm transition-shadow cursor-pointer"
+                      className="mb-1.5 rounded-md border-l-2 border-indigo-500 bg-indigo-50 px-2 py-1.5 cursor-pointer hover:bg-indigo-100 transition-colors"
                     >
-                      <p className="text-[12px] font-semibold text-[#0F172A] truncate">{mission.client?.name}</p>
+                      <p className="text-xs font-medium text-gray-900 truncate">{mission.client?.name}</p>
                       {mission.start_time && (
-                        <p className="text-[11px] text-[#6366F1] font-medium mt-0.5">{mission.start_time}</p>
+                        <p className="text-xs text-indigo-600 font-medium">{mission.start_time}</p>
                       )}
                       {mission.agents && mission.agents.length > 0 && (
-                        <p className="text-[10px] text-[#94A3B8] mt-0.5 truncate">
+                        <p className="text-xs text-gray-400 truncate">
                           {mission.agents.map(a => `${a.first_name} ${a.last_name[0]}.`).join(', ')}
                         </p>
                       )}
                     </div>
                   ))}
                   {dayMissions.length === 0 && (
-                    <div className="flex items-center justify-center h-full text-[#94A3B8] text-[12px]">
-                      —
-                    </div>
+                    <p className="text-xs text-gray-300 text-center pt-4">—</p>
                   )}
                 </div>
               )
@@ -211,30 +207,30 @@ export default function PlanningPage() {
         </div>
 
         {/* List view below calendar */}
-        <div className="mt-8">
-          <h2 className="text-[15px] font-bold text-[#0F172A] mb-4">Toutes les missions</h2>
-          <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden divide-y divide-[#F1F5F9]">
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Toutes les missions</h2>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
             {missions
               .filter(m => filterStatus === 'all' || m.status === filterStatus)
               .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
               .map(mission => (
-                <div key={mission.id} className="p-4 flex items-center justify-between hover:bg-[#F8FAFC] transition-colors">
+                <div key={mission.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="text-center min-w-[60px]">
-                      <p className="text-[13px] font-bold text-[#0F172A]">{formatDate(mission.scheduled_date)}</p>
-                      {mission.start_time && <p className="text-[11px] text-[#94A3B8]">{mission.start_time}</p>}
+                      <p className="text-sm font-bold text-gray-900">{formatDate(mission.scheduled_date)}</p>
+                      {mission.start_time && <p className="text-xs text-gray-400">{mission.start_time}</p>}
                     </div>
                     <div>
-                      <p className="text-[13px] font-semibold text-[#0F172A]">{mission.client?.name}</p>
-                      <p className="text-[11px] text-[#475569]">{mission.site?.name}</p>
+                      <p className="text-sm font-semibold text-gray-900">{mission.client?.name}</p>
+                      <p className="text-xs text-gray-500">{mission.site?.name}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1 text-[12px] text-[#475569]">
-                      <Clock className="w-3 h-3 text-[#94A3B8]" /> {mission.planned_hours}h
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <Clock className="w-3 h-3 text-gray-400" /> {mission.planned_hours}h
                     </div>
-                    <div className="flex items-center gap-1 text-[12px] text-[#475569]">
-                      <Users className="w-3 h-3 text-[#94A3B8]" /> {mission.agents?.length || 0}
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <Users className="w-3 h-3 text-gray-400" /> {mission.agents?.length || 0}
                     </div>
                     <StatusBadge status={mission.status} />
                   </div>
@@ -329,18 +325,8 @@ export default function PlanningPage() {
             </div>
           </div>
           <DialogFooter>
-            <button
-              onClick={() => setShowForm(false)}
-              className="h-9 px-4 text-[13px] font-medium text-[#475569] border border-[#E2E8F0] rounded-[8px] bg-white hover:bg-[#F8FAFC] transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleSave}
-              className="h-9 px-4 text-[13px] font-semibold text-white bg-[#6366F1] rounded-[8px] hover:bg-indigo-700 transition-colors"
-            >
-              Planifier
-            </button>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
+            <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white">Planifier</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

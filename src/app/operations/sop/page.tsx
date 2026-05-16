@@ -136,42 +136,36 @@ export default function SopPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5 bg-[#F8FAFC] min-h-screen">
+      <div className="p-4 sm:p-6 space-y-5">
         {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-bold text-[#0F172A]">Protocoles SOP</h1>
-            <p className="text-[13px] text-[#94A3B8] mt-0.5">Bibliothèque de procédures opérationnelles standards</p>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Protocoles SOP</h1>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
-              <input
-                className="border border-[#E2E8F0] rounded-[8px] h-9 pl-9 pr-3 text-[13px] bg-white text-[#0F172A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1] w-56"
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                className="pl-9 w-56"
                 placeholder="Rechercher un SOP..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <button
-              onClick={handleOpenCreate}
-              className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] flex items-center gap-2 transition-colors"
-            >
+            <Button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm font-medium flex items-center gap-2">
               <Plus className="w-3.5 h-3.5" /> Nouveau SOP
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'PROTOCOLES AU TOTAL', value: sops.length },
-            { label: 'CATÉGORIES', value: totalCategories },
-            { label: 'SITES LIÉS', value: totalLinkedSites },
+            { label: 'Protocoles', value: sops.length },
+            { label: 'Catégories', value: totalCategories },
+            { label: 'Sites liés', value: totalLinkedSites },
           ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 text-center">
-              <p className="text-[24px] font-bold text-[#0F172A]">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mt-1">{stat.label}</p>
+            <div key={stat.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -181,82 +175,67 @@ export default function SopPage() {
           {filtered.map(sop => (
             <div
               key={sop.id}
-              className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all cursor-pointer"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedSop(sop)}
             >
-              {/* Top row */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-[10px] bg-[#EEF2FF] flex items-center justify-center flex-shrink-0">
-                    <BookOpen className="w-5 h-5 text-[#6366F1]" />
-                  </div>
-                  <p className="text-[15px] font-bold text-[#0F172A] flex-1 leading-tight">{sop.title}</p>
+              {/* Header */}
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-4 h-4 text-indigo-600" />
                 </div>
-                <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => handleOpenEdit(sop)}
-                    className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-[#475569] hover:bg-[#F8FAFC] transition-colors"
-                  >
+                <p className="text-sm font-semibold text-gray-900 flex-1 leading-tight">{sop.title}</p>
+                <div className="ml-auto flex gap-0.5" onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(sop)}>
                     <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(sop.id)}
-                    className="w-8 h-8 rounded-[6px] border border-[#E2E8F0] flex items-center justify-center text-red-400 hover:bg-red-50 hover:border-red-200 transition-colors"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(sop.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               {/* Category badge */}
               {sop.service_type && (
-                <div className="mt-3">
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${CATEGORY_COLORS[sop.service_type] || 'bg-[#F1F5F9] text-[#475569]'}`}>
+                <div className="mt-2">
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CATEGORY_COLORS[sop.service_type] || 'bg-gray-100 text-gray-500'}`}>
                     {CATEGORY_LABELS[sop.service_type] || sop.service_type}
                   </span>
                 </div>
               )}
 
-              {/* Steps + divider */}
+              {/* Steps */}
               {sop.checklist_items.length > 0 && (
-                <>
-                  <div className="border-t border-[#F1F5F9] mt-4 pt-4">
-                    <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mb-2">Étapes</p>
-                    <div className="space-y-1.5">
-                      {sop.checklist_items.slice(0, 3).map((item, idx) => (
-                        <div key={item.id} className="flex items-start gap-2.5 text-[12px] text-[#475569]">
-                          <span className="w-5 h-5 rounded-full bg-[#F1F5F9] text-[#475569] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                            {idx + 1}
-                          </span>
-                          <span className="line-clamp-1">{item.text}</span>
-                        </div>
-                      ))}
-                      {sop.checklist_items.length > 3 && (
-                        <p className="text-[11px] text-[#94A3B8] pl-7">+{sop.checklist_items.length - 3} autres étapes</p>
-                      )}
+                <div className="space-y-2 mt-4 pt-4 border-t border-gray-100">
+                  {sop.checklist_items.slice(0, 3).map((item, idx) => (
+                    <div key={item.id} className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="w-4 h-4 rounded-full bg-gray-100 text-gray-500 text-[9px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span className="line-clamp-1">{item.text}</span>
                     </div>
-                  </div>
-                </>
+                  ))}
+                  {sop.checklist_items.length > 3 && (
+                    <p className="text-xs text-gray-400 pl-6">+{sop.checklist_items.length - 3} autres étapes</p>
+                  )}
+                </div>
               )}
 
               {/* Footer */}
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#F1F5F9]">
-                <div className="flex items-center gap-3">
-                  {sop.estimated_duration_minutes && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
-                      <span className="text-[12px] text-[#94A3B8]">{sop.estimated_duration_minutes} min</span>
-                    </div>
-                  )}
+              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">
+                {sop.estimated_duration_minutes && (
                   <div className="flex items-center gap-1.5">
-                    <CheckSquare className="w-3.5 h-3.5 text-[#94A3B8]" />
-                    <span className="text-[12px] text-[#94A3B8]">{sop.checklist_items.length} étapes</span>
+                    <Clock className="w-3.5 h-3.5" />
+                    {sop.estimated_duration_minutes} min
                   </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  {sop.checklist_items.length} étapes
                 </div>
                 {(() => {
                   const siteIds = (sop as Sop & { associated_site_ids?: string[] }).associated_site_ids
                   return siteIds && siteIds.length > 0 ? (
-                    <span className="text-[11px] text-[#94A3B8]">{siteIds.length} site{siteIds.length > 1 ? 's' : ''}</span>
+                    <span className="ml-auto">{siteIds.length} site{siteIds.length > 1 ? 's' : ''}</span>
                   ) : null
                 })()}
               </div>
@@ -265,11 +244,11 @@ export default function SopPage() {
 
           {filtered.length === 0 && (
             <div className="col-span-2 flex flex-col items-center py-16">
-              <div className="w-14 h-14 rounded-[14px] bg-[#EEF2FF] flex items-center justify-center mb-4">
-                <FileText className="w-7 h-7 text-[#6366F1]" />
+              <div className="w-14 h-14 rounded-xl bg-indigo-50 flex items-center justify-center mb-4">
+                <FileText className="w-7 h-7 text-indigo-600" />
               </div>
-              <p className="text-[15px] font-semibold text-[#0F172A]">Aucun protocole trouvé</p>
-              <p className="text-[13px] text-[#94A3B8] mt-1">Créez votre premier protocole SOP</p>
+              <p className="text-sm font-semibold text-gray-900">Aucun protocole trouvé</p>
+              <p className="text-xs text-gray-400 mt-1">Créez votre premier protocole SOP</p>
             </div>
           )}
         </div>

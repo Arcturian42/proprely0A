@@ -81,40 +81,34 @@ export default function HeuresPaiePage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5 bg-[#F8FAFC] min-h-screen">
+      <div className="p-4 sm:p-6 space-y-5">
         {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-bold text-[#0F172A]">Heures & Paie</h1>
-            <p className="text-[13px] text-[#94A3B8] mt-0.5">Suivi et validation des heures travaillées</p>
-          </div>
-          <button
-            onClick={handleExportCSV}
-            className="h-9 px-4 bg-white border border-[#E2E8F0] text-[#475569] text-[13px] font-semibold rounded-[8px] flex items-center gap-2 hover:bg-[#F8FAFC] transition-colors"
-          >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Heures & Paie</h1>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex items-center gap-2 self-start sm:self-auto">
             <Download className="w-3.5 h-3.5" /> Export CSV
-          </button>
+          </Button>
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'HEURES PRÉVUES', value: `${totalPlanned.toFixed(1)}h`, color: 'text-[#0F172A]' },
-            { label: 'HEURES VALIDÉES', value: `${totalValidated.toFixed(1)}h`, color: 'text-emerald-600' },
-            { label: 'EN ATTENTE', value: pendingCount, color: 'text-amber-600' },
-            { label: 'COÛT TOTAL', value: formatCurrency(totalCost), color: 'text-[#6366F1]' },
+            { label: 'Heures prévues', value: `${totalPlanned.toFixed(1)}h`, color: 'text-gray-900' },
+            { label: 'Heures validées', value: `${totalValidated.toFixed(1)}h`, color: 'text-emerald-600' },
+            { label: 'En attente', value: pendingCount, color: 'text-amber-600' },
+            { label: 'Coût total', value: formatCurrency(totalCost), color: 'text-indigo-600' },
           ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 text-center">
-              <p className={`text-[22px] font-bold ${stat.color}`}>{stat.value}</p>
-              <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide mt-1">{stat.label}</p>
+            <div key={stat.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-48">
+            <SelectTrigger className="w-48 h-9 text-sm">
               <SelectValue placeholder="Agent" />
             </SelectTrigger>
             <SelectContent>
@@ -125,7 +119,7 @@ export default function HeuresPaiePage() {
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-40">
+            <SelectTrigger className="w-40 h-9 text-sm">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -139,72 +133,76 @@ export default function HeuresPaiePage() {
             type="month"
             value={filterMonth}
             onChange={e => setFilterMonth(e.target.value)}
-            className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-44 outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
+            className="border border-gray-200 rounded-lg h-9 px-3 text-sm bg-white w-44 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
           />
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-[14px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                {['Date', 'Agent', 'Client / Site', 'Prévu', 'Validé', 'Coût/h', 'Coût total', 'Statut', 'Action'].map(h => (
-                  <th key={h} className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide px-4 py-3 text-left whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(entry => (
-                <tr key={entry.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors">
-                  <td className="px-4 py-3 text-[13px] text-[#475569] whitespace-nowrap">{formatDate(entry.date)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-[#6366F1] text-[11px] font-bold flex-shrink-0">
-                        {entry.agent?.first_name?.[0]}
-                      </div>
-                      <span className="text-[13px] font-medium text-[#0F172A] whitespace-nowrap">
-                        {entry.agent?.first_name} {entry.agent?.last_name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-[13px] font-medium text-[#0F172A]">{entry.client?.name}</p>
-                    <p className="text-[12px] text-[#94A3B8]">{entry.site?.name}</p>
-                  </td>
-                  <td className="px-4 py-3 text-[13px] font-semibold text-[#0F172A]">{entry.planned_hours}h</td>
-                  <td className="px-4 py-3 text-[13px]">
-                    {entry.validated_hours ? (
-                      <span className={entry.validated_hours !== entry.planned_hours ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-600'}>
-                        {entry.validated_hours}h
-                      </span>
-                    ) : <span className="text-[#94A3B8]">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-[13px] text-[#475569]">{entry.hourly_cost ? `${entry.hourly_cost} €` : <span className="text-[#94A3B8]">—</span>}</td>
-                  <td className="px-4 py-3 text-[13px] font-semibold text-[#0F172A]">
-                    {entry.total_cost != null ? formatCurrency(entry.total_cost) : '0,00 €'}
-                  </td>
-                  <td className="px-4 py-3"><StatusBadge status={entry.status} /></td>
-                  <td className="px-4 py-3">
-                    {(entry.status === 'a_valider' || entry.status === 'prevue') && (
-                      <button
-                        onClick={() => handleValidate(entry)}
-                        className="h-7 px-3 bg-emerald-50 text-emerald-700 text-[12px] font-semibold rounded-[6px] flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
-                      >
-                        <CheckCircle2 className="w-3 h-3" /> Valider
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-[13px] text-[#94A3B8]">
-                    Aucune entrée trouvée
-                  </td>
+                  {['Date', 'Agent', 'Client / Site', 'Prévu', 'Validé', 'Coût/h', 'Coût total', 'Statut', 'Action'].map(h => (
+                    <th key={h} className="text-xs font-medium text-gray-500 uppercase tracking-wide px-4 py-3 text-left whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(entry => (
+                  <tr key={entry.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-0">
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(entry.date)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {entry.agent?.first_name?.[0]}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                          {entry.agent?.first_name} {entry.agent?.last_name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{entry.client?.name}</p>
+                      <p className="text-xs text-gray-400">{entry.site?.name}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">{entry.planned_hours}h</td>
+                    <td className="px-4 py-3 text-sm">
+                      {entry.validated_hours ? (
+                        <span className={entry.validated_hours !== entry.planned_hours ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-600'}>
+                          {entry.validated_hours}h
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{entry.hourly_cost ? `${entry.hourly_cost} €` : <span className="text-gray-400">—</span>}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                      {entry.total_cost != null ? formatCurrency(entry.total_cost) : '0,00 €'}
+                    </td>
+                    <td className="px-4 py-3"><StatusBadge status={entry.status} /></td>
+                    <td className="px-4 py-3">
+                      {(entry.status === 'a_valider' || entry.status === 'prevue') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7"
+                          onClick={() => handleValidate(entry)}
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Valider
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12 text-sm text-gray-400">
+                      Aucune entrée trouvée
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -216,39 +214,31 @@ export default function HeuresPaiePage() {
           </DialogHeader>
           {selectedEntry && (
             <div className="space-y-4">
-              <div className="bg-[#F8FAFC] rounded-[10px] p-4 text-[13px] space-y-1">
-                <p className="font-semibold text-[#0F172A]">{selectedEntry.agent?.first_name} {selectedEntry.agent?.last_name}</p>
-                <p className="text-[#94A3B8]">{selectedEntry.client?.name} – {selectedEntry.site?.name}</p>
-                <p className="text-[#94A3B8]">Date: {formatDate(selectedEntry.date)}</p>
-                <p className="text-[#94A3B8]">Prévu: {selectedEntry.planned_hours}h</p>
+              <div className="bg-gray-50 rounded-lg border border-gray-100 p-4 text-sm space-y-1">
+                <p className="font-semibold text-gray-900">{selectedEntry.agent?.first_name} {selectedEntry.agent?.last_name}</p>
+                <p className="text-gray-400">{selectedEntry.client?.name} – {selectedEntry.site?.name}</p>
+                <p className="text-gray-400">Date: {formatDate(selectedEntry.date)}</p>
+                <p className="text-gray-400">Prévu: {selectedEntry.planned_hours}h</p>
               </div>
               <div>
-                <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Heures réalisées</label>
+                <label className="text-xs font-medium text-gray-700 mb-1 block">Heures réalisées</label>
                 <input
-                  type="number"
-                  min="0"
-                  max="12"
-                  step="0.5"
+                  type="number" min="0" max="12" step="0.5"
                   value={validatedHours}
                   onChange={e => setValidatedHours(e.target.value)}
-                  className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
+                  className="border border-gray-200 rounded-lg h-9 px-3 text-sm bg-white w-full outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               {selectedEntry.hourly_cost && validatedHours && (
-                <p className="text-[13px] text-[#475569]">
-                  Coût calculé: <span className="font-semibold text-[#0F172A]">{formatCurrency(selectedEntry.hourly_cost * parseFloat(validatedHours))}</span>
+                <p className="text-sm text-gray-500">
+                  Coût calculé: <span className="font-semibold text-gray-900">{formatCurrency(selectedEntry.hourly_cost * parseFloat(validatedHours))}</span>
                 </p>
               )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedEntry(null)}>Annuler</Button>
-            <button
-              onClick={handleConfirmValidation}
-              className="h-9 px-4 bg-[#6366F1] hover:bg-[#5558E8] text-white text-[13px] font-semibold rounded-[8px] transition-colors"
-            >
-              Confirmer
-            </button>
+            <Button onClick={handleConfirmValidation} className="bg-indigo-600 hover:bg-indigo-700 text-white">Confirmer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
