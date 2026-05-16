@@ -18,6 +18,18 @@ import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
   mockOperationalItems, mockSites, mockSops, mockTimeEntries,
 } from '@/lib/mock-data'
+import {
+  fetchAllData,
+  sbAddAgent, sbUpdateAgent, sbDeleteAgent,
+  sbAddClient, sbUpdateClient, sbDeleteClient,
+  sbAddSite, sbUpdateSite, sbDeleteSite,
+  sbAddLead, sbUpdateLead, sbDeleteLead,
+  sbAddOpportunity, sbUpdateOpportunity, sbDeleteOpportunity,
+  sbAddMission, sbUpdateMission, sbUpdateMissionStatus,
+  sbAddSop, sbUpdateSop, sbDeleteSop,
+  sbAddTimeEntry, sbUpdateTimeEntry,
+  sbAddOperationalItem, sbUpdateOperationalItem, sbDeleteOperationalItem,
+} from '@/lib/supabase/queries'
 
 const defaultServiceTypes: ServiceType[] = [
   { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
@@ -54,6 +66,9 @@ interface AppStore {
   serviceTypes: ServiceType[]
   companySettings: CompanySettings
   dashboardKpis: ('missions' | 'clients' | 'agents' | 'items' | 'revenue' | 'conversion')[]
+  isLoading: boolean
+  isInitialized: boolean
+  loadFromSupabase: () => Promise<void>
 
   // Agents
   addAgent: (agent: Agent) => void
@@ -132,53 +147,106 @@ export const useAppStore = create<AppStore>()(
       serviceTypes: defaultServiceTypes,
       companySettings: defaultCompanySettings,
       dashboardKpis: ['missions', 'clients', 'agents', 'items'] as AppStore['dashboardKpis'],
+      isLoading: false,
+      isInitialized: false,
+
+      loadFromSupabase: async () => {
+        set({ isLoading: true })
+        try {
+          const data = await fetchAllData()
+          const agentsList = data.agents as Agent[]
+          const enrichedMissions = (data.missions as (Mission & { mission_agents?: { agent_id: string }[] })[]).map(m => ({
+            ...m,
+            agents: (m.mission_agents ?? [])
+              .map(ma => agentsList.find(a => a.id === ma.agent_id))
+              .filter(Boolean) as Agent[],
+          }))
+          set({ ...data, missions: enrichedMissions, isInitialized: true, isLoading: false })
+        } catch (e) {
+          console.error('Failed to load from Supabase:', e)
+          set({ isLoading: false, isInitialized: true })
+        }
+      },
 
       // Agents
-      addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
-      updateAgent: (id, data) => set(s => ({
-        agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a)
-      })),
-      deleteAgent: (id) => set(s => ({
-        agents: s.agents.filter(a => a.id !== id),
-      })),
+      addAgent: (agent) => {
+        set(s => ({ agents: [...s.agents, agent] }))
+        sbAddAgent(agent).catch(console.error)
+      },
+      updateAgent: (id, data) => {
+        set(s => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a) }))
+        sbUpdateAgent(id, data).catch(console.error)
+      },
+      deleteAgent: (id) => {
+        set(s => ({ agents: s.agents.filter(a => a.id !== id) }))
+        sbDeleteAgent(id).catch(console.error)
+      },
 
       // Clients
-      addClient: (client) => set(s => ({ clients: [...s.clients, client] })),
-      updateClient: (id, data) => set(s => ({
-        clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c)
-      })),
-      deleteClient: (id) => set(s => {
-        const deletedMissionIds = new Set(
-          s.missions.filter(m => m.client_id === id || m.client?.id === id).map(m => m.id)
-        )
-        return {
-          clients: s.clients.filter(c => c.id !== id),
-          sites: s.sites.filter(s2 => s2.client_id !== id),
-          missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
-          timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
-        }
-      }),
+      addClient: (client) => {
+        set(s => ({ clients: [...s.clients, client] }))
+        sbAddClient(client).catch(console.error)
+      },
+      updateClient: (id, data) => {
+        set(s => ({ clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c) }))
+        sbUpdateClient(id, data).catch(console.error)
+      },
+      deleteClient: (id) => {
+        set(s => {
+          const deletedMissionIds = new Set(
+            s.missions.filter(m => m.client_id === id || m.client?.id === id).map(m => m.id)
+          )
+          return {
+            clients: s.clients.filter(c => c.id !== id),
+            sites: s.sites.filter(s2 => s2.client_id !== id),
+            missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
+            timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+          }
+        })
+        sbDeleteClient(id).catch(console.error)
+      },
 
       // Sites
-      addSite: (site) => set(s => ({ sites: [...s.sites, site] })),
-      updateSite: (id, data) => set(s => ({
-        sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
-      deleteSite: (id) => set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) })),
+      addSite: (site) => {
+        set(s => ({ sites: [...s.sites, site] }))
+        sbAddSite(site).catch(console.error)
+      },
+      updateSite: (id, data) => {
+        set(s => ({ sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
+        sbUpdateSite(id, data).catch(console.error)
+      },
+      deleteSite: (id) => {
+        set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) }))
+        sbDeleteSite(id).catch(console.error)
+      },
 
       // Leads
-      addLead: (lead) => set(s => ({ leads: [...s.leads, lead] })),
-      updateLead: (id, data) => set(s => ({
-        leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l)
-      })),
-      deleteLead: (id) => set(s => ({ leads: s.leads.filter(l => l.id !== id) })),
+      addLead: (lead) => {
+        set(s => ({ leads: [...s.leads, lead] }))
+        sbAddLead(lead).catch(console.error)
+      },
+      updateLead: (id, data) => {
+        set(s => ({ leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l) }))
+        sbUpdateLead(id, data).catch(console.error)
+      },
+      deleteLead: (id) => {
+        set(s => ({ leads: s.leads.filter(l => l.id !== id) }))
+        sbDeleteLead(id).catch(console.error)
+      },
 
       // Opportunities
-      addOpportunity: (opp) => set(s => ({ opportunities: [...s.opportunities, opp] })),
-      updateOpportunity: (id, data) => set(s => ({
-        opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o)
-      })),
-      deleteOpportunity: (id) => set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) })),
+      addOpportunity: (opp) => {
+        set(s => ({ opportunities: [...s.opportunities, opp] }))
+        sbAddOpportunity(opp).catch(console.error)
+      },
+      updateOpportunity: (id, data) => {
+        set(s => ({ opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o) }))
+        sbUpdateOpportunity(id, data).catch(console.error)
+      },
+      deleteOpportunity: (id) => {
+        set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) }))
+        sbDeleteOpportunity(id).catch(console.error)
+      },
       winOpportunity: (id) => {
         const state = get()
         const opp = state.opportunities.find(o => o.id === id)
@@ -231,10 +299,15 @@ export const useAppStore = create<AppStore>()(
       },
 
       // Missions
-      addMission: (mission) => set(s => ({ missions: [...s.missions, mission] })),
-      updateMission: (id, data) => set(s => ({
-        missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m)
-      })),
+      addMission: (mission) => {
+        set(s => ({ missions: [...s.missions, mission] }))
+        const agentIds = (mission.agents ?? []).map(a => a.id)
+        sbAddMission(mission, agentIds).catch(console.error)
+      },
+      updateMission: (id, data) => {
+        set(s => ({ missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m) }))
+        sbUpdateMission(id, data).catch(console.error)
+      },
       deleteMission: (id) => set(s => ({ missions: s.missions.filter(m => m.id !== id) })),
       updateMissionStatus: (id, status, validatedHours) => {
         const now = new Date().toISOString()
@@ -247,29 +320,46 @@ export const useAppStore = create<AppStore>()(
               )
             : s.timeEntries,
         }))
+        sbUpdateMissionStatus(id, status, validatedHours).catch(console.error)
       },
 
       // OperationalItems
-      addOperationalItem: (item) => set(s => ({ operationalItems: [...s.operationalItems, item] })),
-      updateOperationalItem: (id, data) => set(s => ({
-        operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i)
-      })),
-      deleteOperationalItem: (id) => set(s => ({
-        operationalItems: s.operationalItems.filter(i => i.id !== id)
-      })),
+      addOperationalItem: (item) => {
+        set(s => ({ operationalItems: [...s.operationalItems, item] }))
+        sbAddOperationalItem(item).catch(console.error)
+      },
+      updateOperationalItem: (id, data) => {
+        set(s => ({ operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i) }))
+        sbUpdateOperationalItem(id, data).catch(console.error)
+      },
+      deleteOperationalItem: (id) => {
+        set(s => ({ operationalItems: s.operationalItems.filter(i => i.id !== id) }))
+        sbDeleteOperationalItem(id).catch(console.error)
+      },
 
       // SOPs
-      addSop: (sop) => set(s => ({ sops: [...s.sops, sop] })),
-      updateSop: (id, data) => set(s => ({
-        sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
-      deleteSop: (id) => set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) })),
+      addSop: (sop) => {
+        set(s => ({ sops: [...s.sops, sop] }))
+        sbAddSop(sop).catch(console.error)
+      },
+      updateSop: (id, data) => {
+        set(s => ({ sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
+        sbUpdateSop(id, data).catch(console.error)
+      },
+      deleteSop: (id) => {
+        set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) }))
+        sbDeleteSop(id).catch(console.error)
+      },
 
       // TimeEntries
-      addTimeEntry: (entry) => set(s => ({ timeEntries: [...s.timeEntries, entry] })),
-      updateTimeEntry: (id, data) => set(s => ({
-        timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te)
-      })),
+      addTimeEntry: (entry) => {
+        set(s => ({ timeEntries: [...s.timeEntries, entry] }))
+        sbAddTimeEntry(entry).catch(console.error)
+      },
+      updateTimeEntry: (id, data) => {
+        set(s => ({ timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te) }))
+        sbUpdateTimeEntry(id, data).catch(console.error)
+      },
 
       // ServiceTypes
       addServiceType: (serviceType) => set(s => ({ serviceTypes: [...s.serviceTypes, serviceType] })),

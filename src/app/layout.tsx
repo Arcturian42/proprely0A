@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Toaster } from 'sonner'
+import { DataProvider } from '@/components/providers/DataProvider'
 
 export const metadata: Metadata = {
   title: 'Proprely Admin',
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className="h-full">
       <body className="min-h-full bg-[#F8FAFC]">
-        {children}
+        <DataProvider>
+          {children}
+        </DataProvider>
         <Toaster position="top-right" richColors />
       </body>
     </html>
