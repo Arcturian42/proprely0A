@@ -65,7 +65,7 @@ export default function AgentsPage() {
     setShowForm(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.first_name || !form.last_name) { toast.error('Prénom et nom requis'); return }
     const hours = parseInt(form.weekly_availability_hours)
     if (isNaN(hours) || hours < 1 || hours > 60) { toast.error('Heures/semaine doit être entre 1 et 60'); return }
