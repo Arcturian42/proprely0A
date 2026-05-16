@@ -40,22 +40,10 @@ export default function ProspectionPage() {
   const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
-
-  useEffect(() => {
-    const saved = localStorage.getItem('proprely-filter-prospection')
-    if (saved) {
-      const { search: s, status } = JSON.parse(saved)
-      setSearch(s || '')
-      setFilterStatus(status || 'all')
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('proprely-filter-prospection', JSON.stringify({ search, status: filterStatus }))
-  }, [search, filterStatus])
   const [showForm, setShowForm] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [form, setForm] = useState(defaultForm)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = leads.filter(l => {
@@ -68,11 +56,13 @@ export default function ProspectionPage() {
   const handleOpenCreate = () => {
     setEditingLead(null)
     setForm(defaultForm)
+    setErrors({})
     setShowForm(true)
   }
 
   const handleOpenEdit = (lead: Lead) => {
     setEditingLead(lead)
+    setErrors({})
     setForm({
       company_name: lead.company_name,
       sector: lead.sector || '',
@@ -89,8 +79,15 @@ export default function ProspectionPage() {
     setShowForm(true)
   }
 
+  const validate = () => {
+    const e: Record<string, string> = {}
+    if (!form.company_name) e.company_name = 'Champ requis'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSave = () => {
-    if (!form.company_name) { toast.error('Nom de l\'entreprise requis'); return }
+    if (!validate()) { toast.error('Veuillez remplir les champs obligatoires'); return }
     const score = form.ai_score ? parseInt(form.ai_score) : null
     if (score !== null && (score < 0 || score > 100)) { toast.error('Le score IA doit être entre 0 et 100'); return }
     if (editingLead) {
@@ -281,7 +278,12 @@ export default function ProspectionPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Nom de l'entreprise *</Label>
-              <Input value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} />
+              <Input
+                value={form.company_name}
+                onChange={e => { setForm(f => ({ ...f, company_name: e.target.value })); setErrors(p => ({ ...p, company_name: '' })) }}
+                className={errors.company_name ? 'border-red-400 focus:ring-red-400' : ''}
+              />
+              {errors.company_name && <p className="text-xs text-red-500 mt-1">{errors.company_name}</p>}
             </div>
             <div>
               <Label>Secteur</Label>

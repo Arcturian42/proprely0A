@@ -162,7 +162,8 @@ export default function CockpitPage() {
   }
 
   const handleCreateMission = () => {
-    if (!assigningItem || !validate()) return
+    if (!assigningItem) return
+    if (!validate()) { toast.error('Veuillez remplir les champs obligatoires'); return }
 
     const agent = agents.find(a => a.id === selectedAgentId)!
     const client = assigningItem.client

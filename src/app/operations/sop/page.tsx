@@ -43,6 +43,7 @@ export default function SopPage() {
   const [form, setForm] = useState({
     title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '', frequency: '',
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [associatedSiteIds, setAssociatedSiteIds] = useState<string[]>([])
   const [checklistItems, setChecklistItems] = useState<{ id: string; text: string }[]>([])
   const [newChecklistItem, setNewChecklistItem] = useState('')
@@ -62,6 +63,7 @@ export default function SopPage() {
   const handleOpenCreate = () => {
     setEditingSop(null)
     setForm({ title: '', service_type: '', estimated_duration_minutes: '', safety_instructions: '', notes: '', frequency: '' })
+    setErrors({})
     setChecklistItems([])
     setRequiredMaterials([])
     setRequiredProducts([])
@@ -71,6 +73,7 @@ export default function SopPage() {
 
   const handleOpenEdit = (sop: Sop) => {
     setEditingSop(sop)
+    setErrors({})
     setForm({
       title: sop.title, service_type: sop.service_type || '',
       estimated_duration_minutes: sop.estimated_duration_minutes?.toString() || '',
@@ -84,8 +87,16 @@ export default function SopPage() {
     setShowForm(true)
   }
 
+  const validate = () => {
+    const e: Record<string, string> = {}
+    if (!form.title) e.title = 'Champ requis'
+    if (!form.service_type) e.service_type = 'Champ requis'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSave = () => {
-    if (!form.title) { toast.error('Titre requis'); return }
+    if (!validate()) { toast.error('Veuillez remplir les champs obligatoires'); return }
     const sopData = {
       ...form,
       estimated_duration_minutes: form.estimated_duration_minutes ? parseInt(form.estimated_duration_minutes) : null,
@@ -349,26 +360,30 @@ export default function SopPage() {
             <div>
               <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Titre *</label>
               <input
-                className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2 focus:ring-[#6366F1]/20 focus:border-[#6366F1]"
+                className={`border rounded-[8px] h-9 px-3 text-[13px] bg-white w-full outline-none focus:ring-2${errors.title ? ' border-red-400 focus:ring-red-400/20' : ' border-[#E2E8F0] focus:ring-[#6366F1]/20 focus:border-[#6366F1]'}`}
                 value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setErrors(p => ({ ...p, title: '' })) }}
               />
+              {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Type de service</label>
-                <Select value={form.service_type} onValueChange={v => setForm(f => ({ ...f, service_type: v }))}>
-                  <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full">
-                    <SelectValue placeholder="Choisir..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nettoyage_bureaux">Nettoyage bureaux</SelectItem>
-                    <SelectItem value="nettoyage_medical">Nettoyage médical</SelectItem>
-                    <SelectItem value="nettoyage_industriel">Nettoyage industriel</SelectItem>
-                    <SelectItem value="nettoyage_residence">Nettoyage résidence</SelectItem>
-                    <SelectItem value="vitrerie">Vitrerie</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Type de service *</label>
+                <div className={errors.service_type ? 'ring-1 ring-red-400 rounded-lg' : ''}>
+                  <Select value={form.service_type} onValueChange={v => { setForm(f => ({ ...f, service_type: v })); setErrors(p => ({ ...p, service_type: '' })) }}>
+                    <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] bg-white w-full">
+                      <SelectValue placeholder="Choisir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nettoyage_bureaux">Nettoyage bureaux</SelectItem>
+                      <SelectItem value="nettoyage_medical">Nettoyage médical</SelectItem>
+                      <SelectItem value="nettoyage_industriel">Nettoyage industriel</SelectItem>
+                      <SelectItem value="nettoyage_residence">Nettoyage résidence</SelectItem>
+                      <SelectItem value="vitrerie">Vitrerie</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {errors.service_type && <p className="text-xs text-red-500 mt-1">{errors.service_type}</p>}
               </div>
               <div>
                 <label className="text-[12px] font-semibold text-[#475569] mb-1 block">Durée estimée (min)</label>

@@ -49,7 +49,7 @@ export default function HeuresPaiePage() {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
       validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
-    toast.success(`${hours}h validées – coût: ${formatCurrency(cost)}`)
+    toast.success('Heures validées avec succès')
     setSelectedEntry(null)
   }
 

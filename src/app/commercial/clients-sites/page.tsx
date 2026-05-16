@@ -36,20 +36,24 @@ export default function ClientsSitesPage() {
     name: '', contact_name: '', email: '', phone: '', billing_address: '',
     city: '', client_type: '', status: 'actif', notes: '',
   })
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
 
   const [siteForm, setSiteForm] = useState({
     client_id: '', name: '', address: '', city: '', surface_area: '',
     access_code: '', access_instructions: '', service_type: '', frequency: '', notes: '',
   })
+  const [siteErrors, setSiteErrors] = useState<Record<string, string>>({})
 
   const handleOpenCreateClient = () => {
     setEditingClient(null)
     setClientForm({ name: '', contact_name: '', email: '', phone: '', billing_address: '', city: '', client_type: '', status: 'actif', notes: '' })
+    setClientErrors({})
     setShowClientForm(true)
   }
 
   const handleOpenEditClient = (client: Client) => {
     setEditingClient(client)
+    setClientErrors({})
     setClientForm({
       name: client.name, contact_name: client.contact_name || '', email: client.email || '',
       phone: client.phone || '', billing_address: client.billing_address || '',
@@ -58,8 +62,16 @@ export default function ClientsSitesPage() {
     setShowClientForm(true)
   }
 
+  const validateClient = () => {
+    const e: Record<string, string> = {}
+    if (!clientForm.name) e.name = 'Champ requis'
+    if (!clientForm.contact_name) e.contact_name = 'Champ requis'
+    setClientErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSaveClient = () => {
-    if (!clientForm.name) { toast.error('Nom requis'); return }
+    if (!validateClient()) { toast.error('Veuillez remplir les champs obligatoires'); return }
     if (!clientForm.email && !clientForm.phone) {
       toast.error('Au moins un email ou un téléphone est requis')
       return
@@ -88,11 +100,13 @@ export default function ClientsSitesPage() {
   const handleOpenCreateSite = () => {
     setEditingSite(null)
     setSiteForm({ client_id: '', name: '', address: '', city: '', surface_area: '', access_code: '', access_instructions: '', service_type: '', frequency: '', notes: '' })
+    setSiteErrors({})
     setShowSiteForm(true)
   }
 
   const handleOpenEditSite = (site: Site) => {
     setEditingSite(site)
+    setSiteErrors({})
     setSiteForm({
       client_id: site.client_id, name: site.name, address: site.address || '', city: site.city || '',
       surface_area: site.surface_area?.toString() || '', access_code: site.access_code || '',
@@ -102,8 +116,17 @@ export default function ClientsSitesPage() {
     setShowSiteForm(true)
   }
 
+  const validateSite = () => {
+    const e: Record<string, string> = {}
+    if (!siteForm.name) e.name = 'Champ requis'
+    if (!siteForm.address) e.address = 'Champ requis'
+    if (!siteForm.client_id) e.client_id = 'Champ requis'
+    setSiteErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSaveSite = () => {
-    if (!siteForm.name || !siteForm.client_id) { toast.error('Nom et client requis'); return }
+    if (!validateSite()) { toast.error('Veuillez remplir les champs obligatoires'); return }
     if (editingSite) {
       updateSite(editingSite.id, {
         ...siteForm, surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
@@ -209,10 +232,10 @@ export default function ClientsSitesPage() {
                       {sites.filter(s => s.client_id === client.id).length} site(s)
                     </span>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditClient(client)} aria-label="Modifier le client">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditClient(client)}>
                         <Edit className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteClient(client.id)} aria-label="Supprimer le client">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteClient(client.id)}>
                         <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </Button>
                     </div>
@@ -257,10 +280,10 @@ export default function ClientsSitesPage() {
                           <td className="px-4 py-3 text-sm text-gray-700">{site.frequency || '—'}</td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)} aria-label="Modifier le site">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
                                 <Edit className="w-3 h-3" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)} aria-label="Supprimer le site">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
                                 <Trash2 className="w-3 h-3 text-red-500" />
                               </Button>
                             </div>
@@ -290,11 +313,21 @@ export default function ClientsSitesPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Nom *</Label>
-              <Input value={clientForm.name} onChange={e => setClientForm(f => ({ ...f, name: e.target.value }))} />
+              <Input
+                value={clientForm.name}
+                onChange={e => { setClientForm(f => ({ ...f, name: e.target.value })); setClientErrors(p => ({ ...p, name: '' })) }}
+                className={clientErrors.name ? 'border-red-400 focus:ring-red-400' : ''}
+              />
+              {clientErrors.name && <p className="text-xs text-red-500 mt-1">{clientErrors.name}</p>}
             </div>
             <div>
-              <Label>Contact</Label>
-              <Input value={clientForm.contact_name} onChange={e => setClientForm(f => ({ ...f, contact_name: e.target.value }))} />
+              <Label>Contact *</Label>
+              <Input
+                value={clientForm.contact_name}
+                onChange={e => { setClientForm(f => ({ ...f, contact_name: e.target.value })); setClientErrors(p => ({ ...p, contact_name: '' })) }}
+                className={clientErrors.contact_name ? 'border-red-400 focus:ring-red-400' : ''}
+              />
+              {clientErrors.contact_name && <p className="text-xs text-red-500 mt-1">{clientErrors.contact_name}</p>}
             </div>
             <div>
               <Label>Téléphone</Label>
@@ -355,20 +388,34 @@ export default function ClientsSitesPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Client *</Label>
-              <Select value={siteForm.client_id} onValueChange={v => setSiteForm(f => ({ ...f, client_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Choisir un client..." /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className={siteErrors.client_id ? 'ring-1 ring-red-400 rounded-lg' : ''}>
+                <Select value={siteForm.client_id} onValueChange={v => { setSiteForm(f => ({ ...f, client_id: v })); setSiteErrors(p => ({ ...p, client_id: '' })) }}>
+                  <SelectTrigger><SelectValue placeholder="Choisir un client..." /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {siteErrors.client_id && <p className="text-xs text-red-500 mt-1">{siteErrors.client_id}</p>}
             </div>
             <div className="col-span-2">
               <Label>Nom du site *</Label>
-              <Input value={siteForm.name} onChange={e => setSiteForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Bureaux 3e étage" />
+              <Input
+                value={siteForm.name}
+                onChange={e => { setSiteForm(f => ({ ...f, name: e.target.value })); setSiteErrors(p => ({ ...p, name: '' })) }}
+                placeholder="Ex: Bureaux 3e étage"
+                className={siteErrors.name ? 'border-red-400 focus:ring-red-400' : ''}
+              />
+              {siteErrors.name && <p className="text-xs text-red-500 mt-1">{siteErrors.name}</p>}
             </div>
             <div className="col-span-2">
-              <Label>Adresse</Label>
-              <Input value={siteForm.address} onChange={e => setSiteForm(f => ({ ...f, address: e.target.value }))} />
+              <Label>Adresse *</Label>
+              <Input
+                value={siteForm.address}
+                onChange={e => { setSiteForm(f => ({ ...f, address: e.target.value })); setSiteErrors(p => ({ ...p, address: '' })) }}
+                className={siteErrors.address ? 'border-red-400 focus:ring-red-400' : ''}
+              />
+              {siteErrors.address && <p className="text-xs text-red-500 mt-1">{siteErrors.address}</p>}
             </div>
             <div>
               <Label>Ville</Label>

@@ -34,6 +34,7 @@ export default function PlanningPage() {
     client_id: '', site_id: '', scheduled_date: '', start_time: '',
     planned_hours: '2', sop_id: '', notes: '', priority: 'normale', service_type: '',
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
   const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -47,9 +48,19 @@ export default function PlanningPage() {
     })
   }
 
+  const validate = () => {
+    const e: Record<string, string> = {}
+    if (!form.client_id) e.client_id = 'Champ requis'
+    if (!form.site_id) e.site_id = 'Champ requis'
+    if (!form.scheduled_date) e.scheduled_date = 'Champ requis'
+    if (!form.start_time) e.start_time = 'Champ requis'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSave = () => {
-    if (!form.client_id || !form.site_id || !form.scheduled_date) {
-      toast.error('Client, site et date requis')
+    if (!validate()) {
+      toast.error('Veuillez remplir les champs obligatoires')
       return
     }
     const missionAgents = agents.filter(a => selectedAgents.includes(a.id))
@@ -109,7 +120,6 @@ export default function PlanningPage() {
               <button
                 className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => setCurrentWeekStart(d => addDays(d, -7))}
-                aria-label="Semaine précédente"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-500" />
               </button>
@@ -119,7 +129,6 @@ export default function PlanningPage() {
               <button
                 className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => setCurrentWeekStart(d => addDays(d, 7))}
-                aria-label="Semaine suivante"
               >
                 <ChevronRight className="w-4 h-4 text-gray-500" />
               </button>
@@ -145,6 +154,7 @@ export default function PlanningPage() {
               onClick={() => {
                 setForm({ client_id: '', site_id: '', scheduled_date: '', start_time: '', planned_hours: '2', sop_id: '', notes: '', priority: 'normale', service_type: '' })
                 setSelectedAgents([])
+                setErrors({})
                 setShowForm(true)
               }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm font-medium flex items-center gap-2"
@@ -251,35 +261,43 @@ export default function PlanningPage() {
           <div className="grid gap-4">
             <div>
               <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Client *</Label>
-              <Select value={form.client_id} onValueChange={v => setForm(f => ({ ...f, client_id: v, site_id: '' }))}>
-                <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] w-full">
-                  <SelectValue placeholder="Choisir un client..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className={errors.client_id ? 'ring-1 ring-red-400 rounded-lg' : ''}>
+                <Select value={form.client_id} onValueChange={v => { setForm(f => ({ ...f, client_id: v, site_id: '' })); setErrors(p => ({ ...p, client_id: '' })) }}>
+                  <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] w-full">
+                    <SelectValue placeholder="Choisir un client..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {errors.client_id && <p className="text-xs text-red-500 mt-1">{errors.client_id}</p>}
             </div>
             <div>
               <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Site *</Label>
-              <Select value={form.site_id} onValueChange={v => setForm(f => ({ ...f, site_id: v }))}>
-                <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] w-full">
-                  <SelectValue placeholder="Choisir un site..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {clientSites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className={errors.site_id ? 'ring-1 ring-red-400 rounded-lg' : ''}>
+                <Select value={form.site_id} onValueChange={v => { setForm(f => ({ ...f, site_id: v })); setErrors(p => ({ ...p, site_id: '' })) }}>
+                  <SelectTrigger className="border border-[#E2E8F0] rounded-[8px] h-9 text-[13px] w-full">
+                    <SelectValue placeholder="Choisir un site..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientSites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {errors.site_id && <p className="text-xs text-red-500 mt-1">{errors.site_id}</p>}
             </div>
             <div className="border-t border-[#F1F5F9] pt-4 mt-4" />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Date *</Label>
-                <Input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] w-full" />
+                <Input type="date" value={form.scheduled_date} onChange={e => { setForm(f => ({ ...f, scheduled_date: e.target.value })); setErrors(p => ({ ...p, scheduled_date: '' })) }} className={`border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] w-full${errors.scheduled_date ? ' border-red-400' : ''}`} />
+                {errors.scheduled_date && <p className="text-xs text-red-500 mt-1">{errors.scheduled_date}</p>}
               </div>
               <div>
-                <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Heure</Label>
-                <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] w-full" />
+                <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Heure *</Label>
+                <Input type="time" value={form.start_time} onChange={e => { setForm(f => ({ ...f, start_time: e.target.value })); setErrors(p => ({ ...p, start_time: '' })) }} className={`border border-[#E2E8F0] rounded-[8px] h-9 px-3 text-[13px] w-full${errors.start_time ? ' border-red-400' : ''}`} />
+                {errors.start_time && <p className="text-xs text-red-500 mt-1">{errors.start_time}</p>}
               </div>
               <div>
                 <Label className="text-[12px] font-semibold text-[#475569] mb-1 block">Durée (h)</Label>
