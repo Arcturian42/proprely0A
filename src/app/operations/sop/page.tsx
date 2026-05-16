@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 
 export default function SopPage() {
   useEffect(() => { document.title = 'SOPs — Proprely' }, [])
-  const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
+  const { sops, addSop, updateSop, deleteSop, sites, companySettings } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [selectedSop, setSelectedSop] = useState<Sop | null>(null)
@@ -77,7 +77,7 @@ export default function SopPage() {
       toast.success('Protocole mis à jour')
     } else {
       const newSop: Sop = {
-        id: `sop-${Date.now()}`, company_id: 'company-1', ...sopData,
+        id: crypto.randomUUID(), company_id: companySettings.id ?? '', ...sopData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addSop(newSop)

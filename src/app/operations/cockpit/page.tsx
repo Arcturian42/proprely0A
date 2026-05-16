@@ -66,7 +66,7 @@ function isSlotConflict(
 
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
-  const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry } = useAppStore()
+  const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry, companySettings } = useAppStore()
 
   // Left panel state
   const [search, setSearch] = useState('')
@@ -170,8 +170,8 @@ export default function CockpitPage() {
     const sop = sops.find(s => s.id === missionForm.sop_id)
 
     const newMission: Mission = {
-      id: `mission-${Date.now()}`,
-      company_id: 'company-1',
+      id: crypto.randomUUID(),
+      company_id: companySettings.id ?? '',
       client_id: assigningItem.client_id,
       site_id: assigningItem.site_id,
       operational_item_id: assigningItem.id,
@@ -200,8 +200,8 @@ export default function CockpitPage() {
 
     // Create time entry
     const te: TimeEntry = {
-      id: `te-${Date.now()}`,
-      company_id: 'company-1',
+      id: crypto.randomUUID(),
+      company_id: companySettings.id ?? '',
       mission_id: newMission.id,
       agent_id: agent.id,
       client_id: assigningItem.client_id,

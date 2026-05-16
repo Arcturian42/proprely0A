@@ -24,7 +24,7 @@ import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
   useEffect(() => { document.title = 'Planning — Proprely' }, [])
-  const { missions, agents, clients, sites, sops, addMission, addTimeEntry } = useAppStore()
+  const { missions, agents, clients, sites, sops, addMission, addTimeEntry, companySettings } = useAppStore()
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -58,7 +58,7 @@ export default function PlanningPage() {
     const now = new Date().toISOString()
 
     const newMission: Mission = {
-      id: missionId, company_id: 'company-1',
+      id: missionId, company_id: companySettings.id ?? '',
       client_id: form.client_id, site_id: form.site_id, operational_item_id: null,
       service_type: form.service_type || null, sop_id: form.sop_id || null,
       status: 'prevue', scheduled_date: form.scheduled_date,
@@ -72,7 +72,7 @@ export default function PlanningPage() {
     for (const agent of missionAgents) {
       addTimeEntry({
         id: crypto.randomUUID(),
-        company_id: 'company-1',
+        company_id: companySettings.id ?? '',
         mission_id: missionId,
         agent_id: agent.id,
         client_id: form.client_id,

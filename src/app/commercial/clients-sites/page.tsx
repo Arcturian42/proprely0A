@@ -23,7 +23,7 @@ import { toast } from 'sonner'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
-  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
+  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite, companySettings } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
@@ -69,7 +69,7 @@ export default function ClientsSitesPage() {
       toast.success('Client mis à jour')
     } else {
       const newClient: Client = {
-        id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
+        id: crypto.randomUUID(), company_id: companySettings.id ?? '', ...clientForm,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addClient(newClient)
@@ -113,7 +113,7 @@ export default function ClientsSitesPage() {
     } else {
       const client = clients.find(c => c.id === siteForm.client_id)
       const newSite: Site = {
-        id: `site-${Date.now()}`, company_id: 'company-1', ...siteForm,
+        id: crypto.randomUUID(), company_id: companySettings.id ?? '', ...siteForm,
         surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
         sop_id: null, created_from_opportunity_id: null, client,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),

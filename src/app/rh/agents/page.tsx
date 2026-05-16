@@ -30,7 +30,7 @@ const defaultForm = {
 
 export default function AgentsPage() {
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
-  const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
+  const { agents, missions, addAgent, updateAgent, deleteAgent, companySettings } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -98,7 +98,7 @@ export default function AgentsPage() {
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
-        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
+        id: crypto.randomUUID(), company_id: companySettings.id ?? '', ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addAgent(newAgent)

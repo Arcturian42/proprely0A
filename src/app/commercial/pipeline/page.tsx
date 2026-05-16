@@ -50,7 +50,7 @@ const defaultForm = {
 
 export default function PipelinePage() {
   useEffect(() => { document.title = 'Pipeline — Proprely' }, [])
-  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
+  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity, companySettings } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
   const [form, setForm] = useState(defaultForm)
@@ -99,7 +99,7 @@ export default function PipelinePage() {
       toast.success('Opportunité mise à jour')
     } else {
       const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`, company_id: 'company-1',
+        id: crypto.randomUUID(), company_id: companySettings.id ?? '',
         lead_id: null, client_id: null, site_id: null,
         ...form,
         estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
