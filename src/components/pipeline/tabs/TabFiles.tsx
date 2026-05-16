@@ -4,9 +4,10 @@ import { useState, useRef, useCallback } from 'react'
 import { PipelineLead, PipelineFile } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { formatFileSize } from '@/lib/pipeline-actions'
+import { uid } from '@/lib/uid'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Upload, File, FileText, Image, Trash2, Download } from 'lucide-react'
+import { Upload, File, FileText, Image as ImageIcon, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -23,7 +24,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 function FileIcon({ type }: { type: string }) {
-  if (type.startsWith('image/')) return <Image className="w-8 h-8 text-blue-500" />
+  if (type.startsWith('image/')) return <ImageIcon className="w-8 h-8 text-blue-500" />
   if (type === 'application/pdf') return <FileText className="w-8 h-8 text-red-500" />
   return <File className="w-8 h-8 text-slate-400" />
 }
@@ -40,7 +41,7 @@ export function TabFiles({ lead }: TabFilesProps) {
   const handleFiles = useCallback((fileList: FileList | null) => {
     if (!fileList) return
     Array.from(fileList).forEach(file => {
-      const id = `f-${Date.now()}-${Math.random()}`
+      const id = uid('f')
       const url = URL.createObjectURL(file)
       objectUrls.current.set(id, url)
       addFile({

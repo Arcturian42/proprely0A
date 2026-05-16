@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { PipelineLead } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { PRIORITY_CONFIG, SOURCE_CONFIG, getDaysInStage, getDaysColor } from '@/lib/pipeline-actions'
@@ -16,11 +17,12 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, onClick, isDragging }: LeadCardProps) {
   const quotes = usePipelineStore(s => s.quotes.filter(q => q.lead_id === lead.id))
+  const [nowSnapshot] = useState(() => Date.now())
   const daysInStage = getDaysInStage(lead.updated_at)
   const priority = PRIORITY_CONFIG[lead.priority]
   const source = SOURCE_CONFIG[lead.source]
   const value = lead.value_monthly ?? lead.value_total ?? 0
-  const isActionOverdue = lead.next_action_date && new Date(lead.next_action_date).getTime() < Date.now()
+  const isActionOverdue = lead.next_action_date && new Date(lead.next_action_date).getTime() < nowSnapshot
 
   return (
     <div

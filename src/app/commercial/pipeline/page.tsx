@@ -8,14 +8,12 @@ import { CreateLeadModal } from '@/components/pipeline/CreateLeadModal'
 import { PipelineStats } from '@/components/pipeline/PipelineStats'
 import { NotificationBell } from '@/components/pipeline/NotificationBell'
 import { usePipelineStore } from '@/lib/pipeline-store'
-import { PipelineLead, PipelineStatus, PipelinePriority, PipelineSource } from '@/types/pipeline'
-import { PIPELINE_STATUS_LABELS } from '@/lib/pipeline-actions'
+import { PipelineLead } from '@/types/pipeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Search, Filter, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
 export default function PipelinePage() {
   useEffect(() => { document.title = 'Pipeline — Proprely' }, [])

@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { PipelineLead, PipelineEmail } from '@/types/pipeline'
+import { PipelineLead } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { EMAIL_TEMPLATES } from '@/lib/pipeline-actions'
+import { uid } from '@/lib/uid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Mail, Send, Clock, CheckCheck, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -48,7 +48,7 @@ export function TabEmails({ lead }: TabEmailsProps) {
     setSending(true)
     await new Promise(r => setTimeout(r, 600))
     addEmail({
-      id: `e-${Date.now()}`,
+      id: uid('e'),
       lead_id: lead.id,
       company_id: lead.company_id,
       direction: 'sent',
@@ -73,7 +73,7 @@ export function TabEmails({ lead }: TabEmailsProps) {
           <Mail className="w-3 h-3" /> Composer
         </Button>
         <div className="flex gap-1">
-          {Object.entries(EMAIL_TEMPLATES).map(([key, tpl]) => (
+          {Object.keys(EMAIL_TEMPLATES).map((key) => (
             <Button key={key} size="sm" variant="outline" className="text-xs h-7" onClick={() => { setShowCompose(true); handleTemplate(key) }}>
               {key === 'introduction' ? 'Intro' : key === 'follow_up' ? 'Suivi' : key === 'quote' ? 'Devis' : key === 'reminder' ? 'Rappel' : 'Merci'}
             </Button>

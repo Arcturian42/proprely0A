@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { PipelineLead, PipelineStatus } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
@@ -21,7 +21,6 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
   const { moveLead } = usePipelineStore()
-  const [draggingId, setDraggingId] = useState<string | null>(null)
 
   const getColumnLeads = useCallback((status: PipelineStatus) =>
     leads
@@ -34,12 +33,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     [leads]
   )
 
-  const handleDragStart = (result: { draggableId: string }) => {
-    setDraggingId(result.draggableId)
-  }
-
   const handleDragEnd = (result: DropResult) => {
-    setDraggingId(null)
     if (!result.destination) return
     const fromStatus = result.source.droppableId as PipelineStatus
     const toStatus = result.destination.droppableId as PipelineStatus
@@ -50,7 +44,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
   }
 
   return (
-    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DragDropContext onDragEnd={handleDragEnd}>
       <div className="flex gap-4 overflow-x-auto pb-4 px-6 min-h-0 h-full">
         {COLUMNS.map(status => {
           const colLeads = getColumnLeads(status)

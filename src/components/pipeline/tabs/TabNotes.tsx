@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { PipelineLead, PipelineNote } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
+import { uid } from '@/lib/uid'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,7 @@ export function TabNotes({ lead }: TabNotesProps) {
   const handleCreate = () => {
     if (!newContent.trim()) return
     addNote({
-      id: `n-${Date.now()}`,
+      id: uid('n'),
       lead_id: lead.id,
       company_id: lead.company_id,
       content: newContent.trim(),

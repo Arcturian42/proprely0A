@@ -17,7 +17,6 @@ import { TabFiles } from './tabs/TabFiles'
 import { TabTimeline } from './tabs/TabTimeline'
 import { TabSettings } from './tabs/TabSettings'
 import { X, Mail, Phone, Calendar, Link2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface LeadSlideOverProps {
@@ -34,10 +33,11 @@ const QUICK_ACTIONS = [
 
 export function LeadSlideOver({ lead, onClose }: LeadSlideOverProps) {
   const { contacts, tasks, quotes } = usePipelineStore()
+  const [nowSnapshot] = useState(() => Date.now())
   const leadContacts = contacts.filter(c => c.lead_id === lead.id)
   const leadTasks = tasks.filter(t => t.lead_id === lead.id && t.status === 'todo')
   const leadQuotes = quotes.filter(q => q.lead_id === lead.id)
-  const overdueTaskCount = leadTasks.filter(t => t.due_date && new Date(t.due_date).getTime() < Date.now()).length
+  const overdueTaskCount = leadTasks.filter(t => t.due_date && new Date(t.due_date).getTime() < nowSnapshot).length
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()

@@ -19,6 +19,15 @@ interface TabSettingsProps {
 
 const ALL_STATUSES: PipelineStatus[] = ['nouveau', 'a_qualifier', 'devis_a_preparer', 'devis_envoye', 'en_discussion', 'gagne', 'perdu', 'archive']
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-slate-600">{label}</Label>
+      {children}
+    </div>
+  )
+}
+
 export function TabSettings({ lead, onClose }: TabSettingsProps) {
   const { updateLead, deleteLead } = usePipelineStore()
   const [form, setForm] = useState({
@@ -69,26 +78,19 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
     onClose()
   }
 
-  const F = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="space-y-1">
-      <Label className="text-xs text-slate-600">{label}</Label>
-      {children}
-    </div>
-  )
-
   return (
     <div className="space-y-6 p-1">
       {/* Pipeline status */}
       <div className="rounded-xl border border-slate-200 p-4 space-y-4">
         <h4 className="font-semibold text-sm text-slate-700">Statut pipeline</h4>
-        <F label="Statut *">
+        <Field label="Statut *">
           <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as PipelineStatus }))}>
             <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               {ALL_STATUSES.map(s => <SelectItem key={s} value={s}>{PIPELINE_STATUS_LABELS[s]}</SelectItem>)}
             </SelectContent>
           </Select>
-        </F>
+        </Field>
         {/* Status visual flow */}
         <div className="flex items-center gap-1 overflow-x-auto py-1">
           {ALL_STATUSES.filter(s => !['archive'].includes(s)).map((s, i, arr) => (
@@ -106,26 +108,26 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
 
         {form.status === 'perdu' && (
           <div className="space-y-2 rounded-lg bg-red-50 border border-red-200 p-3">
-            <F label="Raison de la perte">
+            <Field label="Raison de la perte">
               <Select value={form.lost_reason} onValueChange={v => setForm(f => ({ ...f, lost_reason: v }))}>
                 <SelectTrigger className="h-8 bg-white"><SelectValue placeholder="Choisir..." /></SelectTrigger>
                 <SelectContent>{LOST_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
               </Select>
-            </F>
-            <F label="Commentaire">
+            </Field>
+            <Field label="Commentaire">
               <Textarea value={form.lost_comment} onChange={e => setForm(f => ({ ...f, lost_comment: e.target.value }))} rows={2} className="bg-white text-sm" placeholder="Leçons apprises..." />
-            </F>
+            </Field>
           </div>
         )}
 
         {form.status === 'gagne' && (
           <div className="space-y-2 rounded-lg bg-green-50 border border-green-200 p-3">
-            <F label="Raison du succès">
+            <Field label="Raison du succès">
               <Input value={form.won_reason} onChange={e => setForm(f => ({ ...f, won_reason: e.target.value }))} className="h-8 bg-white" placeholder="Prix, réactivité, qualité..." />
-            </F>
-            <F label="Commentaire">
+            </Field>
+            <Field label="Commentaire">
               <Textarea value={form.won_comment} onChange={e => setForm(f => ({ ...f, won_comment: e.target.value }))} rows={2} className="bg-white text-sm" />
-            </F>
+            </Field>
           </div>
         )}
       </div>
@@ -134,16 +136,16 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
       <div className="rounded-xl border border-slate-200 p-4 space-y-4">
         <h4 className="font-semibold text-sm text-slate-700">Opportunité</h4>
         <div className="grid grid-cols-2 gap-3">
-          <F label="Valeur mensuelle (€/m)">
+          <Field label="Valeur mensuelle (€/m)">
             <Input type="number" value={form.value_monthly} onChange={e => setForm(f => ({ ...f, value_monthly: e.target.value }))} className="h-8" />
-          </F>
-          <F label="Valeur totale (€/an)">
+          </Field>
+          <Field label="Valeur totale (€/an)">
             <Input type="number" value={form.value_total} onChange={e => setForm(f => ({ ...f, value_total: e.target.value }))} className="h-8" />
-          </F>
-          <F label="Probabilité (%)">
+          </Field>
+          <Field label="Probabilité (%)">
             <Input type="number" value={form.probability} onChange={e => setForm(f => ({ ...f, probability: e.target.value }))} className="h-8" min="0" max="100" />
-          </F>
-          <F label="Priorité">
+          </Field>
+          <Field label="Priorité">
             <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v as PipelinePriority }))}>
               <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -152,8 +154,8 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
                 <SelectItem value="froid">🔵 Froid</SelectItem>
               </SelectContent>
             </Select>
-          </F>
-          <F label="Assigné à">
+          </Field>
+          <Field label="Assigné à">
             <Select value={form.assigned_to} onValueChange={v => setForm(f => ({ ...f, assigned_to: v }))}>
               <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -162,8 +164,8 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
                 <SelectItem value="Jean Durand">Jean Durand</SelectItem>
               </SelectContent>
             </Select>
-          </F>
-          <F label="Source">
+          </Field>
+          <Field label="Source">
             <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v as PipelineLead['source'] }))}>
               <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -173,7 +175,7 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
                 <SelectItem value="ai">IA</SelectItem>
               </SelectContent>
             </Select>
-          </F>
+          </Field>
         </div>
       </div>
 
@@ -181,29 +183,29 @@ export function TabSettings({ lead, onClose }: TabSettingsProps) {
       <div className="rounded-xl border border-slate-200 p-4 space-y-3">
         <h4 className="font-semibold text-sm text-slate-700">Prochaine action</h4>
         <div className="grid grid-cols-2 gap-3">
-          <F label="Date">
+          <Field label="Date">
             <Input type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} className="h-8" />
-          </F>
-          <F label="Type">
+          </Field>
+          <Field label="Type">
             <Select value={form.next_action_type} onValueChange={v => setForm(f => ({ ...f, next_action_type: v }))}>
               <SelectTrigger className="h-8"><SelectValue placeholder="Choisir..." /></SelectTrigger>
               <SelectContent>
                 {['appel', 'email', 'visite', 'devis', 'relance', 'negociation', 'signature'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
-          </F>
-          <F label="Clôture estimée">
+          </Field>
+          <Field label="Clôture estimée">
             <Input type="date" value={form.estimated_close_date} onChange={e => setForm(f => ({ ...f, estimated_close_date: e.target.value }))} className="h-8" />
-          </F>
+          </Field>
         </div>
       </div>
 
       {/* Tags */}
       <div className="rounded-xl border border-slate-200 p-4 space-y-2">
         <h4 className="font-semibold text-sm text-slate-700">Tags</h4>
-        <F label="Tags (séparés par virgule)">
+        <Field label="Tags (séparés par virgule)">
           <Input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="Industriel, Urgent, VIP..." className="h-8" />
-        </F>
+        </Field>
       </div>
 
       <Button onClick={handleSave} className="w-full">Sauvegarder</Button>

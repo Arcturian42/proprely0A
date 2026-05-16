@@ -7,7 +7,6 @@ import { PRIORITY_CONFIG, SOURCE_CONFIG } from '@/lib/pipeline-actions'
 import { cn } from '@/lib/utils'
 import { Mail, Phone, Building2, MapPin, Tag } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 
 interface TabResumeProps {
   lead: PipelineLead

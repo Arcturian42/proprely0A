@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, RotateCcw, Check } from 'lucide-react'
 import { ParsedQuoteData } from '@/types/pipeline'
@@ -45,19 +45,22 @@ interface SpeechRecognition extends EventTarget {
   stop(): void
 }
 
-declare var SpeechRecognition: {
-  new(): SpeechRecognition
-}
+type SpeechRecognitionCtor = new () => SpeechRecognition
 
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
+    SpeechRecognition?: SpeechRecognitionCtor
+    webkitSpeechRecognition?: SpeechRecognitionCtor
   }
 }
 
+function getSpeechRecognition(): SpeechRecognitionCtor | undefined {
+  if (typeof window === 'undefined') return undefined
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition
+}
+
 export function VocalInput({ onParsed, className }: VocalInputProps) {
-  const [supported, setSupported] = useState(false)
+  const [supported] = useState<boolean>(() => !!getSpeechRecognition())
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [parsed, setParsed] = useState<ParsedQuoteData | null>(null)
@@ -65,19 +68,16 @@ export function VocalInput({ onParsed, className }: VocalInputProps) {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const startTimeRef = useRef<number>(0)
 
-  useEffect(() => {
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition
-    setSupported(!!SpeechRec)
-  }, [])
-
   const handleStart = useCallback(() => {
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition
+    const SpeechRec = getSpeechRecognition()
     if (!SpeechRec) return
 
     const rec = new SpeechRec()
     rec.lang = 'fr-FR'
     rec.continuous = true
     rec.interimResults = true
+
+    let finalTranscript = ''
 
     rec.onstart = () => {
       setListening(true)
@@ -89,13 +89,17 @@ export function VocalInput({ onParsed, className }: VocalInputProps) {
       for (let i = 0; i < e.results.length; i++) {
         full += e.results[i][0].transcript + ' '
       }
-      setTranscript(full.trim())
+      finalTranscript = full.trim()
+      setTranscript(finalTranscript)
     }
 
     rec.onend = () => {
       setListening(false)
-      const elapsed = Date.now() - startTimeRef.current
-      setProcessingMs(elapsed)
+      setProcessingMs(Date.now() - startTimeRef.current)
+      // Auto-parse when speech recognition stops
+      if (finalTranscript) {
+        setParsed(parseVocalInput(finalTranscript))
+      }
     }
 
     rec.onerror = () => setListening(false)
@@ -108,12 +112,6 @@ export function VocalInput({ onParsed, className }: VocalInputProps) {
     recognitionRef.current?.stop()
     setListening(false)
   }, [])
-
-  const handleParse = useCallback(() => {
-    if (!transcript) return
-    const data = parseVocalInput(transcript)
-    setParsed(data)
-  }, [transcript])
 
   const handleConfirm = useCallback(() => {
     if (!parsed) return
@@ -129,12 +127,6 @@ export function VocalInput({ onParsed, className }: VocalInputProps) {
     setProcessingMs(null)
     handleStop()
   }, [handleStop])
-
-  useEffect(() => {
-    if (!listening && transcript && !parsed) {
-      handleParse()
-    }
-  }, [listening, transcript, parsed, handleParse])
 
   if (!supported) {
     return (

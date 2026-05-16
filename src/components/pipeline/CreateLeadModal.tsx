@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { usePipelineStore } from '@/lib/pipeline-store'
+import { uid } from '@/lib/uid'
 import { PipelineLead, PipelinePriority, PipelineSource } from '@/types/pipeline'
 import { toast } from 'sonner'
 
@@ -51,7 +52,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
     }
 
     const now = new Date().toISOString()
-    const leadId = `lead-${Date.now()}`
+    const leadId = uid('lead')
 
     const newLead: PipelineLead = {
       id: leadId,
@@ -74,7 +75,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
 
     if (form.contact_first_name) {
       addContact({
-        id: `c-${Date.now()}`,
+        id: uid('c'),
         lead_id: leadId,
         company_id: 'company-1',
         first_name: form.contact_first_name,

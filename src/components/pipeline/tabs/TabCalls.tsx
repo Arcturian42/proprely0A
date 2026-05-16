@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PipelineLead, PipelineCall } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
+import { uid } from '@/lib/uid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,7 +48,7 @@ export function TabCalls({ lead }: TabCallsProps) {
 
   const handleCreate = () => {
     addCall({
-      id: `cl-${Date.now()}`,
+      id: uid('cl'),
       lead_id: lead.id,
       company_id: lead.company_id,
       contact_id: primaryContact?.id,

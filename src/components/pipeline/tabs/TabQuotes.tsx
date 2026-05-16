@@ -7,10 +7,10 @@ import { QuoteBuilder } from '../QuoteBuilder'
 import { QuotePDF } from '../QuotePDF'
 import { sendQuoteEmail } from '@/lib/resend'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Mail, Copy, Trash2, CheckCircle, Clock, X } from 'lucide-react'
 import { generateQuoteNumber } from '@/lib/pipeline-actions'
+import { uid } from '@/lib/uid'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -121,7 +121,7 @@ function QuoteCard({ quote, lead, onUpdate, onDelete, onDuplicate }: { quote: Qu
           </div>
           {quote.valid_until && (
             <div className="text-right">
-              <p className="text-xs text-slate-400">Valide jusqu'au</p>
+              <p className="text-xs text-slate-400">Valide jusqu&apos;au</p>
               <p className="text-xs text-slate-600">{new Date(quote.valid_until).toLocaleDateString('fr-FR')}</p>
             </div>
           )}
@@ -171,7 +171,7 @@ export function TabQuotes({ lead }: TabQuotesProps) {
     const newNumber = generateQuoteNumber(quotes.length)
     addQuote({
       ...source,
-      id: `q-${Date.now()}`,
+      id: uid('q'),
       quote_number: newNumber,
       status: 'brouillon',
       email_sent_at: undefined,
@@ -192,7 +192,6 @@ export function TabQuotes({ lead }: TabQuotesProps) {
         </div>
         <QuoteBuilder
           lead={lead}
-          existingQuoteCount={leadQuotes.length}
           onSaved={() => handleSaved()}
           onCancel={() => setCreating(false)}
         />

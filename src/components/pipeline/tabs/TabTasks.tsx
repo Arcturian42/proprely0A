@@ -4,12 +4,12 @@ import { useState } from 'react'
 import { PipelineLead, PipelineTask } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { TASK_TEMPLATES } from '@/lib/pipeline-actions'
+import { uid } from '@/lib/uid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Plus, Trash2, AlertTriangle, Clock, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -18,8 +18,7 @@ interface TabTasksProps {
   lead: PipelineLead
 }
 
-function groupTasks(tasks: PipelineTask[]) {
-  const now = Date.now()
+function groupTasks(tasks: PipelineTask[], now: number) {
   const overdue = tasks.filter(t => t.status === 'todo' && t.due_date && new Date(t.due_date).getTime() < now)
   const thisWeek = tasks.filter(t => {
     if (t.status !== 'todo') return false
@@ -37,8 +36,8 @@ function groupTasks(tasks: PipelineTask[]) {
   return { overdue, thisWeek, later, done }
 }
 
-function TaskItem({ task, onComplete, onDelete }: { task: PipelineTask; onComplete: (id: string) => void; onDelete: (id: string) => void }) {
-  const isOverdue = task.status === 'todo' && task.due_date && new Date(task.due_date).getTime() < Date.now()
+function TaskItem({ task, now, onComplete, onDelete }: { task: PipelineTask; now: number; onComplete: (id: string) => void; onDelete: (id: string) => void }) {
+  const isOverdue = task.status === 'todo' && task.due_date && new Date(task.due_date).getTime() < now
   return (
     <div className={cn('flex items-start gap-3 py-2.5 px-3 rounded-lg border', task.status === 'done' ? 'bg-slate-50 border-slate-100' : isOverdue ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200')}>
       <Checkbox
@@ -70,8 +69,9 @@ function TaskItem({ task, onComplete, onDelete }: { task: PipelineTask; onComple
 
 export function TabTasks({ lead }: TabTasksProps) {
   const { tasks, addTask, completeTask, deleteTask } = usePipelineStore()
+  const [nowSnapshot] = useState(() => Date.now())
   const leadTasks = tasks.filter(t => t.lead_id === lead.id)
-  const { overdue, thisWeek, later, done } = groupTasks(leadTasks)
+  const { overdue, thisWeek, later, done } = groupTasks(leadTasks, nowSnapshot)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', due_date: '', priority: 'medium' as PipelineTask['priority'], assigned_to: 'Marie Dupont' })
@@ -79,7 +79,7 @@ export function TabTasks({ lead }: TabTasksProps) {
   const handleCreate = () => {
     if (!form.title.trim()) { toast.error('Titre requis'); return }
     addTask({
-      id: `t-${Date.now()}`,
+      id: uid('t'),
       lead_id: lead.id,
       company_id: lead.company_id,
       title: form.title,
@@ -99,16 +99,16 @@ export function TabTasks({ lead }: TabTasksProps) {
   const handleComplete = (id: string) => { completeTask(id); toast.success('Tâche complétée ✅') }
   const handleDelete = (id: string) => { deleteTask(id); toast.success('Tâche supprimée') }
 
-  const Section = ({ title, tasks, icon: Icon, color }: { title: string; tasks: PipelineTask[]; icon: React.ElementType; color: string }) => {
-    if (tasks.length === 0) return null
+  const renderSection = (title: string, sectionTasks: PipelineTask[], Icon: React.ElementType, color: string) => {
+    if (sectionTasks.length === 0) return null
     return (
       <div>
         <div className={cn('flex items-center gap-2 mb-2', color)}>
           <Icon className="w-4 h-4" />
-          <p className="text-xs font-semibold uppercase tracking-wide">{title} ({tasks.length})</p>
+          <p className="text-xs font-semibold uppercase tracking-wide">{title} ({sectionTasks.length})</p>
         </div>
         <div className="space-y-1">
-          {tasks.map(t => <TaskItem key={t.id} task={t} onComplete={handleComplete} onDelete={handleDelete} />)}
+          {sectionTasks.map(t => <TaskItem key={t.id} task={t} now={nowSnapshot} onComplete={handleComplete} onDelete={handleDelete} />)}
         </div>
       </div>
     )
@@ -180,10 +180,10 @@ export function TabTasks({ lead }: TabTasksProps) {
 
       {/* Task groups */}
       <div className="space-y-4">
-        <Section title="En retard" tasks={overdue} icon={AlertTriangle} color="text-red-600" />
-        <Section title="Cette semaine" tasks={thisWeek} icon={Clock} color="text-yellow-600" />
-        <Section title="Plus tard" tasks={later} icon={Clock} color="text-slate-500" />
-        <Section title="Terminées" tasks={done} icon={CheckCircle} color="text-green-600" />
+        {renderSection('En retard', overdue, AlertTriangle, 'text-red-600')}
+        {renderSection('Cette semaine', thisWeek, Clock, 'text-yellow-600')}
+        {renderSection('Plus tard', later, Clock, 'text-slate-500')}
+        {renderSection('Terminées', done, CheckCircle, 'text-green-600')}
         {leadTasks.length === 0 && <p className="text-center text-sm text-slate-400 py-6">Aucune tâche</p>}
       </div>
     </div>

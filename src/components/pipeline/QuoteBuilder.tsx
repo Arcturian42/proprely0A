@@ -5,6 +5,7 @@ import { PipelineLead, Quote, QuoteLineItem, ParsedQuoteData } from '@/types/pip
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { generateAISuggestion, parsedDataToLineItems, recalculateQuote } from '@/lib/quote-calculator'
 import { generateQuoteNumber } from '@/lib/pipeline-actions'
+import { uid } from '@/lib/uid'
 import { VocalInput } from './VocalInput'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +22,6 @@ interface QuoteBuilderProps {
   lead: PipelineLead
   onSaved: (quote: Quote) => void
   onCancel: () => void
-  existingQuoteCount: number
 }
 
 const SERVICES = ['Nettoyage bureaux', 'Nettoyage moquette', 'Vitrerie', 'Nettoyage médical', 'Nettoyage industriel', 'Parties communes', 'Nettoyage fin de chantier', 'Autre']
@@ -73,7 +73,7 @@ function AISuggestionPanel({ data, onApply }: AISuggestionPanelProps) {
   )
 }
 
-export function QuoteBuilder({ lead, onSaved, onCancel, existingQuoteCount }: QuoteBuilderProps) {
+export function QuoteBuilder({ lead, onSaved, onCancel }: QuoteBuilderProps) {
   const { quotes, addQuote } = usePipelineStore()
   const [mode, setMode] = useState<'vocal' | 'manual'>('vocal')
   const [parsedData, setParsedData] = useState<ParsedQuoteData | null>(null)
@@ -121,7 +121,7 @@ export function QuoteBuilder({ lead, onSaved, onCancel, existingQuoteCount }: Qu
     const price = parseFloat(manualPrice) || 0
     const qty = 1
     setLineItems(l => [...l, {
-      id: `li-${Date.now()}`,
+      id: uid('li'),
       service: manualService,
       surface: manualSurface ? parseFloat(manualSurface) : undefined,
       frequency: manualFreq || undefined,
@@ -148,7 +148,7 @@ export function QuoteBuilder({ lead, onSaved, onCancel, existingQuoteCount }: Qu
     setSaving(true)
     const quoteNumber = generateQuoteNumber(quotes.length)
     const newQuote: Quote = {
-      id: `q-${Date.now()}`,
+      id: uid('q'),
       lead_id: lead.id,
       company_id: lead.company_id,
       quote_number: quoteNumber,
@@ -304,7 +304,7 @@ export function QuoteBuilder({ lead, onSaved, onCancel, existingQuoteCount }: Qu
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-sm" placeholder="Conditions particulières..." />
         </div>
         <div>
-          <Label className="text-xs">Valide jusqu'au</Label>
+          <Label className="text-xs">Valide jusqu&apos;au</Label>
           <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-8" />
         </div>
       </div>
