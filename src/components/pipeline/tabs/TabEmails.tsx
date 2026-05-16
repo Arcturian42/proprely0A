@@ -119,13 +119,13 @@ export function TabEmails({ lead }: TabEmailsProps) {
                     <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">Reçu</span>
                   )}
                   <div className="flex items-center gap-1 text-xs text-slate-500">
-                    {STATUS_ICONS[email.status]}
-                    {STATUS_LABELS[email.status]}
+                    {STATUS_ICONS[email.status] ?? null}
+                    {STATUS_LABELS[email.status] ?? email.status}
                   </div>
                 </div>
                 <span className="text-xs text-slate-400 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {new Date(email.sent_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(email.sent_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <p className="text-sm font-medium text-slate-800">{email.subject}</p>

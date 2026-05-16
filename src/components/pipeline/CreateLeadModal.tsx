@@ -19,7 +19,7 @@ interface CreateLeadModalProps {
 const SECTORS = ['Bureaux', 'Médical', 'Industriel', 'Commerce', 'Éducation', 'Hôtellerie', 'Immobilier', 'Public', 'Tech', 'Autre']
 
 export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadModalProps) {
-  const { leads, addLead, addContact } = usePipelineStore()
+  const { leads, contacts, addLead, addContact } = usePipelineStore()
   const [form, setForm] = useState({
     company_name: '',
     contact_first_name: '',
@@ -36,12 +36,11 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
 
   const set = (k: keyof typeof form, v: string) => {
     setForm(f => ({ ...f, [k]: v }))
-    if (k === 'company_name' || k === 'email') {
-      const dup = leads.some(l =>
-        (k === 'company_name' && l.company_name.toLowerCase() === v.toLowerCase()) ||
-        (k === 'email' && v && false) // email check on contacts in real impl
-      )
-      setDuplicate(dup)
+    if (k === 'company_name') {
+      setDuplicate(!!v && leads.some(l => l.company_name.toLowerCase() === v.toLowerCase()))
+    }
+    if (k === 'email') {
+      setDuplicate(!!v && contacts.some(c => c.email?.toLowerCase() === v.toLowerCase()))
     }
   }
 

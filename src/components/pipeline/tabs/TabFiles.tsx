@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { PipelineLead, PipelineFile } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { formatFileSize } from '@/lib/pipeline-actions'
@@ -34,13 +34,17 @@ export function TabFiles({ lead }: TabFilesProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [category, setCategory] = useState<PipelineFile['category']>('company')
   const [dragging, setDragging] = useState(false)
+  // Track object URLs to revoke on delete to prevent memory leaks
+  const objectUrls = useRef<Map<string, string>>(new Map())
 
-  const handleFiles = (fileList: FileList | null) => {
+  const handleFiles = useCallback((fileList: FileList | null) => {
     if (!fileList) return
     Array.from(fileList).forEach(file => {
+      const id = `f-${Date.now()}-${Math.random()}`
       const url = URL.createObjectURL(file)
+      objectUrls.current.set(id, url)
       addFile({
-        id: `f-${Date.now()}-${Math.random()}`,
+        id,
         lead_id: lead.id,
         company_id: lead.company_id,
         name: file.name,
@@ -53,7 +57,14 @@ export function TabFiles({ lead }: TabFilesProps) {
       })
     })
     toast.success(`${fileList.length} fichier${fileList.length > 1 ? 's' : ''} ajouté${fileList.length > 1 ? 's' : ''}`)
-  }
+  }, [addFile, category, lead.company_id, lead.id])
+
+  const handleDelete = useCallback((id: string) => {
+    const url = objectUrls.current.get(id)
+    if (url) { URL.revokeObjectURL(url); objectUrls.current.delete(id) }
+    deleteFile(id)
+    toast.success('Fichier supprimé')
+  }, [deleteFile])
 
   return (
     <div className="space-y-4 p-1">
@@ -105,7 +116,7 @@ export function TabFiles({ lead }: TabFilesProps) {
                 <a href={f.url} download={f.name} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
                   <Download className="w-3.5 h-3.5" />
                 </a>
-                <button onClick={() => { deleteFile(f.id); toast.success('Fichier supprimé') }} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors">
+                <button onClick={() => handleDelete(f.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

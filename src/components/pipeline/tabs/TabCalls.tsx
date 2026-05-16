@@ -128,7 +128,7 @@ export function TabCalls({ lead }: TabCallsProps) {
           <div className="text-center py-8 text-sm text-slate-400">Aucun appel enregistré</div>
         ) : (
           leadCalls.map(call => {
-            const outcome = OUTCOME_CONFIG[call.outcome]
+            const outcome = OUTCOME_CONFIG[call.outcome] ?? { label: call.outcome, color: 'text-slate-500' }
             return (
               <div key={call.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
                 <div className="flex items-center justify-between">

@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { PipelineLead, Quote, QuoteLineItem, ParsedQuoteData } from '@/types/pipeline'
 import { usePipelineStore } from '@/lib/pipeline-store'
 import { generateAISuggestion, parsedDataToLineItems, recalculateQuote } from '@/lib/quote-calculator'
-import { generateQuoteNumber, formatFileSize } from '@/lib/pipeline-actions'
+import { generateQuoteNumber } from '@/lib/pipeline-actions'
 import { VocalInput } from './VocalInput'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Trash2, Lightbulb, Save } from 'lucide-react'
+import { Plus, Trash2, Lightbulb, Save, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -312,11 +312,11 @@ export function QuoteBuilder({ lead, onSaved, onCancel, existingQuoteCount }: Qu
       {/* Actions */}
       <div className="flex gap-2">
         <Button variant="outline" onClick={onCancel} className="flex-1">Annuler</Button>
-        <Button variant="outline" onClick={() => handleSave('brouillon')} disabled={saving} className="gap-1">
-          <Save className="w-3 h-3" /> Brouillon
+        <Button variant="outline" onClick={() => handleSave('brouillon')} disabled={saving || lineItems.length === 0} className="gap-1">
+          <Save className="w-3 h-3" /> {saving ? '...' : 'Brouillon'}
         </Button>
-        <Button onClick={() => handleSave('brouillon')} disabled={saving || lineItems.length === 0} className="flex-1">
-          {saving ? 'Enregistrement...' : 'Créer le devis'}
+        <Button onClick={() => handleSave('envoye')} disabled={saving || lineItems.length === 0} className="flex-1 gap-1">
+          <Mail className="w-3 h-3" />{saving ? 'Envoi...' : 'Créer & Envoyer'}
         </Button>
       </div>
     </div>

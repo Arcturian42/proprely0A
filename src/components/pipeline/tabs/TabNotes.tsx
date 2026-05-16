@@ -36,7 +36,7 @@ function NoteCard({ note, onDelete }: { note: PipelineNote; onDelete: (id: strin
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400 flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {new Date(note.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            {new Date(note.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </span>
           <button onClick={() => onDelete(note.id)} className="text-slate-300 hover:text-red-500 transition-colors">
             <Trash2 className="w-3.5 h-3.5" />

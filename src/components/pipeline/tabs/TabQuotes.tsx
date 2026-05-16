@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Mail, Copy, Trash2, CheckCircle, Clock, X } from 'lucide-react'
+import { generateQuoteNumber } from '@/lib/pipeline-actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -25,9 +26,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   expire: { label: 'Expiré', color: 'bg-slate-100 text-slate-500', icon: Clock },
 }
 
-function QuoteCard({ quote, lead, onUpdate, onDelete }: { quote: Quote; lead: PipelineLead; onUpdate: (id: string, data: Partial<Quote>) => void; onDelete: (id: string) => void }) {
+function QuoteCard({ quote, lead, onUpdate, onDelete, onDuplicate }: { quote: Quote; lead: PipelineLead; onUpdate: (id: string, data: Partial<Quote>) => void; onDelete: (id: string) => void; onDuplicate: (q: Quote) => void }) {
   const [sending, setSending] = useState(false)
-  const cfg = STATUS_CONFIG[quote.status]
+  const cfg = STATUS_CONFIG[quote.status] ?? { label: quote.status, color: 'bg-slate-100 text-slate-600', icon: Clock }
   const StatusIcon = cfg.icon
   const contacts = usePipelineStore(s => s.contacts.filter(c => c.lead_id === lead.id && c.is_primary))
   const primaryContact = contacts[0]
@@ -54,9 +55,7 @@ function QuoteCard({ quote, lead, onUpdate, onDelete }: { quote: Quote; lead: Pi
   }
 
   const handleDuplicate = () => {
-    const now = new Date().toISOString()
-    // Create a copy - actual quote number increment happens in store via addQuote
-    toast.info('Duplication — créer un nouveau devis avec les mêmes lignes')
+    onDuplicate(quote)
   }
 
   const handleMarkSigned = () => {
@@ -86,6 +85,9 @@ function QuoteCard({ quote, lead, onUpdate, onDelete }: { quote: Quote; lead: Pi
               <CheckCircle className="w-3 h-3" /> Signé
             </Button>
           )}
+          <button onClick={handleDuplicate} className="p-1.5 text-slate-300 hover:text-slate-600 transition-colors" title="Dupliquer">
+            <Copy className="w-3.5 h-3.5" />
+          </button>
           <button onClick={() => onDelete(quote.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -151,17 +153,35 @@ function QuoteCard({ quote, lead, onUpdate, onDelete }: { quote: Quote; lead: Pi
 }
 
 export function TabQuotes({ lead }: TabQuotesProps) {
-  const { quotes, updateQuote, deleteQuote } = usePipelineStore()
+  const { quotes, updateQuote, deleteQuote, addQuote } = usePipelineStore()
   const leadQuotes = quotes.filter(q => q.lead_id === lead.id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   const [creating, setCreating] = useState(false)
 
-  const handleSaved = (quote: Quote) => {
+  const handleSaved = () => {
     setCreating(false)
   }
 
   const handleDelete = (id: string) => {
     deleteQuote(id)
     toast.success('Devis supprimé')
+  }
+
+  const handleDuplicate = (source: Quote) => {
+    const now = new Date().toISOString()
+    const newNumber = generateQuoteNumber(quotes.length)
+    addQuote({
+      ...source,
+      id: `q-${Date.now()}`,
+      quote_number: newNumber,
+      status: 'brouillon',
+      email_sent_at: undefined,
+      signed_at: undefined,
+      signed_by: undefined,
+      signature_status: 'pending',
+      created_at: now,
+      updated_at: now,
+    })
+    toast.success(`Devis ${newNumber} dupliqué`)
   }
 
   if (creating) {
@@ -173,7 +193,7 @@ export function TabQuotes({ lead }: TabQuotesProps) {
         <QuoteBuilder
           lead={lead}
           existingQuoteCount={leadQuotes.length}
-          onSaved={handleSaved}
+          onSaved={() => handleSaved()}
           onCancel={() => setCreating(false)}
         />
       </div>
@@ -202,7 +222,7 @@ export function TabQuotes({ lead }: TabQuotesProps) {
       ) : (
         <div className="space-y-3">
           {leadQuotes.map(q => (
-            <QuoteCard key={q.id} quote={q} lead={lead} onUpdate={updateQuote} onDelete={handleDelete} />
+            <QuoteCard key={q.id} quote={q} lead={lead} onUpdate={updateQuote} onDelete={handleDelete} onDuplicate={handleDuplicate} />
           ))}
         </div>
       )}
