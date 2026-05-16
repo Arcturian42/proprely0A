@@ -41,6 +41,19 @@ export default function MissionsDuJourPage() {
   const [filterAgent, setFilterAgent] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
 
+  useEffect(() => {
+    const saved = localStorage.getItem('proprely-filter-missions-du-jour')
+    if (saved) {
+      const { agent, status } = JSON.parse(saved)
+      setFilterAgent(agent || 'all')
+      setFilterStatus(status || 'all')
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('proprely-filter-missions-du-jour', JSON.stringify({ agent: filterAgent, status: filterStatus }))
+  }, [filterAgent, filterStatus])
+
   const today = new Date().toISOString().split('T')[0]
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const start = startOfWeek(new Date(), { weekStartsOn: 1 })

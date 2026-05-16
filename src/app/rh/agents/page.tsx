@@ -30,6 +30,20 @@ export default function AgentsPage() {
   const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('proprely-filter-agents')
+    if (saved) {
+      const { search: s, status } = JSON.parse(saved)
+      setSearch(s || '')
+      setFilterStatus(status || 'all')
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('proprely-filter-agents', JSON.stringify({ search, status: filterStatus }))
+  }, [search, filterStatus])
+
   const [showForm, setShowForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [form, setForm] = useState(defaultForm)
@@ -247,10 +261,10 @@ export default function AgentsPage() {
 
               {/* Footer */}
               <div className="flex justify-end gap-1 mt-4 pt-3 border-t border-gray-100">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(agent)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(agent)} aria-label="Modifier l'agent">
                   <Edit className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(agent.id)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(agent.id)} aria-label="Supprimer l'agent">
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>

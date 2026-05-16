@@ -209,10 +209,10 @@ export default function ClientsSitesPage() {
                       {sites.filter(s => s.client_id === client.id).length} site(s)
                     </span>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditClient(client)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditClient(client)} aria-label="Modifier le client">
                         <Edit className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteClient(client.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteClient(client.id)} aria-label="Supprimer le client">
                         <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </Button>
                     </div>
@@ -257,10 +257,10 @@ export default function ClientsSitesPage() {
                           <td className="px-4 py-3 text-sm text-gray-700">{site.frequency || '—'}</td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)} aria-label="Modifier le site">
                                 <Edit className="w-3 h-3" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)} aria-label="Supprimer le site">
                                 <Trash2 className="w-3 h-3 text-red-500" />
                               </Button>
                             </div>

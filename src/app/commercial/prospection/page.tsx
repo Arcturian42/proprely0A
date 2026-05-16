@@ -40,6 +40,19 @@ export default function ProspectionPage() {
   const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('proprely-filter-prospection')
+    if (saved) {
+      const { search: s, status } = JSON.parse(saved)
+      setSearch(s || '')
+      setFilterStatus(status || 'all')
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('proprely-filter-prospection', JSON.stringify({ search, status: filterStatus }))
+  }, [search, filterStatus])
   const [showForm, setShowForm] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [form, setForm] = useState(defaultForm)

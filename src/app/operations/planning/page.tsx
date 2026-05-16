@@ -109,6 +109,7 @@ export default function PlanningPage() {
               <button
                 className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => setCurrentWeekStart(d => addDays(d, -7))}
+                aria-label="Semaine précédente"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-500" />
               </button>
@@ -118,6 +119,7 @@ export default function PlanningPage() {
               <button
                 className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => setCurrentWeekStart(d => addDays(d, 7))}
+                aria-label="Semaine suivante"
               >
                 <ChevronRight className="w-4 h-4 text-gray-500" />
               </button>
