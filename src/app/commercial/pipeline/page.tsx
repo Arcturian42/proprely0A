@@ -17,7 +17,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Phone, Mail, MapPin, Euro, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Plus, Phone, Mail, MapPin, Euro, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const STAGES: OpportunityStage[] = ['lead', 'prise_de_contact', 'decouverte', 'proposition', 'negociation', 'gagnee', 'perdue']
@@ -50,12 +50,13 @@ const defaultForm = {
 
 export default function PipelinePage() {
   useEffect(() => { document.title = 'Pipeline — Proprely' }, [])
-  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
+  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity, companyId, isLoading } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const handleOpenCreate = () => {
     setEditingOpp(null)
@@ -83,47 +84,63 @@ export default function PipelinePage() {
     setShowForm(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title || !form.prospect_name) {
       toast.error('Titre et nom du prospect requis')
       return
     }
+    if (!companyId) { toast.error('Données non chargées, veuillez patienter'); return }
 
-    if (editingOpp) {
-      updateOpportunity(editingOpp.id, {
-        ...form,
+    setSaving(true)
+    try {
+      const payload = {
+        title: form.title,
+        prospect_name: form.prospect_name,
+        contact_name: form.contact_name || null,
+        email: form.email || null,
+        phone: form.phone || null,
+        city: form.city || null,
+        site_address: form.site_address || null,
+        client_type: form.client_type || null,
+        service_type: form.service_type || null,
         estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
+        stage: form.stage,
         next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      toast.success('Opportunité mise à jour')
-    } else {
-      const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`, company_id: 'company-1',
-        lead_id: null, client_id: null, site_id: null,
-        ...form,
-        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
-        next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-        status: 'ouvert', converted_to_client: false, converted_at: null,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        notes: form.notes || null,
       }
-      addOpportunity(newOpp)
-      toast.success('Opportunité créée')
+
+      if (editingOpp) {
+        await updateOpportunity(editingOpp.id, payload)
+        toast.success('Opportunité mise à jour')
+      } else {
+        await addOpportunity({
+          company_id: companyId,
+          lead_id: null,
+          client_id: null,
+          site_id: null,
+          ...payload,
+          status: 'ouvert',
+          converted_to_client: false,
+          converted_at: null,
+        })
+        toast.success('Opportunité créée')
+      }
+      setShowForm(false)
+    } finally {
+      setSaving(false)
     }
-    setShowForm(false)
   }
 
-  const handleMoveStage = (opp: Opportunity, newStage: OpportunityStage) => {
+  const handleMoveStage = async (opp: Opportunity, newStage: OpportunityStage) => {
     if (newStage === 'gagnee' && !opp.converted_to_client) {
-      winOpportunity(opp.id)
-      toast.success(`Opportunité gagnée ! Client "${opp.prospect_name}" et site créés automatiquement.`, { duration: 5000 })
+      await winOpportunity(opp.id)
     } else {
-      updateOpportunity(opp.id, { stage: newStage, updated_at: new Date().toISOString() })
+      await updateOpportunity(opp.id, { stage: newStage })
     }
   }
 
-  const handleDelete = (id: string) => {
-    deleteOpportunity(id)
+  const handleDelete = async (id: string) => {
+    await deleteOpportunity(id)
     setSelectedOpp(null)
     setConfirmDelete(null)
     toast.success('Opportunité supprimée')
@@ -139,79 +156,87 @@ export default function PipelinePage() {
           title="Pipeline commercial"
           description="Suivi de vos opportunités par étape"
           action={
-            <Button onClick={handleOpenCreate} className="gap-2">
+            <Button onClick={handleOpenCreate} className="gap-2" disabled={isLoading}>
               <Plus className="w-4 h-4" /> Nouvelle opportunité
             </Button>
           }
         />
 
+        {isLoading && (
+          <div className="flex items-center justify-center py-16 text-slate-500">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Chargement du pipeline…
+          </div>
+        )}
+
         {/* Kanban board */}
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {STAGES.map(stage => {
-            const opps = oppsByStage(stage)
-            const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
-            return (
-              <div key={stage} className="flex-shrink-0 w-72">
-                <div className={`bg-white rounded-xl border-t-4 shadow-sm ${STAGE_COLORS[stage]} border border-slate-200 mb-3`}>
-                  <div className="p-3 flex items-center justify-between">
-                    <span className="font-semibold text-sm text-slate-800">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
-                    <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">{opps.length}</span>
-                  </div>
-                  {total > 0 && (
-                    <div className="px-3 pb-2 text-xs text-slate-500">{formatCurrency(total)}</div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {opps.map(opp => (
-                    <Card
-                      key={opp.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => setSelectedOpp(opp)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
-                    >
-                      <CardContent className="p-4">
-                        <p className="font-semibold text-sm text-slate-900 mb-1">{opp.title}</p>
-                        <p className="text-xs text-slate-500 mb-2">{opp.prospect_name}</p>
-                        {opp.estimated_amount && (
-                          <div className="flex items-center gap-1 text-xs text-slate-600 mb-2">
-                            <Euro className="w-3 h-3" />
-                            {formatCurrency(opp.estimated_amount)}
-                          </div>
-                        )}
-                        {opp.city && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="w-3 h-3" />
-                            {opp.city}
-                          </div>
-                        )}
-                        {opp.next_action_date && (
-                          <p className="text-xs text-amber-600 mt-2">
-                            Action: {formatDate(opp.next_action_date)}
-                          </p>
-                        )}
-                        {opp.converted_to_client && (
-                          <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Converti en client
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-
-                  {opps.length === 0 && (
-                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                      <p className="text-xs text-slate-400">Aucune opportunité</p>
+        {!isLoading && (
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {STAGES.map(stage => {
+              const opps = oppsByStage(stage)
+              const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
+              return (
+                <div key={stage} className="flex-shrink-0 w-72">
+                  <div className={`bg-white rounded-xl border-t-4 shadow-sm ${STAGE_COLORS[stage]} border border-slate-200 mb-3`}>
+                    <div className="p-3 flex items-center justify-between">
+                      <span className="font-semibold text-sm text-slate-800">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
+                      <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">{opps.length}</span>
                     </div>
-                  )}
+                    {total > 0 && (
+                      <div className="px-3 pb-2 text-xs text-slate-500">{formatCurrency(total)}</div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {opps.map(opp => (
+                      <Card
+                        key={opp.id}
+                        className="cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => setSelectedOpp(opp)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
+                      >
+                        <CardContent className="p-4">
+                          <p className="font-semibold text-sm text-slate-900 mb-1">{opp.title}</p>
+                          <p className="text-xs text-slate-500 mb-2">{opp.prospect_name}</p>
+                          {opp.estimated_amount && (
+                            <div className="flex items-center gap-1 text-xs text-slate-600 mb-2">
+                              <Euro className="w-3 h-3" />
+                              {formatCurrency(opp.estimated_amount)}
+                            </div>
+                          )}
+                          {opp.city && (
+                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                              <MapPin className="w-3 h-3" />
+                              {opp.city}
+                            </div>
+                          )}
+                          {opp.next_action_date && (
+                            <p className="text-xs text-amber-600 mt-2">
+                              Action: {formatDate(opp.next_action_date)}
+                            </p>
+                          )}
+                          {opp.converted_to_client && (
+                            <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Converti en client
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {opps.length === 0 && (
+                      <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+                        <p className="text-xs text-slate-400">Aucune opportunité</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Detail/Edit Dialog */}
@@ -266,8 +291,8 @@ export default function PipelinePage() {
                       key={s}
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        handleMoveStage(selectedOpp, s)
+                      onClick={async () => {
+                        await handleMoveStage(selectedOpp, s)
                         setSelectedOpp(prev => prev ? { ...prev, stage: s } : null)
                       }}
                     >
@@ -278,9 +303,8 @@ export default function PipelinePage() {
                     <Button
                       size="sm"
                       className="gap-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        winOpportunity(selectedOpp.id)
-                        toast.success(`Opportunité gagnée ! Client "${selectedOpp.prospect_name}" créé automatiquement.`, { duration: 5000 })
+                      onClick={async () => {
+                        await winOpportunity(selectedOpp.id)
                         setSelectedOpp(null)
                       }}
                     >
@@ -306,7 +330,7 @@ export default function PipelinePage() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingOpp ? 'Modifier l\'opportunité' : 'Nouvelle opportunité'}</DialogTitle>
+            <DialogTitle>{editingOpp ? "Modifier l'opportunité" : 'Nouvelle opportunité'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
@@ -372,8 +396,11 @@ export default function PipelinePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button onClick={handleSave}>{editingOpp ? 'Mettre à jour' : 'Créer'}</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)} disabled={saving}>Annuler</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingOpp ? 'Mettre à jour' : 'Créer'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

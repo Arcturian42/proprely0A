@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { ServiceType } from '@/types'
 import { Plus, Edit, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -23,7 +22,7 @@ export default function ParametresPage() {
   useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
   const {
     serviceTypes, addServiceType, updateServiceType, deleteServiceType,
-    companySettings, updateCompanySettings,
+    companySettings, updateCompanySettings, companyId,
   } = useAppStore()
 
   const [companyForm, setCompanyForm] = useState({
@@ -44,25 +43,19 @@ export default function ParametresPage() {
     toast.success('Paramètres entreprise sauvegardés')
   }
 
-  const handleSaveService = () => {
+  const handleSaveService = async () => {
     if (!serviceForm.name) { toast.error('Nom requis'); return }
+    if (!companyId) { toast.error('Données non chargées'); return }
+    const parsed = {
+      name: serviceForm.name,
+      estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
+      indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
+    }
     if (editingService) {
-      updateServiceType(editingService.id, {
-        ...serviceForm,
-        estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
-        indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
-        updated_at: new Date().toISOString(),
-      })
+      await updateServiceType(editingService.id, parsed)
       toast.success('Service mis à jour')
     } else {
-      const newService: ServiceType = {
-        id: `st-${Date.now()}`, company_id: 'company-1', ...serviceForm,
-        estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
-        indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
-        default_sop_id: null,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addServiceType(newService)
+      await addServiceType({ company_id: companyId, ...parsed, default_sop_id: null })
       toast.success('Type de service créé')
     }
     setShowServiceForm(false)
@@ -228,9 +221,9 @@ export default function ParametresPage() {
         description="Ce type de prestation sera définitivement supprimé."
         confirmLabel="Supprimer"
         variant="destructive"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (confirmDeleteService) {
-            deleteServiceType(confirmDeleteService)
+            await deleteServiceType(confirmDeleteService)
             toast.success('Type supprimé')
             setConfirmDeleteService(null)
           }

@@ -41,25 +41,25 @@ export default function MissionsDuJourPage() {
   const todayMissions = filterByAgent(missions.filter(m => m.scheduled_date === today))
   const weekMissions = filterByAgent(missions.filter(m => weekDates.includes(m.scheduled_date)))
 
-  const handleUpdateStatus = (mission: Mission, status: MissionStatus) => {
+  const handleUpdateStatus = async (mission: Mission, status: MissionStatus) => {
     if (status === 'terminee') {
       // "Valider" button: open dialog to confirm hours
       setSelectedMission(mission)
       setValidationHours(mission.planned_hours.toString())
     } else {
-      updateMissionStatus(mission.id, status)
+      await updateMissionStatus(mission.id, status)
       toast.success(`Mission : ${MISSION_STATUS_LABELS[status]}`)
     }
   }
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
     if (!selectedMission) return
     const hours = parseFloat(validationHours)
     if (isNaN(hours) || hours <= 0) {
       toast.error('Heures invalides')
       return
     }
-    updateMissionStatus(selectedMission.id, 'terminee', hours)
+    await updateMissionStatus(selectedMission.id, 'terminee', hours)
     toast.success(`Mission validée — ${hours}h enregistrées`)
     setSelectedMission(null)
   }

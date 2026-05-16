@@ -20,9 +20,13 @@ import {
   ChevronUp,
   User,
   LogOut,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { createClient } from '@/lib/supabase/client'
+import { useAppStore } from '@/lib/store'
+import { useRouter } from 'next/navigation'
 
 interface NavItem {
   label: string
@@ -84,6 +88,15 @@ const navSections: NavSection[] = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { companySettings, isLoading, clearStore } = useAppStore()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    clearStore()
+    router.push('/login')
+  }
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
@@ -143,11 +156,11 @@ export function AppSidebar() {
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-[#f7f6f3] transition-colors text-left">
               <div className="w-7 h-7 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
-                A
+                {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : (companySettings.name?.[0] ?? 'A')}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#111] truncate">Admin</p>
-                <p className="text-[11px] text-[#9b9a97] truncate">Proprely</p>
+                <p className="text-[13px] font-medium text-[#111] truncate">{companySettings.name || 'Mon entreprise'}</p>
+                <p className="text-[11px] text-[#9b9a97] truncate">{isLoading ? 'Chargement…' : 'Admin'}</p>
               </div>
               <ChevronUp className="w-4 h-4 text-[#9b9a97] flex-shrink-0" />
             </button>
@@ -166,9 +179,7 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
-              window.location.href = '/'
-            }}>
+            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Se déconnecter
             </DropdownMenuItem>

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
-import { Agent, AgentStatus, ContractType } from '@/types'
+import { AgentStatus, ContractType } from '@/types'
 import { AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR } from '@/lib/constants'
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,7 +30,7 @@ const defaultForm = {
 
 export default function AgentsPage() {
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
-  const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
+  const { agents, missions, addAgent, updateAgent, deleteAgent, companyId } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -94,27 +94,24 @@ export default function AgentsPage() {
       hourly_cost: cost,
     }
     if (editingAgent) {
-      updateAgent(editingAgent.id, { ...agentData, updated_at: new Date().toISOString() })
+      await updateAgent(editingAgent.id, { ...agentData })
       toast.success('Agent mis à jour')
     } else {
-      const newAgent: Agent = {
-        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addAgent(newAgent)
+      if (!companyId) { toast.error('Données non chargées'); return }
+      await addAgent({ company_id: companyId, ...agentData })
       toast.success('Agent créé')
     }
     setShowForm(false)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const hasActiveMissions = missions.some(m => m.agents?.some(a => a.id === id))
     if (hasActiveMissions) {
       toast.error('Impossible de supprimer cet agent : il est affecté à des missions actives.')
       setConfirmDelete(null)
       return
     }
-    deleteAgent(id)
+    await deleteAgent(id)
     toast.success('Agent supprimé')
     setConfirmDelete(null)
   }

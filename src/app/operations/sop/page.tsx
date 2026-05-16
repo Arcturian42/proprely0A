@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 
 export default function SopPage() {
   useEffect(() => { document.title = 'SOPs — Proprely' }, [])
-  const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
+  const { sops, addSop, updateSop, deleteSop, sites, companyId } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [selectedSop, setSelectedSop] = useState<Sop | null>(null)
@@ -61,33 +61,34 @@ export default function SopPage() {
     setShowForm(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title) { toast.error('Titre requis'); return }
+    if (!companyId) { toast.error('Données non chargées'); return }
     const sopData = {
-      ...form,
+      title: form.title,
+      service_type: form.service_type || null,
       estimated_duration_minutes: form.estimated_duration_minutes ? parseInt(form.estimated_duration_minutes) : null,
-      required_skills: [],
+      safety_instructions: form.safety_instructions || null,
+      notes: form.notes || null,
+      frequency: form.frequency || undefined,
+      required_skills: [] as string[],
       required_materials: requiredMaterials,
       required_products: requiredProducts,
       checklist_items: checklistItems,
       associated_site_ids: associatedSiteIds,
     }
     if (editingSop) {
-      updateSop(editingSop.id, { ...sopData, updated_at: new Date().toISOString() })
+      await updateSop(editingSop.id, sopData)
       toast.success('Protocole mis à jour')
     } else {
-      const newSop: Sop = {
-        id: `sop-${Date.now()}`, company_id: 'company-1', ...sopData,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addSop(newSop)
+      await addSop({ company_id: companyId, ...sopData })
       toast.success('Protocole créé')
     }
     setShowForm(false)
   }
 
-  const handleDelete = (id: string) => {
-    deleteSop(id)
+  const handleDelete = async (id: string) => {
+    await deleteSop(id)
     toast.success('Protocole supprimé')
     setConfirmDelete(null)
   }

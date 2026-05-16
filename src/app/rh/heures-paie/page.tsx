@@ -44,14 +44,14 @@ export default function HeuresPaiePage() {
     setValidatedHours(entry.planned_hours.toString())
   }
 
-  const handleConfirmValidation = () => {
+  const handleConfirmValidation = async () => {
     if (!selectedEntry) return
     const hours = parseFloat(validatedHours)
     if (isNaN(hours) || hours < 0 || hours > 12) { toast.error('Les heures doivent être entre 0 et 12h'); return }
     const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
-    updateTimeEntry(selectedEntry.id, {
+    await updateTimeEntry(selectedEntry.id, {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
-      validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      validated_at: new Date().toISOString(),
     })
     toast.success(`${hours}h validées – coût: ${formatCurrency(cost)}`)
     setSelectedEntry(null)

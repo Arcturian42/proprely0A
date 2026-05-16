@@ -12,13 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
-import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Phone, Globe } from 'lucide-react'
+import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const defaultForm = {
@@ -37,13 +35,14 @@ const defaultForm = {
 
 export default function ProspectionPage() {
   useEffect(() => { document.title = 'Prospection — Proprely' }, [])
-  const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
+  const { leads, addLead, updateLead, deleteLead, addOpportunity, companyId, isLoading } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const filtered = leads.filter(l => {
     const matchSearch = l.company_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -76,39 +75,64 @@ export default function ProspectionPage() {
     setShowForm(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.company_name) { toast.error('Nom de l\'entreprise requis'); return }
+    if (!companyId) { toast.error('Données non chargées, veuillez patienter'); return }
     const score = form.ai_score ? parseInt(form.ai_score) : null
     if (score !== null && (score < 0 || score > 100)) { toast.error('Le score IA doit être entre 0 et 100'); return }
-    if (editingLead) {
-      updateLead(editingLead.id, { ...form, ai_score: score, updated_at: new Date().toISOString() })
-      toast.success('Lead mis à jour')
-    } else {
-      const newLead: Lead = {
-        id: crypto.randomUUID(), company_id: 'company-1',
-        ...form, ai_score: score,
-        converted_opportunity_id: null,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+
+    setSaving(true)
+    try {
+      if (editingLead) {
+        await updateLead(editingLead.id, {
+          company_name: form.company_name,
+          sector: form.sector || null,
+          city: form.city || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          website: form.website || null,
+          source: form.source || null,
+          ai_score: score,
+          probable_need: form.probable_need || null,
+          status: form.status,
+          notes: form.notes || null,
+        })
+        toast.success('Lead mis à jour')
+      } else {
+        await addLead({
+          company_id: companyId,
+          company_name: form.company_name,
+          sector: form.sector || null,
+          city: form.city || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          website: form.website || null,
+          source: form.source || null,
+          ai_score: score,
+          probable_need: form.probable_need || null,
+          status: form.status,
+          notes: form.notes || null,
+          converted_opportunity_id: null,
+        })
+        toast.success('Lead ajouté')
       }
-      addLead(newLead)
-      toast.success('Lead ajouté')
+      setShowForm(false)
+    } finally {
+      setSaving(false)
     }
-    setShowForm(false)
   }
 
-  const handleDelete = (id: string) => {
-    deleteLead(id)
+  const handleDelete = async (id: string) => {
+    await deleteLead(id)
     toast.success('Lead supprimé')
     setConfirmDelete(null)
   }
 
-  const handleConvert = (lead: Lead) => {
+  const handleConvert = async (lead: Lead) => {
     if (lead.status === 'converti') { toast.error('Ce lead a déjà été converti'); return }
-    const now = new Date().toISOString()
-    const newOppId = crypto.randomUUID()
-    addOpportunity({
-      id: newOppId,
-      company_id: 'company-1',
+    if (!companyId) return
+    await addOpportunity({
+      company_id: companyId,
       lead_id: lead.id,
       client_id: null,
       site_id: null,
@@ -125,18 +149,16 @@ export default function ProspectionPage() {
       stage: 'prise_de_contact',
       next_action_date: null,
       notes: lead.notes ?? null,
-      status: 'active',
+      status: 'ouvert',
       converted_to_client: false,
       converted_at: null,
-      created_at: now,
-      updated_at: now,
     })
-    updateLead(lead.id, { status: 'converti' as LeadStatus, converted_opportunity_id: newOppId })
+    await updateLead(lead.id, { status: 'converti' as LeadStatus })
     toast.success(`Lead "${lead.company_name}" converti en opportunité.`)
   }
 
-  const handleUpdateStatus = (lead: Lead, status: LeadStatus) => {
-    updateLead(lead.id, { status, updated_at: new Date().toISOString() })
+  const handleUpdateStatus = async (lead: Lead, status: LeadStatus) => {
+    await updateLead(lead.id, { status })
     toast.success('Statut mis à jour')
   }
 
@@ -147,7 +169,7 @@ export default function ProspectionPage() {
           title="Prospection IA"
           description="Gestion de vos leads et prospects"
           action={
-            <Button onClick={handleOpenCreate} className="gap-2">
+            <Button onClick={handleOpenCreate} className="gap-2" disabled={isLoading}>
               <Plus className="w-4 h-4" /> Nouveau lead
             </Button>
           }
@@ -184,78 +206,87 @@ export default function ProspectionPage() {
           </Select>
         </div>
 
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12 text-slate-500">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Chargement des leads…
+          </div>
+        )}
+
         {/* Table */}
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entreprise</TableHead>
-                <TableHead>Secteur</TableHead>
-                <TableHead>Ville</TableHead>
-                <TableHead>Score IA</TableHead>
-                <TableHead>Besoin probable</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(lead => (
-                <TableRow key={lead.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-slate-900">{lead.company_name}</p>
-                      {lead.email && <p className="text-xs text-slate-500">{lead.email}</p>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600">{lead.sector || '—'}</TableCell>
-                  <TableCell className="text-sm">{lead.city || '—'}</TableCell>
-                  <TableCell>
-                    {lead.ai_score ? (
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                        <span className={`font-semibold text-sm ${lead.ai_score >= 80 ? 'text-green-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-slate-500'}`}>
-                          {lead.ai_score}
-                        </span>
-                      </div>
-                    ) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600 max-w-xs truncate">{lead.probable_need || '—'}</TableCell>
-                  <TableCell><StatusBadge status={lead.status} /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
-                        <SelectTrigger className="h-7 text-xs w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(lead)}>
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
-                        <ChevronRight className="w-3 h-3 text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
-                        <Trash2 className="w-3 h-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
+        {!isLoading && (
+          <Card>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                    Aucun lead trouvé
-                  </TableCell>
+                  <TableHead>Entreprise</TableHead>
+                  <TableHead>Secteur</TableHead>
+                  <TableHead>Ville</TableHead>
+                  <TableHead>Score IA</TableHead>
+                  <TableHead>Besoin probable</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(lead => (
+                  <TableRow key={lead.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-900">{lead.company_name}</p>
+                        {lead.email && <p className="text-xs text-slate-500">{lead.email}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">{lead.sector || '—'}</TableCell>
+                    <TableCell className="text-sm">{lead.city || '—'}</TableCell>
+                    <TableCell>
+                      {lead.ai_score ? (
+                        <div className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span className={`font-semibold text-sm ${lead.ai_score >= 80 ? 'text-green-600' : lead.ai_score >= 60 ? 'text-amber-600' : 'text-slate-500'}`}>
+                            {lead.ai_score}
+                          </span>
+                        </div>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600 max-w-xs truncate">{lead.probable_need || '—'}</TableCell>
+                    <TableCell><StatusBadge status={lead.status} /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Select value={lead.status} onValueChange={(v) => handleUpdateStatus(lead, v as LeadStatus)}>
+                          <SelectTrigger className="h-7 text-xs w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(LEAD_STATUS_LABELS).map(([k, v]) => (
+                              <SelectItem key={k} value={k}>{v}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(lead)}>
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleConvert(lead)}>
+                          <ChevronRight className="w-3 h-3 text-green-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDelete(lead.id)}>
+                          <Trash2 className="w-3 h-3 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                      Aucun lead trouvé
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
       </div>
 
       {/* Form dialog */}
@@ -327,8 +358,11 @@ export default function ProspectionPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button onClick={handleSave}>{editingLead ? 'Mettre à jour' : 'Créer'}</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)} disabled={saving}>Annuler</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingLead ? 'Mettre à jour' : 'Créer'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -16,14 +16,14 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { Client, Site } from '@/types'
+import { Client } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
-  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
+  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite, companyId } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
@@ -58,29 +58,35 @@ export default function ClientsSitesPage() {
     setShowClientForm(true)
   }
 
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!clientForm.name) { toast.error('Nom requis'); return }
-    if (!clientForm.email && !clientForm.phone) {
-      toast.error('Au moins un email ou un téléphone est requis')
-      return
-    }
+    if (!clientForm.email && !clientForm.phone) { toast.error('Au moins un email ou un téléphone est requis'); return }
+    if (!companyId) { toast.error('Données non chargées'); return }
     if (editingClient) {
-      updateClient(editingClient.id, { ...clientForm, updated_at: new Date().toISOString() })
+      await updateClient(editingClient.id, { ...clientForm })
       toast.success('Client mis à jour')
     } else {
-      const newClient: Client = {
-        id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
-        created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addClient(newClient)
+      await addClient({
+        company_id: companyId,
+        name: clientForm.name,
+        contact_name: clientForm.contact_name || null,
+        email: clientForm.email || null,
+        phone: clientForm.phone || null,
+        billing_address: clientForm.billing_address || null,
+        city: clientForm.city || null,
+        client_type: clientForm.client_type || null,
+        status: clientForm.status,
+        notes: clientForm.notes || null,
+        created_from_opportunity_id: null,
+      })
       toast.success('Client créé')
     }
     setShowClientForm(false)
   }
 
-  const handleDeleteClient = (id: string) => {
+  const handleDeleteClient = async (id: string) => {
     const siteCount = sites.filter(s => s.client_id === id).length
-    deleteClient(id)
+    await deleteClient(id)
     toast.success(`Client supprimé${siteCount > 0 ? ` (${siteCount} site(s) associé(s) supprimé(s))` : ''}`)
     setConfirmDeleteClient(null)
   }
@@ -102,30 +108,37 @@ export default function ClientsSitesPage() {
     setShowSiteForm(true)
   }
 
-  const handleSaveSite = () => {
+  const handleSaveSite = async () => {
     if (!siteForm.name || !siteForm.client_id) { toast.error('Nom et client requis'); return }
+    if (!companyId) { toast.error('Données non chargées'); return }
     if (editingSite) {
-      updateSite(editingSite.id, {
+      await updateSite(editingSite.id, {
         ...siteForm, surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
-        updated_at: new Date().toISOString(),
       })
       toast.success('Site mis à jour')
     } else {
-      const client = clients.find(c => c.id === siteForm.client_id)
-      const newSite: Site = {
-        id: `site-${Date.now()}`, company_id: 'company-1', ...siteForm,
+      await addSite({
+        company_id: companyId,
+        client_id: siteForm.client_id,
+        name: siteForm.name,
+        address: siteForm.address || null,
+        city: siteForm.city || null,
         surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
-        sop_id: null, created_from_opportunity_id: null, client,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addSite(newSite)
+        access_code: siteForm.access_code || null,
+        access_instructions: siteForm.access_instructions || null,
+        service_type: siteForm.service_type || null,
+        frequency: siteForm.frequency || null,
+        sop_id: null,
+        notes: siteForm.notes || null,
+        created_from_opportunity_id: null,
+      })
       toast.success('Site créé')
     }
     setShowSiteForm(false)
   }
 
-  const handleDeleteSite = (id: string) => {
-    deleteSite(id)
+  const handleDeleteSite = async (id: string) => {
+    await deleteSite(id)
     toast.success('Site supprimé')
     setConfirmDeleteSite(null)
   }

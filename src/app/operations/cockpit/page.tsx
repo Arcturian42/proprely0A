@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/lib/store'
-import { Agent, Mission, OperationalItem, OperationalItemStatus, TimeEntry } from '@/types'
+import { Agent, Mission, OperationalItem, OperationalItemStatus } from '@/types'
 import { cn } from '@/lib/utils'
 import {
   Calendar, Clock, Users, MapPin, ChevronLeft, ChevronRight,
@@ -66,7 +66,7 @@ function isSlotConflict(
 
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
-  const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry } = useAppStore()
+  const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry, companyId } = useAppStore()
 
   // Left panel state
   const [search, setSearch] = useState('')
@@ -161,17 +161,16 @@ export default function CockpitPage() {
     return Object.keys(e).length === 0
   }
 
-  const handleCreateMission = () => {
+  const handleCreateMission = async () => {
     if (!assigningItem || !validate()) return
+    if (!companyId) { toast.error('Données non chargées'); return }
 
     const agent = agents.find(a => a.id === selectedAgentId)!
-    const client = assigningItem.client
     const site = assigningItem.site
-    const sop = sops.find(s => s.id === missionForm.sop_id)
+    const plannedHours = parseFloat(missionForm.planned_hours) || 3
 
-    const newMission: Mission = {
-      id: `mission-${Date.now()}`,
-      company_id: 'company-1',
+    await addMission({
+      company_id: companyId,
       client_id: assigningItem.client_id,
       site_id: assigningItem.site_id,
       operational_item_id: assigningItem.id,
@@ -180,47 +179,41 @@ export default function CockpitPage() {
       status: 'prevue',
       scheduled_date: missionForm.scheduled_date,
       start_time: missionForm.start_time || null,
-      planned_hours: parseFloat(missionForm.planned_hours) || 3,
+      planned_hours: plannedHours,
       notes: missionForm.notes || null,
       priority: missionForm.priority,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      client,
-      site,
-      agents: [agent],
-      sop,
-    }
+    }, selectedAgentId ? [selectedAgentId] : [])
 
-    addMission(newMission)
-    updateOperationalItem(assigningItem.id, {
-      converted_to_mission: true,
-      mission_id: newMission.id,
-      status: 'planifie' as OperationalItemStatus,
-    })
+    // Find the newly created mission to get its ID (last added mission)
+    const newMissions = useAppStore.getState().missions
+    const newMission = newMissions.find(m =>
+      m.client_id === assigningItem.client_id &&
+      m.scheduled_date === missionForm.scheduled_date &&
+      m.operational_item_id === assigningItem.id
+    )
 
-    // Create time entry
-    const te: TimeEntry = {
-      id: `te-${Date.now()}`,
-      company_id: 'company-1',
-      mission_id: newMission.id,
-      agent_id: agent.id,
-      client_id: assigningItem.client_id,
-      site_id: assigningItem.site_id,
-      date: missionForm.scheduled_date,
-      planned_hours: parseFloat(missionForm.planned_hours) || 3,
-      validated_hours: null,
-      hourly_cost: agent.hourly_cost,
-      total_cost: null,
-      status: 'prevue',
-      validated_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      agent,
-      mission: newMission,
-      client,
-      site,
+    if (newMission) {
+      await updateOperationalItem(assigningItem.id, {
+        converted_to_mission: true,
+        mission_id: newMission.id,
+        status: 'planifie' as OperationalItemStatus,
+      })
+
+      await addTimeEntry({
+        company_id: companyId,
+        mission_id: newMission.id,
+        agent_id: agent.id,
+        client_id: assigningItem.client_id,
+        site_id: assigningItem.site_id,
+        date: missionForm.scheduled_date,
+        planned_hours: plannedHours,
+        validated_hours: null,
+        hourly_cost: agent.hourly_cost,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+      })
     }
-    addTimeEntry(te)
 
     toast.success(`Mission planifiée — ${agent.first_name} ${agent.last_name} le ${format(parseISO(missionForm.scheduled_date), 'dd/MM à HH:mm', { locale: fr })}`)
     setAssigningItem(null)
@@ -763,7 +756,7 @@ export default function CockpitPage() {
         onOpenChange={open => { if (!open) setConfirmDeleteItem(null) }}
         title="Supprimer l'opération"
         description="Cette action est irréversible."
-        onConfirm={() => { if (confirmDeleteItem) { deleteOperationalItem(confirmDeleteItem); toast.success('Opération supprimée'); setConfirmDeleteItem(null) } }}
+        onConfirm={async () => { if (confirmDeleteItem) { await deleteOperationalItem(confirmDeleteItem); toast.success('Opération supprimée'); setConfirmDeleteItem(null) } }}
         variant="destructive"
       />
     </AdminLayout>
