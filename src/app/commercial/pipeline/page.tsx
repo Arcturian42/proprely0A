@@ -53,10 +53,12 @@ export default function PipelinePage() {
   const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const handleOpenCreate = () => {
     setEditingOpp(null)
     setForm(defaultForm)
+    setFormErrors({})
     setShowForm(true)
   }
 
@@ -81,10 +83,15 @@ export default function PipelinePage() {
   }
 
   const handleSave = () => {
-    if (!form.title || !form.prospect_name) {
-      toast.error('Titre et nom du prospect requis')
+    const errs: Record<string, string> = {}
+    if (!form.title) errs.title = 'Champ requis'
+    if (!form.prospect_name) errs.prospect_name = 'Champ requis'
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs)
+      toast.error('Veuillez remplir les champs obligatoires')
       return
     }
+    setFormErrors({})
 
     if (editingOpp) {
       updateOpportunity(editingOpp.id, {
@@ -132,7 +139,8 @@ export default function PipelinePage() {
   const totalOpps = opportunities.length
   const totalValue = opportunities.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
   const wonOpps = opportunities.filter(o => o.stage === 'gagnee').length
-  const conversionRate = totalOpps > 0 ? Math.round((wonOpps / totalOpps) * 100) : 0
+  const closedOpps = opportunities.filter(o => o.stage === 'gagnee' || o.stage === 'perdue').length
+  const conversionRate = closedOpps > 0 ? Math.round((wonOpps / closedOpps) * 100) : 0
 
   return (
     <AdminLayout>
@@ -341,11 +349,13 @@ export default function PipelinePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-full">
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">Titre *</Label>
-                <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Nettoyage bureaux - Société X" />
+                <Input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setFormErrors(p => ({ ...p, title: '' })) }} placeholder="Ex: Nettoyage bureaux - Société X" className={formErrors.title ? 'border-red-400 focus:ring-red-400' : ''} />
+                {formErrors.title && <p className="text-xs text-red-500 mt-1">{formErrors.title}</p>}
               </div>
               <div className="col-span-full">
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">Nom du prospect *</Label>
-                <Input value={form.prospect_name} onChange={e => setForm(f => ({ ...f, prospect_name: e.target.value }))} placeholder="Nom de l'entreprise" />
+                <Input value={form.prospect_name} onChange={e => { setForm(f => ({ ...f, prospect_name: e.target.value })); setFormErrors(p => ({ ...p, prospect_name: '' })) }} placeholder="Nom de l'entreprise" className={formErrors.prospect_name ? 'border-red-400 focus:ring-red-400' : ''} />
+                {formErrors.prospect_name && <p className="text-xs text-red-500 mt-1">{formErrors.prospect_name}</p>}
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">Contact</Label>

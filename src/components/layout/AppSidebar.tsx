@@ -107,6 +107,19 @@ export function AppSidebar() {
             {section.items.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+              if (item.badge) {
+                return (
+                  <span
+                    key={item.href}
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] font-medium opacity-40 cursor-not-allowed select-none"
+                    title="Bientôt disponible"
+                  >
+                    <Icon className="w-[17px] h-[17px] flex-shrink-0 text-[#9CA3AF]" />
+                    <span className="flex-1 truncate text-[#9CA3AF]">{item.label}</span>
+                    <span className="ml-auto text-[10px] bg-white/5 text-[#6B7280] px-1.5 py-0.5 rounded-md font-medium">{item.badge}</span>
+                  </span>
+                )
+              }
               return (
                 <Link
                   key={item.href}
@@ -120,11 +133,6 @@ export function AppSidebar() {
                 >
                   <Icon className={cn('w-[17px] h-[17px] flex-shrink-0', isActive ? 'text-white' : '')} />
                   <span className="flex-1 truncate">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto text-[10px] bg-white/5 text-[#6B7280] px-1.5 py-0.5 rounded-md font-medium">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               )
             })}

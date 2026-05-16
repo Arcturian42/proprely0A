@@ -32,6 +32,14 @@ export default function DashboardPage() {
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
+  const activeMissionsCount = todayMissions.filter(m => m.status === 'en_cours' || m.status === 'prevue').length
+  // Agents busy today based on actual missions (overrides stored status)
+  const busyAgentIds = new Set(
+    todayMissions
+      .filter(m => m.status === 'en_cours' || m.status === 'prevue')
+      .flatMap(m => m.agents?.map(a => a.id) ?? [])
+  )
+  const availableAgentsCount = agents.filter(a => a.status !== 'inactif' && a.status !== 'absent' && !busyAgentIds.has(a.id)).length
 
   const dayName = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date())
   const dayCapitalized = dayName.charAt(0).toUpperCase() + dayName.slice(1)
@@ -53,7 +61,7 @@ export default function DashboardPage() {
             <StatCard
               title="Missions aujourd'hui"
               value={todayMissions.length}
-              description={`${todayMissions.filter(m => m.status === 'en_cours').length} en cours`}
+              description={`${activeMissionsCount} active${activeMissionsCount > 1 ? 's' : ''}`}
               icon={Sun}
             />
           </div>
@@ -68,7 +76,7 @@ export default function DashboardPage() {
           <div className="delay-3 animate-in">
             <StatCard
               title="Agents disponibles"
-              value={agents.filter(a => a.status === 'disponible').length}
+              value={availableAgentsCount}
               description={`sur ${agents.length} agents total`}
               icon={UserCog}
             />
