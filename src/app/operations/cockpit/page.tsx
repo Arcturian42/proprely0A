@@ -222,7 +222,7 @@ export default function CockpitPage() {
     }
     addTimeEntry(te)
 
-    toast.success(`Mission planifiée — ${agent.first_name} ${agent.last_name} le ${format(parseISO(missionForm.scheduled_date), 'dd/MM à HH:mm', { locale: fr })}`)
+    toast.success(`Mission planifiée — ${agent.first_name} ${agent.last_name} le ${format(parseISO(missionForm.scheduled_date), 'dd/MM', { locale: fr })} à ${missionForm.start_time}`)
     setAssigningItem(null)
   }
 
@@ -379,7 +379,7 @@ export default function CockpitPage() {
                             'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
                             isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600',
                           )}>
-                            {agent.first_name[0]}{agent.last_name[0]}
+                            {agent.first_name?.[0] ?? '?'}{agent.last_name?.[0] ?? ''}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -406,7 +406,7 @@ export default function CockpitPage() {
                               'h-full rounded-full transition-all',
                               weekHours / agent.weekly_availability_hours > 0.8 ? 'bg-amber-400' : 'bg-indigo-400',
                             )}
-                            style={{ width: `${Math.min(100, (weekHours / agent.weekly_availability_hours) * 100)}%` }}
+                            style={{ width: `${agent.weekly_availability_hours > 0 ? Math.min(100, (weekHours / agent.weekly_availability_hours) * 100) : 0}%` }}
                           />
                         </div>
                       </button>
@@ -737,7 +737,7 @@ export default function CockpitPage() {
                           {mission.agents && mission.agents.length > 0 && (
                             <span className="ml-1 flex items-center gap-1">
                               · <Users className="w-3 h-3" />
-                              {mission.agents.map(a => `${a.first_name} ${a.last_name[0]}.`).join(', ')}
+                              {mission.agents.map(a => `${a.first_name} ${a.last_name?.[0] ?? ''}.`).join(', ')}
                             </span>
                           )}
                         </div>

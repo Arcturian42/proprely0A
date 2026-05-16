@@ -48,7 +48,7 @@ export default function HeuresPaiePage() {
     if (!selectedEntry) return
     const hours = parseFloat(validatedHours)
     if (isNaN(hours) || hours < 0 || hours > 12) { toast.error('Les heures doivent être entre 0 et 12h'); return }
-    const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
+    const cost = (selectedEntry.hourly_cost || 0) * hours
     updateTimeEntry(selectedEntry.id, {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
       validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),

@@ -169,7 +169,7 @@ export default function AgentsPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                      {agent.first_name[0]}{agent.last_name[0]}
+                      {agent.first_name?.[0] ?? '?'}{agent.last_name?.[0] ?? ''}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900">{agent.first_name} {agent.last_name}</p>

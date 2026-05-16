@@ -18,7 +18,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Phone, Globe } from 'lucide-react'
+import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 
 const defaultForm = {

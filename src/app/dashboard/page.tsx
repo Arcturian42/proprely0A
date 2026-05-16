@@ -101,7 +101,7 @@ export default function DashboardPage() {
                           </p>
                           {mission.agents?.map(a => (
                             <span key={a.id} className="w-6 h-6 rounded-full bg-[#EEF2FF] text-[#3B5BDB] text-[10px] flex items-center justify-center font-medium">
-                              {a.first_name[0]}
+                              {a.first_name?.[0] ?? '?'}
                             </span>
                           ))}
                         </div>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                     <li key={agent.id} className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
                       <div className="flex items-center gap-3">
                         <div className="w-6 h-6 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#3B5BDB] font-medium text-[10px]">
-                          {agent.first_name[0]}{agent.last_name[0]}
+                          {agent.first_name?.[0] ?? '?'}{agent.last_name?.[0] ?? ''}
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-[#111]">{agent.first_name} {agent.last_name}</p>

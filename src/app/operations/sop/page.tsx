@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Sop } from '@/types'
-import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, Plus as PlusIcon, X } from 'lucide-react'
+import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SopPage() {
@@ -94,7 +94,7 @@ export default function SopPage() {
 
   const associatedSitesSection = selectedSop
     ? (() => {
-        const siteIds = (selectedSop as Sop & { associated_site_ids?: string[] }).associated_site_ids
+        const siteIds = selectedSop.associated_site_ids
         if (!siteIds || siteIds.length === 0) return null
         const linked = sites.filter(s => siteIds.includes(s.id))
         if (linked.length === 0) return null
@@ -340,7 +340,7 @@ export default function SopPage() {
                     setNewChecklistItem('')
                   }
                 }}>
-                  <PlusIcon className="w-3 h-3" />
+                  <Plus className="w-3 h-3" />
                 </Button>
               </div>
             </div>
@@ -360,7 +360,7 @@ export default function SopPage() {
                   onChange={e => setNewMaterial(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && newMaterial.trim()) { setRequiredMaterials(prev => [...prev, newMaterial.trim()]); setNewMaterial('') } }} />
                 <Button size="sm" variant="outline" onClick={() => { if (newMaterial.trim()) { setRequiredMaterials(prev => [...prev, newMaterial.trim()]); setNewMaterial('') } }}>
-                  <PlusIcon className="w-3 h-3" />
+                  <Plus className="w-3 h-3" />
                 </Button>
               </div>
             </div>
@@ -380,7 +380,7 @@ export default function SopPage() {
                   onChange={e => setNewProduct(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && newProduct.trim()) { setRequiredProducts(prev => [...prev, newProduct.trim()]); setNewProduct('') } }} />
                 <Button size="sm" variant="outline" onClick={() => { if (newProduct.trim()) { setRequiredProducts(prev => [...prev, newProduct.trim()]); setNewProduct('') } }}>
-                  <PlusIcon className="w-3 h-3" />
+                  <Plus className="w-3 h-3" />
                 </Button>
               </div>
             </div>
