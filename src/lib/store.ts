@@ -145,25 +145,25 @@ export const useAppStore = create<AppStore>()(
     // Agents
     addAgent: (agent) => {
       set(s => ({ agents: [...s.agents, agent] }))
-      db.createAgent(agent).catch(console.error)
+      db.createAgent(agent).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateAgent: (id, data) => {
       set(s => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a) }))
-      db.updateAgent(id, data).catch(console.error)
+      db.updateAgent(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteAgent: (id) => {
       set(s => ({ agents: s.agents.filter(a => a.id !== id) }))
-      db.deleteAgent(id).catch(console.error)
+      db.deleteAgent(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // Clients
     addClient: (client) => {
       set(s => ({ clients: [...s.clients, client] }))
-      db.createClient_(client).catch(console.error)
+      db.createClient_(client).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateClient: (id, data) => {
       set(s => ({ clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c) }))
-      db.updateClient_(id, data).catch(console.error)
+      db.updateClient_(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteClient: (id) => {
       set(s => {
@@ -177,49 +177,49 @@ export const useAppStore = create<AppStore>()(
           timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
         }
       })
-      db.deleteClient_(id).catch(console.error)
+      db.deleteClient_(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // Sites
     addSite: (site) => {
       set(s => ({ sites: [...s.sites, site] }))
-      db.createSite(site).catch(console.error)
+      db.createSite(site).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateSite: (id, data) => {
       set(s => ({ sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
-      db.updateSite(id, data).catch(console.error)
+      db.updateSite(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteSite: (id) => {
       set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) }))
-      db.deleteSite(id).catch(console.error)
+      db.deleteSite(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // Leads
     addLead: (lead) => {
       set(s => ({ leads: [...s.leads, lead] }))
-      db.createLead(lead).catch(console.error)
+      db.createLead(lead).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateLead: (id, data) => {
       set(s => ({ leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l) }))
-      db.updateLead(id, data).catch(console.error)
+      db.updateLead(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteLead: (id) => {
       set(s => ({ leads: s.leads.filter(l => l.id !== id) }))
-      db.deleteLead(id).catch(console.error)
+      db.deleteLead(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // Opportunities
     addOpportunity: (opp) => {
       set(s => ({ opportunities: [...s.opportunities, opp] }))
-      db.createOpportunity(opp).catch(console.error)
+      db.createOpportunity(opp).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateOpportunity: (id, data) => {
       set(s => ({ opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o) }))
-      db.updateOpportunity(id, data).catch(console.error)
+      db.updateOpportunity(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteOpportunity: (id) => {
       set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) }))
-      db.deleteOpportunity(id).catch(console.error)
+      db.deleteOpportunity(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     winOpportunity: async (id) => {
       const opp = get().opportunities.find(o => o.id === id)
@@ -261,15 +261,15 @@ export const useAppStore = create<AppStore>()(
     // Missions
     addMission: (mission) => {
       set(s => ({ missions: [...s.missions, mission] }))
-      db.createMission(mission).catch(console.error)
+      db.createMission(mission).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateMission: (id, data) => {
       set(s => ({ missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m) }))
-      db.updateMission(id, data).catch(console.error)
+      db.updateMission(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteMission: (id) => {
       set(s => ({ missions: s.missions.filter(m => m.id !== id) }))
-      db.deleteMission(id).catch(console.error)
+      db.deleteMission(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateMissionStatus: (id, status, validatedHours) => {
       const now = new Date().toISOString()
@@ -282,11 +282,11 @@ export const useAppStore = create<AppStore>()(
             )
           : s.timeEntries,
       }))
-      db.updateMission(id, { status, updated_at: now }).catch(console.error)
+      db.updateMission(id, { status, updated_at: now }).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
       if (validatedHours !== undefined) {
         const entries = get().timeEntries.filter(te => te.mission_id === id)
         entries.forEach(te => {
-          db.updateTimeEntry(te.id, { status: 'validee', validated_hours: validatedHours, validated_at: now }).catch(console.error)
+          db.updateTimeEntry(te.id, { status: 'validee', validated_hours: validatedHours, validated_at: now }).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
         })
       }
     },
@@ -294,53 +294,53 @@ export const useAppStore = create<AppStore>()(
     // OperationalItems
     addOperationalItem: (item) => {
       set(s => ({ operationalItems: [...s.operationalItems, item] }))
-      db.createOperationalItem(item).catch(console.error)
+      db.createOperationalItem(item).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateOperationalItem: (id, data) => {
       set(s => ({ operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i) }))
-      db.updateOperationalItem(id, data).catch(console.error)
+      db.updateOperationalItem(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteOperationalItem: (id) => {
       set(s => ({ operationalItems: s.operationalItems.filter(i => i.id !== id) }))
-      db.deleteOperationalItem(id).catch(console.error)
+      db.deleteOperationalItem(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // SOPs
     addSop: (sop) => {
       set(s => ({ sops: [...s.sops, sop] }))
-      db.createSop(sop).catch(console.error)
+      db.createSop(sop).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateSop: (id, data) => {
       set(s => ({ sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
-      db.updateSop(id, data).catch(console.error)
+      db.updateSop(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteSop: (id) => {
       set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) }))
-      db.deleteSop(id).catch(console.error)
+      db.deleteSop(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // TimeEntries
     addTimeEntry: (entry) => {
       set(s => ({ timeEntries: [...s.timeEntries, entry] }))
-      db.createTimeEntry(entry).catch(console.error)
+      db.createTimeEntry(entry).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateTimeEntry: (id, data) => {
       set(s => ({ timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te) }))
-      db.updateTimeEntry(id, data).catch(console.error)
+      db.updateTimeEntry(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // ServiceTypes
     addServiceType: (serviceType) => {
       set(s => ({ serviceTypes: [...s.serviceTypes, serviceType] }))
-      db.createServiceType(serviceType).catch(console.error)
+      db.createServiceType(serviceType).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     updateServiceType: (id, data) => {
       set(s => ({ serviceTypes: s.serviceTypes.map(st => st.id === id ? { ...st, ...data } : st) }))
-      db.updateServiceType(id, data).catch(console.error)
+      db.updateServiceType(id, data).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
     deleteServiceType: (id) => {
       set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) }))
-      db.deleteServiceType(id).catch(console.error)
+      db.deleteServiceType(id).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
     },
 
     // Company settings
@@ -353,7 +353,7 @@ export const useAppStore = create<AppStore>()(
           email: settings.email ?? state.companySettings.email,
           phone: settings.phone ?? state.companySettings.phone,
           address: settings.address ?? state.companySettings.address,
-        }).catch(console.error)
+        }).catch((e) => { console.error(e); import('sonner').then(({ toast }) => toast.error('Erreur de synchronisation: ' + (e?.message ?? 'inconnue'))) })
       }
     },
 

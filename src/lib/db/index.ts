@@ -8,13 +8,20 @@ async function getUserCompanyId(): Promise<string> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) throw new Error('Not authenticated')
 
-  const { data, error } = await supabase
+  // Try users table first
+  const { data } = await supabase
     .from('users')
     .select('company_id')
     .eq('id', user.id)
     .single()
-  if (error || !data) throw new Error('Could not get company_id')
-  return data.company_id as string
+
+  if (data?.company_id) return data.company_id as string
+
+  // Fallback: use company_id stored in auth metadata (set during signup)
+  const metaCompanyId = user.user_metadata?.company_id as string | undefined
+  if (metaCompanyId) return metaCompanyId
+
+  throw new Error(`No company_id found for user ${user.id}. Check that the users table row exists.`)
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
