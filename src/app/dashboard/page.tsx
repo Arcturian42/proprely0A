@@ -21,6 +21,7 @@ import {
   Settings,
   BarChart2,
 } from 'lucide-react'
+import { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
 const STATUS_DOT: Record<string, string> = {
@@ -65,7 +66,7 @@ export default function DashboardPage() {
   const wonOpps = opportunities.filter(o => o.stage === 'gagnee')
   const conversionRate = closedOpps.length > 0 ? Math.round((wonOpps.length / closedOpps.length) * 100) : 0
 
-  const KPI_CONFIG: Record<KpiId, { title: string; icon: React.ElementType; getValue: () => string | number; desc: string }> = {
+  const KPI_CONFIG: Record<KpiId, { title: string; icon: LucideIcon; getValue: () => string | number; desc: string }> = {
     missions: { title: "Missions aujourd'hui", icon: Sun, getValue: () => todayMissions.length, desc: `${activeMissionsCount} active${activeMissionsCount > 1 ? 's' : ''}` },
     clients: { title: 'Clients actifs', icon: Users, getValue: () => clients.filter(c => c.status === 'actif').length, desc: 'contrats en cours' },
     agents: { title: 'Agents disponibles', icon: UserCog, getValue: () => availableAgentsCount, desc: `sur ${agents.length} agents total` },
