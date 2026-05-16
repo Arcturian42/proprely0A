@@ -223,3 +223,173 @@ CREATE INDEX idx_missions_scheduled_date ON missions(scheduled_date);
 CREATE INDEX idx_missions_company ON missions(company_id);
 CREATE INDEX idx_time_entries_agent ON time_entries(agent_id);
 CREATE INDEX idx_time_entries_date ON time_entries(date);
+
+-- ============================================================
+-- MULTI-TENANT: Users, RLS, Policies, Triggers
+-- ============================================================
+
+-- Users table (links Supabase auth.users to companies)
+CREATE TABLE users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  full_name TEXT,
+  role TEXT NOT NULL DEFAULT 'manager' CHECK (role IN ('owner', 'manager', 'sales', 'agent')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_users_company ON users(company_id);
+
+-- Enable RLS on all tables
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE operational_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE missions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mission_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_types ENABLE ROW LEVEL SECURITY;
+
+-- Helper function: returns the company_id of the currently authenticated user
+CREATE OR REPLACE FUNCTION get_user_company_id()
+RETURNS UUID AS $$
+  SELECT company_id FROM users WHERE id = auth.uid()
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- ============================================================
+-- RLS POLICIES
+-- ============================================================
+
+-- companies: users can only read their own company
+CREATE POLICY "companies_select" ON companies
+  FOR SELECT USING (id = get_user_company_id());
+
+-- users: read own record and others in same company; update own record only
+CREATE POLICY "users_select" ON users
+  FOR SELECT USING (company_id = get_user_company_id());
+
+CREATE POLICY "users_update_own" ON users
+  FOR UPDATE USING (id = auth.uid());
+
+-- leads
+CREATE POLICY "leads_select" ON leads FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "leads_insert" ON leads FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "leads_update" ON leads FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "leads_delete" ON leads FOR DELETE USING (company_id = get_user_company_id());
+
+-- opportunities
+CREATE POLICY "opportunities_select" ON opportunities FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "opportunities_insert" ON opportunities FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "opportunities_update" ON opportunities FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "opportunities_delete" ON opportunities FOR DELETE USING (company_id = get_user_company_id());
+
+-- clients
+CREATE POLICY "clients_select" ON clients FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "clients_insert" ON clients FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "clients_update" ON clients FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "clients_delete" ON clients FOR DELETE USING (company_id = get_user_company_id());
+
+-- sites
+CREATE POLICY "sites_select" ON sites FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "sites_insert" ON sites FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "sites_update" ON sites FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "sites_delete" ON sites FOR DELETE USING (company_id = get_user_company_id());
+
+-- sops
+CREATE POLICY "sops_select" ON sops FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "sops_insert" ON sops FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "sops_update" ON sops FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "sops_delete" ON sops FOR DELETE USING (company_id = get_user_company_id());
+
+-- agents
+CREATE POLICY "agents_select" ON agents FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "agents_insert" ON agents FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "agents_update" ON agents FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "agents_delete" ON agents FOR DELETE USING (company_id = get_user_company_id());
+
+-- operational_items
+CREATE POLICY "operational_items_select" ON operational_items FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "operational_items_insert" ON operational_items FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "operational_items_update" ON operational_items FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "operational_items_delete" ON operational_items FOR DELETE USING (company_id = get_user_company_id());
+
+-- missions
+CREATE POLICY "missions_select" ON missions FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "missions_insert" ON missions FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "missions_update" ON missions FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "missions_delete" ON missions FOR DELETE USING (company_id = get_user_company_id());
+
+-- mission_agents: access via mission's company_id join
+CREATE POLICY "mission_agents_select" ON mission_agents
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM missions m
+      WHERE m.id = mission_agents.mission_id
+        AND m.company_id = get_user_company_id()
+    )
+  );
+CREATE POLICY "mission_agents_insert" ON mission_agents
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM missions m
+      WHERE m.id = mission_agents.mission_id
+        AND m.company_id = get_user_company_id()
+    )
+  );
+CREATE POLICY "mission_agents_update" ON mission_agents
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM missions m
+      WHERE m.id = mission_agents.mission_id
+        AND m.company_id = get_user_company_id()
+    )
+  );
+CREATE POLICY "mission_agents_delete" ON mission_agents
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM missions m
+      WHERE m.id = mission_agents.mission_id
+        AND m.company_id = get_user_company_id()
+    )
+  );
+
+-- time_entries
+CREATE POLICY "time_entries_select" ON time_entries FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "time_entries_insert" ON time_entries FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "time_entries_update" ON time_entries FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "time_entries_delete" ON time_entries FOR DELETE USING (company_id = get_user_company_id());
+
+-- service_types
+CREATE POLICY "service_types_select" ON service_types FOR SELECT USING (company_id = get_user_company_id());
+CREATE POLICY "service_types_insert" ON service_types FOR INSERT WITH CHECK (company_id = get_user_company_id());
+CREATE POLICY "service_types_update" ON service_types FOR UPDATE USING (company_id = get_user_company_id());
+CREATE POLICY "service_types_delete" ON service_types FOR DELETE USING (company_id = get_user_company_id());
+
+-- ============================================================
+-- TRIGGER: auto-create user record after signup
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- company_id comes from user metadata set during signup
+  INSERT INTO users (id, company_id, email, full_name, role)
+  VALUES (
+    NEW.id,
+    (NEW.raw_user_meta_data->>'company_id')::UUID,
+    NEW.email,
+    NEW.raw_user_meta_data->>'full_name',
+    COALESCE(NEW.raw_user_meta_data->>'role', 'owner')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
