@@ -1,0 +1,94 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useAppStore } from '@/lib/store'
+import {
+  fetchAgents,
+  fetchClients,
+  fetchSites,
+  fetchLeads,
+  fetchOpportunities,
+  fetchMissions,
+  fetchOperationalItems,
+  fetchSops,
+  fetchTimeEntries,
+  fetchServiceTypes,
+  fetchCompany,
+} from '@/lib/db'
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-[#FBFBFA]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
+        <p className="text-sm text-slate-500">Chargement…</p>
+      </div>
+    </div>
+  )
+}
+
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      fetchAgents(),
+      fetchClients(),
+      fetchSites(),
+      fetchLeads(),
+      fetchOpportunities(),
+      fetchMissions(),
+      fetchOperationalItems(),
+      fetchSops(),
+      fetchTimeEntries(),
+      fetchServiceTypes(),
+      fetchCompany(),
+    ]).then(([
+      agents,
+      clients,
+      sites,
+      leads,
+      opportunities,
+      missions,
+      operationalItems,
+      sops,
+      timeEntries,
+      serviceTypes,
+      company,
+    ]) => {
+      const companySettings = company
+        ? {
+            id: company.id,
+            name: company.name,
+            email: company.email ?? '',
+            phone: company.phone ?? '',
+            address: company.address ?? '',
+            siret: '',
+          }
+        : undefined
+
+      useAppStore.getState().hydrate({
+        agents,
+        clients,
+        sites,
+        leads,
+        opportunities,
+        missions,
+        operationalItems,
+        sops,
+        timeEntries,
+        serviceTypes,
+        ...(companySettings ? { companySettings } : {}),
+      })
+
+      setReady(true)
+    }).catch((err) => {
+      console.error('DataProvider: failed to hydrate store', err)
+      // Still render children so the app isn't stuck
+      setReady(true)
+    })
+  }, [])
+
+  if (!ready) return <LoadingSkeleton />
+  return <>{children}</>
+}

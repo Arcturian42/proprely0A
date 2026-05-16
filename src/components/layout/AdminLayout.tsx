@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AppSidebar } from './AppSidebar'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DataProvider } from '@/components/providers/DataProvider'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -13,6 +14,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
+    <DataProvider>
     <div className="flex h-screen overflow-hidden bg-[#FBFBFA]">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -48,5 +50,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </main>
       </div>
     </div>
+    </DataProvider>
   )
 }
