@@ -17,7 +17,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Phone, Mail, MapPin, Euro, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Plus, Phone, Mail, MapPin, Euro, CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 const STAGES: OpportunityStage[] = ['lead', 'prise_de_contact', 'decouverte', 'proposition', 'negociation', 'gagnee', 'perdue']
@@ -285,6 +285,20 @@ export default function PipelinePage() {
                       }}
                     >
                       <CheckCircle2 className="w-3 h-3" /> Marquer Gagnée
+                    </Button>
+                  )}
+                  {selectedOpp.stage !== 'perdue' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        updateOpportunity(selectedOpp.id, { stage: 'perdue', updated_at: new Date().toISOString() })
+                        setSelectedOpp(null)
+                        toast.success('Opportunité marquée comme perdue')
+                      }}
+                    >
+                      <XCircle className="w-3 h-3" /> Marquer Perdue
                     </Button>
                   )}
                 </div>

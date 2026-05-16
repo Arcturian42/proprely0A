@@ -200,7 +200,7 @@ export const useAppStore = create<AppStore>()(
           opportunity_id: opp.id,
           source: 'pipeline',
           title: `${opp.prospect_name} — à organiser`,
-          status: 'a_organiser', priority: 'normal',
+          status: 'a_organiser', priority: 'normale',
           notes: null, converted_to_mission: false, mission_id: null,
           created_at: now, updated_at: now,
         }
