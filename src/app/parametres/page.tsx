@@ -18,6 +18,7 @@ import { Plus, Edit, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAppStore } from '@/lib/store'
+import { InvitationsPanel } from '@/components/settings/InvitationsPanel'
 
 export default function ParametresPage() {
   useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
@@ -76,6 +77,7 @@ export default function ParametresPage() {
         <Tabs defaultValue="company">
           <TabsList className="mb-6">
             <TabsTrigger value="company">Mon entreprise</TabsTrigger>
+            <TabsTrigger value="equipe">Équipe</TabsTrigger>
             <TabsTrigger value="services">Types de services</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
@@ -111,6 +113,10 @@ export default function ParametresPage() {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="equipe">
+            <InvitationsPanel />
           </TabsContent>
 
           <TabsContent value="services">
