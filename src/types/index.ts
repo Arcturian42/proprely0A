@@ -392,8 +392,8 @@ export interface Quote {
   line_items: QuoteLineItem[]
   site_visit_notes: string | null
   extraction_data: SiteVisitExtraction | null
-  yousign_procedure_id: string | null
-  yousign_signature_url: string | null
+  docuseal_submission_id: string | null
+  docuseal_signature_url: string | null
   signed_at: string | null
   client_name: string
   client_email: string | null

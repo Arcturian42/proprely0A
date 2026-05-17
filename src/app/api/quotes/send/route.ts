@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendForSignature } from '@/lib/signnow'
+import { sendForSignature } from '@/lib/docuseal'
 import { requireAuthenticatedProfile } from '@/lib/supabase/server'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -173,7 +173,7 @@ function buildPDF(body: SendQuoteBody): Buffer {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(150, 150, 150)
-  doc.text('Ce document sera signé électroniquement via Yousign.', 18, sigY + 15)
+  doc.text('Ce document sera signé électroniquement via Docuseal.', 18, sigY + 15)
   doc.text('En signant, vous acceptez les conditions et le devis ci-dessus.', 18, sigY + 21)
 
   // Footer
@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const pdfBuffer = buildPDF(body)
 
-    // Send via SignNow
+    // Send via Docuseal — returns submissionId we'll match against on webhook.
     const result = await sendForSignature(
       quote.title,
       pdfBuffer,
@@ -219,10 +219,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      signatureRequestId: result.documentId,
+      signatureRequestId: result.submissionId,
       signerUrl: result.signerUrl,
-      documentId: result.documentId,
-      webhookUrl: `${appUrl}/api/signnow/webhook`,
+      submissionId: result.submissionId,
+      submitterId: result.submitterId,
+      webhookUrl: `${appUrl}/api/docuseal/webhook`,
     })
   } catch (err) {
     console.error('[Send Quote]', err)

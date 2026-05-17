@@ -300,8 +300,8 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
       line_items: lineItems,
       site_visit_notes: visitNotes || null,
       extraction_data: null,
-      yousign_procedure_id: null,
-      yousign_signature_url: null,
+      docuseal_submission_id: null,
+      docuseal_signature_url: null,
       signed_at: null,
       client_name: opportunity.prospect_name,
       client_email: opportunity.email,
@@ -322,7 +322,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
       toast.error('Email client requis pour envoyer le devis')
       return
     }
-    const toastId = toast.loading('Envoi via SignNow...')
+    const toastId = toast.loading('Envoi via Docuseal...')
     try {
       const res = await fetch('/api/quotes/send', {
         method: 'POST',
@@ -339,8 +339,8 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
       if (!res.ok) throw new Error(data.error || 'Erreur envoi')
       sendQuote(quoteId)
       updateQuote(quoteId, {
-        yousign_procedure_id: data.signatureRequestId,
-        yousign_signature_url: data.signerUrl,
+        docuseal_submission_id: data.submissionId ?? data.signatureRequestId,
+        docuseal_signature_url: data.signerUrl,
       })
       toast.dismiss(toastId)
       toast.success('Devis envoyé ! Le client recevra un email de signature.', { duration: 6000 })
