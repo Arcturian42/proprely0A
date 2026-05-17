@@ -1,17 +1,6 @@
--- Proprely Admin — Schema canonique
--- Ce fichier est le SNAPSHOT à jour du schéma après application de toutes
--- les migrations sous supabase/migrations/. Utilisé pour bootstrap d'un nouvel
--- environnement (par ex. local dev, CI).
---
--- Pour produire une mise à jour incrémentale d'un environnement existant,
--- ajouter une nouvelle migration timestampée dans supabase/migrations/.
---
--- Source de vérité TS : src/types/index.ts
+-- Proprely Admin - Database Schema
 
--- ============================================================
--- 1. Tables de base
--- ============================================================
-
+-- Companies (tenants)
 CREATE TABLE companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -23,6 +12,7 @@ CREATE TABLE companies (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Leads (prospects)
 CREATE TABLE leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -35,14 +25,14 @@ CREATE TABLE leads (
   source TEXT,
   ai_score INTEGER CHECK (ai_score >= 0 AND ai_score <= 100),
   probable_need TEXT,
-  status TEXT NOT NULL DEFAULT 'nouveau'
-    CHECK (status IN ('nouveau', 'qualifie', 'a_contacter', 'contacte', 'converti', 'rejete')),
+  status TEXT NOT NULL DEFAULT 'nouveau' CHECK (status IN ('nouveau', 'qualifie', 'a_contacter', 'contacte', 'converti', 'rejete')),
   notes TEXT,
   converted_opportunity_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Opportunities (pipeline)
 CREATE TABLE opportunities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -52,27 +42,16 @@ CREATE TABLE opportunities (
   title TEXT NOT NULL,
   prospect_name TEXT NOT NULL,
   contact_name TEXT,
-  contact_role TEXT,
   email TEXT,
   phone TEXT,
   city TEXT,
-  postal_code TEXT,
   site_address TEXT,
   client_type TEXT,
   service_type TEXT,
   estimated_amount NUMERIC(10,2),
-  stage TEXT NOT NULL DEFAULT 'ouvert'
-    CHECK (stage IN ('ouvert', 'decouverte', 'proposition', 'negociation', 'gagne', 'perdu')),
+  stage TEXT NOT NULL DEFAULT 'lead' CHECK (stage IN ('lead', 'prise_de_contact', 'decouverte', 'proposition', 'negociation', 'gagnee', 'perdue')),
   next_action_date TIMESTAMPTZ,
-  next_action_type TEXT,
-  next_action_note TEXT,
   notes TEXT,
-  siren TEXT,
-  siret TEXT,
-  naf_code TEXT,
-  legal_form TEXT,
-  company_status TEXT,
-  source TEXT DEFAULT 'manual',
   status TEXT NOT NULL DEFAULT 'ouvert',
   converted_to_client BOOLEAN DEFAULT FALSE,
   converted_at TIMESTAMPTZ,
@@ -80,6 +59,7 @@ CREATE TABLE opportunities (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Clients
 CREATE TABLE clients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -97,6 +77,7 @@ CREATE TABLE clients (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Sites
 CREATE TABLE sites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -116,6 +97,7 @@ CREATE TABLE sites (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- SOPs (Standard Operating Procedures)
 CREATE TABLE sops (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -132,6 +114,7 @@ CREATE TABLE sops (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Agents
 CREATE TABLE agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -142,19 +125,18 @@ CREATE TABLE agents (
   specialty TEXT,
   skills TEXT[] DEFAULT '{}',
   business_registration_number TEXT,
-  contract_type TEXT NOT NULL DEFAULT 'cdi'
-    CHECK (contract_type IN ('auto_entrepreneur', 'cdd', 'cdi', 'extra', 'sous_traitant')),
+  contract_type TEXT NOT NULL DEFAULT 'cdi' CHECK (contract_type IN ('auto_entrepreneur', 'cdd', 'cdi', 'extra', 'sous_traitant')),
   weekly_availability_hours INTEGER DEFAULT 35,
   weekly_availability JSONB DEFAULT '{}',
   zone TEXT,
-  status TEXT NOT NULL DEFAULT 'disponible'
-    CHECK (status IN ('disponible', 'occupe', 'absent', 'inactif')),
+  status TEXT NOT NULL DEFAULT 'disponible' CHECK (status IN ('disponible', 'occupe', 'absent', 'inactif')),
   hourly_cost NUMERIC(8,2),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Operational items (cockpit)
 CREATE TABLE operational_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -163,8 +145,7 @@ CREATE TABLE operational_items (
   opportunity_id UUID REFERENCES opportunities(id),
   source TEXT NOT NULL DEFAULT 'contrat',
   title TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'a_organiser'
-    CHECK (status IN ('a_organiser', 'en_cours', 'planifie', 'annule')),
+  status TEXT NOT NULL DEFAULT 'a_organiser' CHECK (status IN ('a_organiser', 'en_cours', 'planifie', 'annule')),
   priority TEXT NOT NULL DEFAULT 'normale',
   notes TEXT,
   converted_to_mission BOOLEAN DEFAULT FALSE,
@@ -173,6 +154,7 @@ CREATE TABLE operational_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Missions
 CREATE TABLE missions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -181,36 +163,17 @@ CREATE TABLE missions (
   operational_item_id UUID REFERENCES operational_items(id),
   service_type TEXT,
   sop_id UUID REFERENCES sops(id),
-  status TEXT NOT NULL DEFAULT 'prevue'
-    CHECK (status IN ('prevue', 'en_cours', 'terminee', 'a_valider', 'probleme_signale', 'annulee')),
-  operational_status TEXT
-    CHECK (operational_status IN (
-      'a_organiser','en_preparation','en_attente_validation_client',
-      'planifie','en_cours','terminee','incident'
-    )) DEFAULT 'a_organiser',
+  status TEXT NOT NULL DEFAULT 'prevue' CHECK (status IN ('prevue', 'en_cours', 'terminee', 'a_valider', 'probleme_signale', 'annulee')),
   scheduled_date DATE NOT NULL,
   start_time TIME,
   planned_hours NUMERIC(5,2) NOT NULL DEFAULT 2,
   notes TEXT,
   priority TEXT NOT NULL DEFAULT 'normale',
-  -- Enrichissement OrganizationWizard
-  estimated_workers INTEGER,
-  estimated_profitability NUMERIC(10,2),
-  urgency TEXT,
-  recurrence TEXT,
-  required_machines TEXT[] DEFAULT '{}',
-  consumables TEXT[] DEFAULT '{}',
-  equipment TEXT[] DEFAULT '{}',
-  required_skills TEXT[] DEFAULT '{}',
-  parking_notes TEXT,
-  floor_count INTEGER,
-  organization_step INTEGER DEFAULT 0,
-  contact_name TEXT,
-  contact_phone TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Mission agents (many-to-many)
 CREATE TABLE mission_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mission_id UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
@@ -219,6 +182,7 @@ CREATE TABLE mission_agents (
   UNIQUE(mission_id, agent_id)
 );
 
+-- Time entries
 CREATE TABLE time_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -231,13 +195,13 @@ CREATE TABLE time_entries (
   validated_hours NUMERIC(5,2),
   hourly_cost NUMERIC(8,2),
   total_cost NUMERIC(10,2),
-  status TEXT NOT NULL DEFAULT 'prevue'
-    CHECK (status IN ('prevue', 'a_valider', 'validee', 'corrigee')),
+  status TEXT NOT NULL DEFAULT 'prevue' CHECK (status IN ('prevue', 'a_valider', 'validee', 'corrigee')),
   validated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Service types
 CREATE TABLE service_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -250,10 +214,34 @@ CREATE TABLE service_types (
 );
 
 -- ============================================================
--- 2. Refonte cockpit / agents
+-- Refonte Cockpit & Agents (Phase A + B) — migrations additives
 -- ============================================================
 
-CREATE TABLE agent_skills (
+-- 1. Statut opérationnel mission (coexiste avec `status` legacy)
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS operational_status TEXT
+  CHECK (operational_status IN (
+    'a_organiser','en_preparation','en_attente_validation_client',
+    'planifie','en_cours','terminee','incident'
+  )) DEFAULT 'a_organiser';
+
+-- 2. Enrichissement mission
+ALTER TABLE missions
+  ADD COLUMN IF NOT EXISTS estimated_workers INTEGER,
+  ADD COLUMN IF NOT EXISTS estimated_profitability NUMERIC(10,2),
+  ADD COLUMN IF NOT EXISTS urgency TEXT,
+  ADD COLUMN IF NOT EXISTS recurrence TEXT,
+  ADD COLUMN IF NOT EXISTS required_machines TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS consumables TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS equipment TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS required_skills TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS parking_notes TEXT,
+  ADD COLUMN IF NOT EXISTS floor_count INTEGER,
+  ADD COLUMN IF NOT EXISTS organization_step INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS contact_name TEXT,
+  ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+
+-- 3. Expertises agents (avec niveau)
+CREATE TABLE IF NOT EXISTS agent_skills (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   skill TEXT NOT NULL,
@@ -261,7 +249,8 @@ CREATE TABLE agent_skills (
   UNIQUE(agent_id, skill)
 );
 
-CREATE TABLE agent_certifications (
+-- 4. Certifications agents
+CREATE TABLE IF NOT EXISTS agent_certifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -271,7 +260,8 @@ CREATE TABLE agent_certifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE availability_blocks (
+-- 5. Blocs de disponibilité / indispos / vacances
+CREATE TABLE IF NOT EXISTS availability_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   start_at TIMESTAMPTZ NOT NULL,
@@ -281,7 +271,8 @@ CREATE TABLE availability_blocks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE workload_history (
+-- 6. Historique de workload (semaine)
+CREATE TABLE IF NOT EXISTS workload_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   week_start DATE NOT NULL,
@@ -292,14 +283,16 @@ CREATE TABLE workload_history (
   UNIQUE(agent_id, week_start)
 );
 
-CREATE TABLE fatigue_scores (
+-- 7. Score de fatigue (snapshot courant)
+CREATE TABLE IF NOT EXISTS fatigue_scores (
   agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
   score INTEGER NOT NULL DEFAULT 0,
   label TEXT NOT NULL CHECK (label IN ('ok','charge','surcharge','burnout')),
   computed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE client_constraints (
+-- 8. Contraintes opérationnelles par site
+CREATE TABLE IF NOT EXISTS client_constraints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE UNIQUE,
   preferred_days TEXT[] DEFAULT '{}',
@@ -318,7 +311,8 @@ CREATE TABLE client_constraints (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE scheduling_proposals (
+-- 9. Propositions de scheduling
+CREATE TABLE IF NOT EXISTS scheduling_proposals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mission_id UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
   proposed_start TIMESTAMPTZ NOT NULL,
@@ -330,94 +324,19 @@ CREATE TABLE scheduling_proposals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 3. Quotes (devis)
--- ============================================================
+CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_certs_agent ON agent_certifications(agent_id);
+CREATE INDEX IF NOT EXISTS idx_availability_blocks_agent ON availability_blocks(agent_id);
+CREATE INDEX IF NOT EXISTS idx_scheduling_proposals_mission ON scheduling_proposals(mission_id);
+CREATE INDEX IF NOT EXISTS idx_missions_operational_status ON missions(operational_status);
 
-CREATE TABLE quotes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  opportunity_id UUID NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
-  quote_number TEXT NOT NULL,
-  title TEXT NOT NULL,
-  service_category TEXT NOT NULL CHECK (service_category IN (
-    'fin_chantier', 'terrasse', 'sols_mecanises', 'moquette',
-    'bureaux_recurrent', 'vitres', 'autre'
-  )),
-  surface_m2 NUMERIC(10,2),
-  status TEXT NOT NULL DEFAULT 'brouillon' CHECK (status IN (
-    'brouillon', 'envoye', 'signe', 'refuse', 'expire'
-  )),
-  costs JSONB NOT NULL DEFAULT '{
-    "labor_cost": 0, "machines_cost": 0, "consumables_cost": 0,
-    "transport_cost": 0, "other_costs": 0, "total_cost_ht": 0,
-    "margin_rate": 0, "price_ht": 0, "vat_rate": 0.2, "price_ttc": 0
-  }'::jsonb,
-  line_items JSONB NOT NULL DEFAULT '[]'::jsonb,
-  site_visit_notes TEXT,
-  extraction_data JSONB,
-  yousign_procedure_id TEXT,
-  yousign_signature_url TEXT,
-  signed_at TIMESTAMPTZ,
-  client_name TEXT NOT NULL,
-  client_email TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (company_id, quote_number)
-);
-
--- ============================================================
--- 4. Indexes
--- ============================================================
-
+-- Indexes (existing)
 CREATE INDEX idx_leads_company ON leads(company_id);
 CREATE INDEX idx_opportunities_company ON opportunities(company_id);
-CREATE INDEX idx_opportunities_stage ON opportunities(company_id, stage);
-CREATE INDEX idx_opportunities_siret ON opportunities(siret) WHERE siret IS NOT NULL;
 CREATE INDEX idx_clients_company ON clients(company_id);
 CREATE INDEX idx_sites_client ON sites(client_id);
 CREATE INDEX idx_agents_company ON agents(company_id);
 CREATE INDEX idx_missions_scheduled_date ON missions(scheduled_date);
 CREATE INDEX idx_missions_company ON missions(company_id);
-CREATE INDEX idx_missions_operational_status ON missions(operational_status);
 CREATE INDEX idx_time_entries_agent ON time_entries(agent_id);
 CREATE INDEX idx_time_entries_date ON time_entries(date);
-CREATE INDEX idx_agent_skills_agent ON agent_skills(agent_id);
-CREATE INDEX idx_agent_certs_agent ON agent_certifications(agent_id);
-CREATE INDEX idx_availability_blocks_agent ON availability_blocks(agent_id);
-CREATE INDEX idx_scheduling_proposals_mission ON scheduling_proposals(mission_id);
-CREATE INDEX idx_quotes_company ON quotes(company_id);
-CREATE INDEX idx_quotes_opportunity ON quotes(opportunity_id);
-CREATE INDEX idx_quotes_status ON quotes(company_id, status);
-CREATE INDEX idx_quotes_yousign ON quotes(yousign_procedure_id) WHERE yousign_procedure_id IS NOT NULL;
-
--- ============================================================
--- 5. Triggers updated_at automatiques
--- ============================================================
-
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DO $$
-DECLARE
-  t TEXT;
-BEGIN
-  FOR t IN
-    SELECT table_name FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND column_name = 'updated_at'
-  LOOP
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS trg_%I_updated_at ON %I;
-       CREATE TRIGGER trg_%I_updated_at
-         BEFORE UPDATE ON %I
-         FOR EACH ROW EXECUTE FUNCTION set_updated_at();',
-      t, t, t, t
-    );
-  END LOOP;
-END $$;
