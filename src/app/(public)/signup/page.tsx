@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { signUpCompany } from '@/app/actions/auth'
+import { track } from '@/lib/analytics/posthog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,8 +19,12 @@ export default function SignupPage() {
       const res = await signUpCompany(formData)
       if (res.ok) {
         setResult({ ok: true, message: res.message ?? 'Compte créé.' })
+        track('signup_completed', {
+          company_name: formData.get('company_name'),
+        })
       } else {
         setResult({ ok: false, message: res.error })
+        track('signup_failed', { error: res.error })
       }
     })
   }

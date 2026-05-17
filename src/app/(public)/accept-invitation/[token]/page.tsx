@@ -2,6 +2,7 @@
 
 import { Suspense, use, useState, useTransition } from 'react'
 import { acceptInvitation } from '@/app/actions/invitations'
+import { track } from '@/lib/analytics/posthog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,9 +36,11 @@ function AcceptInvitationForm({ params }: { params: Promise<{ token: string }> }
       const res = await acceptInvitation(formData)
       if (res.ok) {
         setResult({ ok: true, message: res.message ?? 'Invitation acceptée.' })
+        track('invitation_accepted')
         setTimeout(() => router.push('/dashboard'), 1500)
       } else {
         setResult({ ok: false, message: res.error })
+        track('invitation_accept_failed', { error: res.error })
       }
     })
   }
