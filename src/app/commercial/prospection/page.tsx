@@ -122,7 +122,7 @@ export default function ProspectionPage() {
       client_type: null,
       service_type: null,
       estimated_amount: null,
-      stage: 'prise_de_contact',
+      stage: 'ouvert',
       next_action_date: null,
       notes: lead.notes ?? null,
       status: 'active',

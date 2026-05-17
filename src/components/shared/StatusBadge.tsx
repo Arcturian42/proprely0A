@@ -18,6 +18,7 @@ const STATUS_STYLE_MAP: Record<string, string> = {
   qualifie: 'bg-[#EDF3EC] text-[#346538]',
   converti: 'bg-[#EDF3EC] text-[#346538]',
   gagnee: 'bg-[#EDF3EC] text-[#346538]',
+  gagne: 'bg-[#EDF3EC] text-[#346538]',
   validee: 'bg-[#EDF3EC] text-[#346538]',
   // Pale blue — planned/scheduled
   prevue: 'bg-[#E1F3FE] text-[#1F6C9F]',
@@ -33,6 +34,8 @@ const STATUS_STYLE_MAP: Record<string, string> = {
   rejete: 'bg-[#FDEBEC] text-[#9F2F2D]',
   absent: 'bg-[#FDEBEC] text-[#9F2F2D]',
   perdue: 'bg-[#FDEBEC] text-[#9F2F2D]',
+  perdu: 'bg-[#FDEBEC] text-[#9F2F2D]',
+  ouvert: 'bg-[#f7f6f3] text-[#787774]',
   // Pale yellow — pending validation
   a_valider: 'bg-[#FBF3DB] text-[#956400]',
   en_conge: 'bg-[#FBF3DB] text-[#956400]',

@@ -1,10 +1,12 @@
 export type LeadStatus = 'nouveau' | 'qualifie' | 'a_contacter' | 'contacte' | 'converti' | 'rejete'
-export type OpportunityStage = 'lead' | 'prise_de_contact' | 'decouverte' | 'proposition' | 'negociation' | 'gagnee' | 'perdue'
+export type OpportunityStage = 'ouvert' | 'decouverte' | 'proposition' | 'negociation' | 'gagne' | 'perdu'
 export type MissionStatus = 'prevue' | 'en_cours' | 'terminee' | 'a_valider' | 'probleme_signale' | 'annulee'
 export type AgentStatus = 'disponible' | 'occupe' | 'absent' | 'inactif'
 export type ContractType = 'auto_entrepreneur' | 'cdd' | 'cdi' | 'extra' | 'sous_traitant'
 export type TimeEntryStatus = 'prevue' | 'a_valider' | 'validee' | 'corrigee'
 export type OperationalItemStatus = 'a_organiser' | 'en_cours' | 'planifie' | 'annule'
+export type QuoteStatus = 'brouillon' | 'envoye' | 'signe' | 'refuse' | 'expire'
+export type ServiceCategory = 'fin_chantier' | 'terrasse' | 'sols_mecanises' | 'moquette' | 'bureaux_recurrent' | 'vitres' | 'autre'
 
 export interface Company {
   id: string
@@ -217,6 +219,68 @@ export interface ServiceType {
   estimated_duration_minutes: number | null
   indicative_price: number | null
   default_sop_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SiteVisitExtraction {
+  service_type: string
+  surface_m2: number | null
+  complexity_level: 'faible' | 'moyen' | 'élevé'
+  floors: number | null
+  obstacles: string[]
+  machines_needed: string[]
+  consumables: string[]
+  estimated_duration_hours: number | null
+  workers_needed: number | null
+  frequency: string
+  access_constraints: string
+  parking_logistics: string
+  urgency: 'normale' | 'urgent' | 'très urgent'
+  client_requirements: string
+  operational_recommendation: string
+}
+
+export interface QuoteLineItem {
+  id: string
+  description: string
+  quantity: number
+  unit: string
+  unit_price: number
+  total: number
+}
+
+export interface QuoteCostBreakdown {
+  labor_cost: number
+  machines_cost: number
+  consumables_cost: number
+  transport_cost: number
+  other_costs: number
+  total_cost_ht: number
+  margin_rate: number
+  price_ht: number
+  vat_rate: number
+  price_ttc: number
+}
+
+export interface Quote {
+  id: string
+  company_id: string
+  opportunity_id: string
+  quote_number: string
+  title: string
+  service_category: ServiceCategory
+  surface_m2: number | null
+  status: QuoteStatus
+  costs: QuoteCostBreakdown
+  line_items: QuoteLineItem[]
+  site_visit_notes: string | null
+  extraction_data: SiteVisitExtraction | null
+  yousign_procedure_id: string | null
+  yousign_signature_url: string | null
+  signed_at: string | null
+  client_name: string
+  client_email: string | null
   created_at: string
   updated_at: string
 }

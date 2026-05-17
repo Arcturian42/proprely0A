@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType
+  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage
 } from '@/types'
 import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
@@ -22,6 +22,7 @@ interface CompanySettings {
   phone: string
   address: string
   siret: string
+  logo_url?: string
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -43,6 +44,7 @@ interface AppStore {
   sops: Sop[]
   timeEntries: TimeEntry[]
   serviceTypes: ServiceType[]
+  quotes: Quote[]
   companySettings: CompanySettings
 
   // Agents
@@ -70,6 +72,7 @@ interface AppStore {
   updateOpportunity: (id: string, data: Partial<Opportunity>) => void
   deleteOpportunity: (id: string) => void
   winOpportunity: (id: string) => void
+  moveOpportunity: (id: string, stage: OpportunityStage) => void
 
   // Missions
   addMission: (mission: Mission) => void
@@ -96,6 +99,13 @@ interface AppStore {
   updateServiceType: (id: string, data: Partial<ServiceType>) => void
   deleteServiceType: (id: string) => void
 
+  // Quotes
+  addQuote: (quote: Quote) => void
+  updateQuote: (id: string, data: Partial<Quote>) => void
+  deleteQuote: (id: string) => void
+  sendQuote: (quoteId: string) => void
+  signQuote: (quoteId: string) => void
+
   // Company settings
   updateCompanySettings: (settings: Partial<CompanySettings>) => void
 
@@ -117,6 +127,7 @@ export const useAppStore = create<AppStore>()(
       sops: mockSops,
       timeEntries: mockTimeEntries,
       serviceTypes: defaultServiceTypes,
+      quotes: [],
       companySettings: defaultCompanySettings,
 
       // Agents
@@ -165,6 +176,14 @@ export const useAppStore = create<AppStore>()(
         opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o)
       })),
       deleteOpportunity: (id) => set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) })),
+      moveOpportunity: (id, stage) => {
+        const now = new Date().toISOString()
+        set(s => ({
+          opportunities: s.opportunities.map(o =>
+            o.id === id ? { ...o, stage, updated_at: now } : o
+          )
+        }))
+      },
       winOpportunity: (id) => {
         const state = get()
         const opp = state.opportunities.find(o => o.id === id)
@@ -207,7 +226,7 @@ export const useAppStore = create<AppStore>()(
 
         set(s => ({
           opportunities: s.opportunities.map(o => o.id === id
-            ? { ...o, stage: 'gagnee', converted_to_client: true, converted_at: now, client_id: clientId, site_id: siteId }
+            ? { ...o, stage: 'gagne', converted_to_client: true, converted_at: now, client_id: clientId, site_id: siteId }
             : o
           ),
           clients: [...s.clients, newClient],
@@ -264,6 +283,49 @@ export const useAppStore = create<AppStore>()(
       })),
       deleteServiceType: (id) => set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) })),
 
+      // Quotes
+      addQuote: (quote) => set(s => ({ quotes: [...s.quotes, quote] })),
+      updateQuote: (id, data) => set(s => ({
+        quotes: s.quotes.map(q => q.id === id ? { ...q, ...data } : q)
+      })),
+      deleteQuote: (id) => set(s => ({ quotes: s.quotes.filter(q => q.id !== id) })),
+      sendQuote: (quoteId) => {
+        const state = get()
+        const quote = state.quotes.find(q => q.id === quoteId)
+        if (!quote) return
+        const now = new Date().toISOString()
+        // Update quote to sent
+        set(s => ({
+          quotes: s.quotes.map(q => q.id === quoteId ? { ...q, status: 'envoye', updated_at: now } : q),
+          // Auto-move opportunity to proposition
+          opportunities: s.opportunities.map(o =>
+            o.id === quote.opportunity_id ? { ...o, stage: 'proposition', updated_at: now } : o
+          ),
+        }))
+      },
+      signQuote: (quoteId) => {
+        const state = get()
+        const quote = state.quotes.find(q => q.id === quoteId)
+        if (!quote) return
+        const now = new Date().toISOString()
+
+        const opp = state.opportunities.find(o => o.id === quote.opportunity_id)
+
+        set(s => ({
+          quotes: s.quotes.map(q =>
+            q.id === quoteId ? { ...q, status: 'signe', signed_at: now, updated_at: now } : q
+          ),
+          opportunities: s.opportunities.map(o =>
+            o.id === quote.opportunity_id ? { ...o, stage: 'gagne', updated_at: now } : o
+          ),
+        }))
+
+        // If opportunity not yet converted, trigger winOpportunity logic
+        if (opp && !opp.converted_to_client) {
+          get().winOpportunity(quote.opportunity_id)
+        }
+      },
+
       // Company settings
       updateCompanySettings: (settings) => set(s => ({ companySettings: { ...s.companySettings, ...settings } })),
 
@@ -272,6 +334,7 @@ export const useAppStore = create<AppStore>()(
         missions: mockMissions, opportunities: mockOpportunities,
         operationalItems: mockOperationalItems, sites: mockSites,
         sops: mockSops, timeEntries: mockTimeEntries,
+        quotes: [],
       }),
     }),
     {
