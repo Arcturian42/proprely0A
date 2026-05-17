@@ -56,6 +56,8 @@ export default function PipelinePage() {
   const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<OpportunityStage | null>(null)
 
   const handleOpenCreate = () => {
     setEditingOpp(null)
@@ -132,6 +134,16 @@ export default function PipelinePage() {
   const oppsByStage = (stage: OpportunityStage) =>
     opportunities.filter(o => o.stage === stage)
 
+  const handleDropOnStage = (stage: OpportunityStage) => {
+    const id = draggedId
+    setDraggedId(null)
+    setDragOverStage(null)
+    if (!id) return
+    const opp = opportunities.find(o => o.id === id)
+    if (!opp || opp.stage === stage) return
+    handleMoveStage(opp, stage)
+  }
+
   return (
     <AdminLayout>
       <div className="p-8">
@@ -151,7 +163,22 @@ export default function PipelinePage() {
             const opps = oppsByStage(stage)
             const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
             return (
-              <div key={stage} className="flex-shrink-0 w-72">
+              <div
+                key={stage}
+                className="flex-shrink-0 w-72"
+                onDragOver={(e) => {
+                  if (!draggedId) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (dragOverStage !== stage) setDragOverStage(stage)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDragOverStage(prev => (prev === stage ? null : prev))
+                  }
+                }}
+                onDrop={(e) => { e.preventDefault(); handleDropOnStage(stage) }}
+              >
                 <div className={`bg-white rounded-xl border-t-4 shadow-sm ${STAGE_COLORS[stage]} border border-slate-200 mb-3`}>
                   <div className="p-3 flex items-center justify-between">
                     <span className="font-semibold text-sm text-slate-800">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
@@ -162,11 +189,18 @@ export default function PipelinePage() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className={`space-y-3 rounded-xl transition-colors ${dragOverStage === stage ? 'bg-slate-100 ring-2 ring-slate-300 ring-offset-2' : ''}`}>
                   {opps.map(opp => (
                     <Card
                       key={opp.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedId(opp.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', opp.id)
+                      }}
+                      onDragEnd={() => { setDraggedId(null); setDragOverStage(null) }}
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${draggedId === opp.id ? 'opacity-40' : ''}`}
                       onClick={() => setSelectedOpp(opp)}
                       role="button"
                       tabIndex={0}
