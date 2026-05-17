@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyLeads } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
@@ -37,7 +38,9 @@ const defaultForm = {
 
 export default function ProspectionPage() {
   useEffect(() => { document.title = 'Prospection — Proprely' }, [])
-  const { leads, addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
+  const leads = useCompanyLeads()
+  const companyId = useCurrentCompanyId()
+  const { addLead, updateLead, deleteLead, addOpportunity } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -85,7 +88,7 @@ export default function ProspectionPage() {
       toast.success('Lead mis à jour')
     } else {
       const newLead: Lead = {
-        id: crypto.randomUUID(), company_id: 'company-1',
+        id: crypto.randomUUID(), company_id: companyId,
         ...form, ai_score: score,
         converted_opportunity_id: null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -108,7 +111,7 @@ export default function ProspectionPage() {
     const newOppId = crypto.randomUUID()
     addOpportunity({
       id: newOppId,
-      company_id: 'company-1',
+      company_id: companyId,
       lead_id: lead.id,
       client_id: null,
       site_id: null,

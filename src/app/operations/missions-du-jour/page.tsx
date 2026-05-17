@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyAgents, useCompanyMissions } from '@/lib/store'
 import { Mission, MissionStatus } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -24,7 +24,9 @@ import { fr } from 'date-fns/locale'
 
 export default function MissionsDuJourPage() {
   useEffect(() => { document.title = 'Missions du Jour — Proprely' }, [])
-  const { missions, updateMissionStatus, agents } = useAppStore()
+  const missions = useCompanyMissions()
+  const agents = useCompanyAgents()
+  const updateMissionStatus = useAppStore(s => s.updateMissionStatus)
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')
   const [filterAgent, setFilterAgent] = useState('all')

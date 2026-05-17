@@ -17,14 +17,15 @@ import { ServiceType } from '@/types'
 import { Plus, Edit, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyServiceTypes, useCompanySettings } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 
 export default function ParametresPage() {
   useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
-  const {
-    serviceTypes, addServiceType, updateServiceType, deleteServiceType,
-    companySettings, updateCompanySettings,
-  } = useAppStore()
+  const serviceTypes = useCompanyServiceTypes()
+  const companySettings = useCompanySettings()
+  const companyId = useCurrentCompanyId()
+  const { addServiceType, updateServiceType, deleteServiceType, updateCompanySettings } = useAppStore()
 
   const [companyForm, setCompanyForm] = useState({
     name: companySettings.name,
@@ -33,6 +34,19 @@ export default function ParametresPage() {
     address: companySettings.address,
     siret: companySettings.siret,
   })
+  // Reset the form when the active tenant changes (React's documented
+  // "derived state from changing input" pattern — runs during render, no effect).
+  const [lastCompanyId, setLastCompanyId] = useState(companyId)
+  if (lastCompanyId !== companyId) {
+    setLastCompanyId(companyId)
+    setCompanyForm({
+      name: companySettings.name,
+      email: companySettings.email,
+      phone: companySettings.phone,
+      address: companySettings.address,
+      siret: companySettings.siret,
+    })
+  }
 
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [editingService, setEditingService] = useState<ServiceType | null>(null)
@@ -40,7 +54,7 @@ export default function ParametresPage() {
   const [confirmDeleteService, setConfirmDeleteService] = useState<string | null>(null)
 
   const handleSaveCompany = () => {
-    updateCompanySettings(companyForm)
+    updateCompanySettings(companyId, companyForm)
     toast.success('Paramètres entreprise sauvegardés')
   }
 
@@ -56,7 +70,7 @@ export default function ParametresPage() {
       toast.success('Service mis à jour')
     } else {
       const newService: ServiceType = {
-        id: `st-${Date.now()}`, company_id: 'company-1', ...serviceForm,
+        id: `st-${Date.now()}`, company_id: companyId, ...serviceForm,
         estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
         indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
         default_sop_id: null,

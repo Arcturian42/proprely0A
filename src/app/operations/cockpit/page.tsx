@@ -13,7 +13,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { useAppStore } from '@/lib/store'
+import {
+  useAppStore,
+  useCompanyAgents,
+  useCompanyMissions,
+  useCompanyOperationalItems,
+  useCompanySops,
+} from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Agent, Mission, OperationalItem, OperationalItemStatus, TimeEntry } from '@/types'
 import { cn } from '@/lib/utils'
 import {
@@ -66,7 +73,12 @@ function isSlotConflict(
 
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
-  const { operationalItems, missions, agents, sops, addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry } = useAppStore()
+  const operationalItems = useCompanyOperationalItems()
+  const missions = useCompanyMissions()
+  const agents = useCompanyAgents()
+  const sops = useCompanySops()
+  const companyId = useCurrentCompanyId()
+  const { addMission, updateOperationalItem, deleteOperationalItem, addTimeEntry } = useAppStore()
 
   // Left panel state
   const [search, setSearch] = useState('')
@@ -171,7 +183,7 @@ export default function CockpitPage() {
 
     const newMission: Mission = {
       id: `mission-${Date.now()}`,
-      company_id: 'company-1',
+      company_id: companyId,
       client_id: assigningItem.client_id,
       site_id: assigningItem.site_id,
       operational_item_id: assigningItem.id,
@@ -201,7 +213,7 @@ export default function CockpitPage() {
     // Create time entry
     const te: TimeEntry = {
       id: `te-${Date.now()}`,
-      company_id: 'company-1',
+      company_id: companyId,
       mission_id: newMission.id,
       agent_id: agent.id,
       client_id: assigningItem.client_id,

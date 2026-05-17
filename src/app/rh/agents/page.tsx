@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyAgents, useCompanyMissions } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import { AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR } from '@/lib/constants'
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react'
@@ -30,7 +31,10 @@ const defaultForm = {
 
 export default function AgentsPage() {
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
-  const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
+  const agents = useCompanyAgents()
+  const missions = useCompanyMissions()
+  const companyId = useCurrentCompanyId()
+  const { addAgent, updateAgent, deleteAgent } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -98,7 +102,7 @@ export default function AgentsPage() {
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
-        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
+        id: crypto.randomUUID(), company_id: companyId, ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addAgent(newAgent)

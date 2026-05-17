@@ -7,7 +7,7 @@ import { StatCard } from '@/components/shared/StatCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/lib/store'
+import { useCompanyAgents, useCompanyClients, useCompanyMissions, useCompanyOperationalItems } from '@/lib/store'
 import { formatDate } from '@/lib/utils'
 import {
   Sun,
@@ -23,7 +23,10 @@ import Link from 'next/link'
 
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
-  const { missions, clients, agents, operationalItems } = useAppStore()
+  const missions = useCompanyMissions()
+  const clients = useCompanyClients()
+  const agents = useCompanyAgents()
+  const operationalItems = useCompanyOperationalItems()
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')

@@ -13,7 +13,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useAppStore } from '@/lib/store'
+import {
+  useAppStore,
+  useCompanyAgents,
+  useCompanyClients,
+  useCompanyMissions,
+  useCompanySites,
+  useCompanySops,
+} from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Mission, MissionStatus } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -24,7 +32,13 @@ import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
   useEffect(() => { document.title = 'Planning — Proprely' }, [])
-  const { missions, agents, clients, sites, sops, addMission, addTimeEntry } = useAppStore()
+  const missions = useCompanyMissions()
+  const agents = useCompanyAgents()
+  const clients = useCompanyClients()
+  const sites = useCompanySites()
+  const sops = useCompanySops()
+  const companyId = useCurrentCompanyId()
+  const { addMission, addTimeEntry } = useAppStore()
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
@@ -58,7 +72,7 @@ export default function PlanningPage() {
     const now = new Date().toISOString()
 
     const newMission: Mission = {
-      id: missionId, company_id: 'company-1',
+      id: missionId, company_id: companyId,
       client_id: form.client_id, site_id: form.site_id, operational_item_id: null,
       service_type: form.service_type || null, sop_id: form.sop_id || null,
       status: 'prevue', scheduled_date: form.scheduled_date,
@@ -72,7 +86,7 @@ export default function PlanningPage() {
     for (const agent of missionAgents) {
       addTimeEntry({
         id: crypto.randomUUID(),
-        company_id: 'company-1',
+        company_id: companyId,
         mission_id: missionId,
         agent_id: agent.id,
         client_id: form.client_id,

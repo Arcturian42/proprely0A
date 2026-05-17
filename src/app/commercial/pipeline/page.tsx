@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyOpportunities } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
@@ -50,7 +51,9 @@ const defaultForm = {
 
 export default function PipelinePage() {
   useEffect(() => { document.title = 'Pipeline — Proprely' }, [])
-  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
+  const opportunities = useCompanyOpportunities()
+  const companyId = useCurrentCompanyId()
+  const { addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
   const [form, setForm] = useState(defaultForm)
@@ -99,7 +102,7 @@ export default function PipelinePage() {
       toast.success('Opportunité mise à jour')
     } else {
       const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`, company_id: 'company-1',
+        id: `opp-${Date.now()}`, company_id: companyId,
         lead_id: null, client_id: null, site_id: null,
         ...form,
         estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
