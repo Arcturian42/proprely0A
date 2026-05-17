@@ -1,5 +1,21 @@
 -- Profiles — 1:1 with auth.users, scoped to a single company + role.
--- Run AFTER schema.sql. Idempotent: safe to re-run after a partial failure.
+-- Runs straight after the initial schema so that every subsequent migration
+-- (invitations, seat limit, quotes RLS) can rely on the profiles table and
+-- the current_company_id() / current_user_role() helpers.
+--
+-- Fully idempotent — safe to re-run on environments that already have it.
+
+-- Generic trigger fn used by *_set_updated_at and the bulk attach in
+-- 20260517000002_updated_at_triggers.sql. Declared early because the
+-- profiles trigger below uses it; the later migration is CREATE OR REPLACE
+-- so re-declaring it there is a no-op.
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN
@@ -23,9 +39,9 @@ DROP TRIGGER IF EXISTS profiles_set_updated_at ON profiles;
 CREATE TRIGGER profiles_set_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS idx_profiles_company ON profiles(company_id);
 
--- `created_by` columns are not present on the business tables in schema.sql.
--- We add them as nullable, then wire the FK to profiles. ON DELETE SET NULL
--- so deleting a user doesn't cascade-delete their work.
+-- `created_by` columns are not present on the business tables in the initial
+-- schema. Add them as nullable, then wire the FK to profiles. ON DELETE SET
+-- NULL so deleting a user doesn't cascade-delete their work.
 DO $$
 DECLARE
   t TEXT;
@@ -47,7 +63,8 @@ BEGIN
   END LOOP;
 END $$;
 
--- Helper used by every RLS policy. Stable + immutable for plan caching.
+-- Helpers used by every RLS policy. Stable + SECURITY DEFINER so they can
+-- read auth.uid() from inside RLS contexts without recursion.
 CREATE OR REPLACE FUNCTION current_company_id()
 RETURNS UUID
 LANGUAGE sql

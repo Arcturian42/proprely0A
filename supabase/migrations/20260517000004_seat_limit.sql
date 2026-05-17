@@ -10,6 +10,9 @@
 --   1. invitations INSERT: blocks the creation of a 6th pending invite.
 --   2. profiles INSERT for non-owner: blocks any attempt to bypass the invitation flow.
 
+-- Deactivated profiles (is_active=false) don't count — that's how the app
+-- frees a seat without deleting the row + losing history. The same filter
+-- is applied client-side in getSeatUsage() in src/app/actions/invitations.ts.
 CREATE OR REPLACE FUNCTION company_seats_used(target_company_id UUID)
 RETURNS INTEGER
 LANGUAGE sql
@@ -20,7 +23,8 @@ AS $$
   SELECT
     (SELECT COUNT(*) FROM profiles
        WHERE company_id = target_company_id
-         AND role <> 'owner')
+         AND role <> 'owner'
+         AND is_active = TRUE)
     +
     (SELECT COUNT(*) FROM invitations
        WHERE company_id = target_company_id
@@ -56,11 +60,13 @@ BEGIN
   IF NEW.role = 'owner' THEN
     RETURN NEW;
   END IF;
-  -- For non-owners, count existing non-owner profiles only (the pending invite
-  -- about to be consumed is already counted, then deleted/marked by the app).
+  -- For non-owners, count existing active non-owner profiles only (the pending
+  -- invite about to be consumed is already counted, then deleted/marked by the
+  -- app). Deactivated members don't count — see company_seats_used().
   IF (SELECT COUNT(*) FROM profiles
         WHERE company_id = NEW.company_id
-          AND role <> 'owner') >= 5 THEN
+          AND role <> 'owner'
+          AND is_active = TRUE) >= 5 THEN
     RAISE EXCEPTION 'SEAT_LIMIT_REACHED: max 5 seats per company (owner excluded)'
       USING ERRCODE = 'check_violation';
   END IF;
