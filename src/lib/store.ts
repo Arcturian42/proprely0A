@@ -2,6 +2,8 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useMemo } from 'react'
+import { useCurrentCompanyId } from '@/lib/auth'
 import {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage,
   AgentSkill, AgentCertification, AvailabilityBlock, FatigueScore, ClientConstraint, SchedulingProposal,
@@ -565,3 +567,76 @@ export const useAppStore = create<AppStore>()(
     }
   )
 )
+
+// Company-scoped selectors — multi-tenant ready, opt-in. Pages qui n'ont pas
+// encore migré continuent d'utiliser les getters bruts (les données mock sont
+// toutes sur DUMMY_COMPANY_1_ID donc rien ne casse).
+function byCompany<T extends { company_id?: string | null }>(rows: T[], companyId: string): T[] {
+  return rows.filter(r => r.company_id === companyId)
+}
+
+export function useCompanyAgents() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.agents)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyClients() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.clients)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanySites() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.sites)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyLeads() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.leads)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyOpportunities() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.opportunities)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyMissions() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.missions)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyOperationalItems() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.operationalItems)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanySops() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.sops)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyTimeEntries() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.timeEntries)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyServiceTypes() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.serviceTypes)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
+
+export function useCompanyQuotes() {
+  const companyId = useCurrentCompanyId()
+  const rows = useAppStore(s => s.quotes)
+  return useMemo(() => byCompany(rows, companyId), [rows, companyId])
+}
