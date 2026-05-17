@@ -32,8 +32,8 @@ CREATE POLICY invitations_select ON invitations
 
 CREATE POLICY invitations_write ON invitations
   FOR ALL
-  USING (company_id = current_company_id() AND current_role() IN ('owner', 'admin'))
-  WITH CHECK (company_id = current_company_id() AND current_role() IN ('owner', 'admin'));
+  USING (company_id = current_company_id() AND current_user_role() IN ('owner', 'admin'))
+  WITH CHECK (company_id = current_company_id() AND current_user_role() IN ('owner', 'admin'));
 
 -- Auto-update updated_at on row changes.
 CREATE TRIGGER trg_invitations_updated_at

@@ -24,14 +24,14 @@ ALTER TABLE service_types      ENABLE ROW LEVEL SECURITY;
 CREATE POLICY companies_select ON companies
   FOR SELECT USING (id = current_company_id());
 CREATE POLICY companies_update ON companies
-  FOR UPDATE USING (id = current_company_id() AND current_role() = 'owner');
+  FOR UPDATE USING (id = current_company_id() AND current_user_role() = 'owner');
 
 -- ─── profiles: read peers in your company, only owner/admin can write ────────
 CREATE POLICY profiles_select ON profiles
   FOR SELECT USING (company_id = current_company_id());
 CREATE POLICY profiles_write ON profiles
-  FOR ALL USING (company_id = current_company_id() AND current_role() IN ('owner','admin'))
-            WITH CHECK (company_id = current_company_id() AND current_role() IN ('owner','admin'));
+  FOR ALL USING (company_id = current_company_id() AND current_user_role() IN ('owner','admin'))
+            WITH CHECK (company_id = current_company_id() AND current_user_role() IN ('owner','admin'));
 
 -- ─── Tenant-scoped tables: same shape, same policy ──────────────────────────
 CREATE POLICY leads_tenant              ON leads             FOR ALL USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
