@@ -15,20 +15,16 @@ import {
 } from '@dnd-kit/core'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ProspectingFlow } from './_components/ProspectingFlow'
 import { Opportunity, OpportunityStage } from '@/types'
-import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
+import { OPPORTUNITY_STAGE_LABELS, NEXT_ACTION_TYPE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Plus, MapPin, Calendar, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CardDetailPanel } from '@/components/commercial/CardDetailPanel'
+import { NewOpportunityFlow } from './_components/NewOpportunityFlow'
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
@@ -100,24 +96,6 @@ const STAGE_CONFIG: Record<
     emptyBg: 'bg-red-50/20',
     gradient: 'from-red-500/10 to-red-400/5',
   },
-}
-
-// ─── Default form ─────────────────────────────────────────────────────────────
-
-const defaultForm = {
-  title: '',
-  prospect_name: '',
-  contact_name: '',
-  email: '',
-  phone: '',
-  city: '',
-  site_address: '',
-  client_type: '',
-  service_type: '',
-  estimated_amount: '',
-  stage: 'ouvert' as OpportunityStage,
-  next_action_date: '',
-  notes: '',
 }
 
 // ─── KanbanCard ───────────────────────────────────────────────────────────────
@@ -218,29 +196,54 @@ function KanbanCard({
           </div>
         )}
 
-        {/* Footer: action date + urgency + converted badge */}
-        {(opportunity.next_action_date || opportunity.converted_to_client) && (
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
-            {opportunity.next_action_date && (
-              <span
-                className={`inline-flex items-center gap-1 text-xs ${
-                  isOverdue ? 'text-red-500' : 'text-amber-600'
-                }`}
-              >
-                <Calendar className="w-3 h-3" />
-                Action&nbsp;: {formatDate(opportunity.next_action_date)}
-                {isOverdue && (
-                  <span className="ml-1 inline-flex items-center gap-0.5 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
-                    Urgent
-                  </span>
-                )}
+        {/* Next action block */}
+        {(opportunity.next_action_date || opportunity.next_action_type) && (
+          <div className="pt-2 border-t border-slate-100/80 space-y-0.5">
+            <div
+              className={`inline-flex items-center gap-1 text-xs font-medium ${
+                isOverdue ? 'text-red-500' : 'text-amber-700'
+              }`}
+            >
+              <Calendar className="w-3 h-3" />
+              {opportunity.next_action_type
+                ? NEXT_ACTION_TYPE_LABELS[opportunity.next_action_type] || opportunity.next_action_type
+                : 'Action'}
+              {opportunity.next_action_date && (
+                <span className="font-normal text-slate-500 ml-1">
+                  · {formatDate(opportunity.next_action_date)}
+                </span>
+              )}
+              {isOverdue && (
+                <span className="ml-1 inline-flex items-center gap-0.5 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                  Urgent
+                </span>
+              )}
+            </div>
+            {opportunity.next_action_note && (
+              <p className="text-xs text-slate-500 line-clamp-2">
+                &laquo;&nbsp;{opportunity.next_action_note}&nbsp;&raquo;
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Footer badges */}
+        {(opportunity.siret || opportunity.source === 'manual' || opportunity.converted_to_client) && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-2">
+            {opportunity.siret && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                <CheckCircle2 className="w-2.5 h-2.5" /> SIRET
+              </span>
+            )}
+            {opportunity.source === 'manual' && !opportunity.siret && (
+              <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                Saisie manuelle
               </span>
             )}
             {opportunity.converted_to_client && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium ml-auto">
-                <CheckCircle2 className="w-3 h-3" />
-                Converti
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium ml-auto">
+                <CheckCircle2 className="w-2.5 h-2.5" /> Converti
               </span>
             )}
           </div>
@@ -336,11 +339,10 @@ export default function PipelinePage() {
     document.title = 'Pipeline — Proprely'
   }, [])
 
-  const { opportunities, addOpportunity, deleteOpportunity, winOpportunity, moveOpportunity } =
+  const { opportunities, deleteOpportunity, winOpportunity, moveOpportunity } =
     useAppStore()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -396,37 +398,7 @@ export default function PipelinePage() {
 
   // ── Create / delete ────────────────────────────────────────────────────────
 
-  const handleOpenCreate = (stage: OpportunityStage = 'ouvert') => {
-    setForm({ ...defaultForm, stage })
-    setShowForm(true)
-  }
-
-  const handleSave = () => {
-    if (!form.title || !form.prospect_name) {
-      toast.error('Titre et nom du prospect requis')
-      return
-    }
-    const newOpp: Opportunity = {
-      id: `opp-${Date.now()}`,
-      company_id: 'company-1',
-      lead_id: null,
-      client_id: null,
-      site_id: null,
-      ...form,
-      estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
-      next_action_date: form.next_action_date
-        ? new Date(form.next_action_date).toISOString()
-        : null,
-      status: 'ouvert',
-      converted_to_client: false,
-      converted_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    addOpportunity(newOpp)
-    toast.success('Opportunité créée')
-    setShowForm(false)
-  }
+  const handleOpenCreate = () => setShowForm(true)
 
   const handleDelete = (id: string) => {
     deleteOpportunity(id)
@@ -530,133 +502,8 @@ export default function PipelinePage() {
         />
       )}
 
-      {/* Create dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nouvelle opportunité</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <Label className="text-xs text-slate-600 mb-1.5 block">Titre *</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Ex: Nettoyage bureaux - Société X"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs text-slate-600 mb-1.5 block">Nom du prospect *</Label>
-                <Input
-                  value={form.prospect_name}
-                  onChange={(e) => setForm((f) => ({ ...f, prospect_name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Contact</Label>
-                <Input
-                  value={form.contact_name}
-                  onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Téléphone</Label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Email</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Ville</Label>
-                <Input
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Montant estimé (€)</Label>
-                <Input
-                  type="number"
-                  value={form.estimated_amount}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, estimated_amount: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Étape</Label>
-                <Select
-                  value={form.stage}
-                  onValueChange={(v) =>
-                    setForm((f) => ({ ...f, stage: v as OpportunityStage }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STAGES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {OPPORTUNITY_STAGE_LABELS[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Prochaine action</Label>
-                <Input
-                  type="date"
-                  value={form.next_action_date}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, next_action_date: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1.5 block">Type client</Label>
-                <Select
-                  value={form.client_type}
-                  onValueChange={(v) => setForm((f) => ({ ...f, client_type: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="entreprise">Entreprise</SelectItem>
-                    <SelectItem value="professionnel">Professionnel libéral</SelectItem>
-                    <SelectItem value="syndic">Syndic</SelectItem>
-                    <SelectItem value="particulier">Particulier</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs text-slate-600 mb-1.5 block">Notes</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  rows={2}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleSave}>Créer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* New opportunity 3-step wizard */}
+      <NewOpportunityFlow open={showForm} onOpenChange={setShowForm} />
 
       {/* Delete confirmation */}
       <ConfirmDialog

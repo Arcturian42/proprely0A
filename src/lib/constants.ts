@@ -54,6 +54,16 @@ export const OPERATIONAL_ITEM_STATUS_LABELS: Record<string, string> = {
   annule: 'Annulé',
 }
 
+export const NEXT_ACTION_TYPE_LABELS: Record<string, string> = {
+  call: 'Appel',
+  email: 'Email',
+  site_visit: 'Visite site',
+  proposal: 'Envoyer proposition',
+  follow_up: 'Relance',
+  meeting: 'Rendez-vous',
+  qualification: 'Qualification',
+}
+
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
   brouillon: 'Brouillon',
   envoye: 'Envoyé',

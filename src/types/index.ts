@@ -47,16 +47,26 @@ export interface Opportunity {
   title: string
   prospect_name: string
   contact_name: string | null
+  contact_role: string | null
   email: string | null
   phone: string | null
   city: string | null
+  postal_code: string | null
   site_address: string | null
   client_type: string | null
   service_type: string | null
   estimated_amount: number | null
   stage: OpportunityStage
   next_action_date: string | null
+  next_action_type: string | null
+  next_action_note: string | null
   notes: string | null
+  siren: string | null
+  siret: string | null
+  naf_code: string | null
+  legal_form: string | null
+  company_status: string | null
+  source: string | null
   status: string
   converted_to_client: boolean
   converted_at: string | null
