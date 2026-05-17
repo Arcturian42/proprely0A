@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/lib/store'
 import { Mission, OperationalItem, OperationalItemStatus, TimeEntry } from '@/types'
 import { cn } from '@/lib/utils'
+import { parseTimeToHours, missionToSlot, hasAgentConflict } from '@/lib/scheduling'
 import {
   Calendar, Clock, Users, MapPin, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Search, Building2, UserCheck,
@@ -41,35 +42,6 @@ function getAgentMissionsForWeek(
   })
 }
 
-function parseTimeToHours(time: string | null | undefined, fallback = 8): number {
-  if (!time) return fallback
-  const [h, m] = time.split(':')
-  const hours = parseInt(h, 10)
-  const minutes = parseInt(m ?? '0', 10)
-  if (!Number.isFinite(hours)) return fallback
-  return hours + (Number.isFinite(minutes) ? minutes / 60 : 0)
-}
-
-function missionToSlot(mission: Mission): { start: number; end: number } {
-  const startH = parseTimeToHours(mission.start_time)
-  return { start: startH, end: startH + mission.planned_hours }
-}
-
-function isSlotConflict(
-  agentId: string,
-  date: string,
-  startH: number,
-  durationH: number,
-  missions: Mission[],
-): boolean {
-  const endH = startH + durationH
-  return missions
-    .filter(m => m.scheduled_date === date && m.agents?.some(a => a.id === agentId))
-    .some(m => {
-      const slot = missionToSlot(m)
-      return startH < slot.end && endH > slot.start
-    })
-}
 
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
@@ -133,7 +105,7 @@ export default function CockpitPage() {
   const hasConflict = useMemo(() => {
     if (!selectedAgentId || !missionForm.scheduled_date || !missionForm.start_time) return false
     const startH = parseTimeToHours(missionForm.start_time)
-    return isSlotConflict(selectedAgentId, missionForm.scheduled_date, startH, parseFloat(missionForm.planned_hours) || 2, missions)
+    return hasAgentConflict(selectedAgentId, missionForm.scheduled_date, startH, parseFloat(missionForm.planned_hours) || 2, missions)
   }, [selectedAgentId, missionForm.scheduled_date, missionForm.start_time, missionForm.planned_hours, missions])
 
   const handleOpenAssign = (item: OperationalItem) => {

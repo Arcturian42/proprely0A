@@ -16,6 +16,7 @@ import { useAppStore } from '@/lib/store'
 import { Mission } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { parseTimeToHours, hasAgentConflict } from '@/lib/scheduling'
 import { Plus, ChevronLeft, ChevronRight, Clock, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns'
@@ -62,19 +63,9 @@ export default function PlanningPage() {
 
     // Détection de conflits horaires pour chaque agent
     if (form.start_time) {
-      const [h, m] = form.start_time.split(':')
-      const startH = parseInt(h, 10) + (parseInt(m ?? '0', 10) || 0) / 60
-      const endH = startH + plannedHours
+      const startH = parseTimeToHours(form.start_time)
       const conflictedAgent = missionAgents.find(agent =>
-        missions
-          .filter(mi => mi.scheduled_date === form.scheduled_date && mi.agents?.some(a => a.id === agent.id))
-          .some(mi => {
-            if (!mi.start_time) return false
-            const [mh, mm] = mi.start_time.split(':')
-            const mStart = parseInt(mh, 10) + (parseInt(mm ?? '0', 10) || 0) / 60
-            const mEnd = mStart + mi.planned_hours
-            return startH < mEnd && endH > mStart
-          })
+        hasAgentConflict(agent.id, form.scheduled_date, startH, plannedHours, missions)
       )
       if (conflictedAgent) {
         toast.error(`Conflit horaire pour ${conflictedAgent.first_name} ${conflictedAgent.last_name}`)
