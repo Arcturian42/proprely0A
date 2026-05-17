@@ -8,6 +8,96 @@ export type OperationalItemStatus = 'a_organiser' | 'en_cours' | 'planifie' | 'a
 export type QuoteStatus = 'brouillon' | 'envoye' | 'signe' | 'refuse' | 'expire'
 export type ServiceCategory = 'fin_chantier' | 'terrasse' | 'sols_mecanises' | 'moquette' | 'bureaux_recurrent' | 'vitres' | 'autre'
 
+export type OperationalMissionStatus =
+  | 'a_organiser'
+  | 'en_preparation'
+  | 'en_attente_validation_client'
+  | 'planifie'
+  | 'en_cours'
+  | 'terminee'
+  | 'incident'
+
+export type SkillLevel = 'debutant' | 'intermediaire' | 'expert'
+export type CertificationCategory = 'machine' | 'hauteur' | 'chimie' | 'permis' | 'autre'
+export type AvailabilityBlockKind = 'vacances' | 'indispo' | 'preferer'
+export type FatigueLabel = 'ok' | 'charge' | 'surcharge' | 'burnout'
+
+export interface AgentSkill {
+  id: string
+  agent_id: string
+  skill: string
+  level: SkillLevel
+}
+
+export interface AgentCertification {
+  id: string
+  agent_id: string
+  name: string
+  category: CertificationCategory
+  issued_at: string | null
+  expires_at: string | null
+}
+
+export interface AvailabilityBlock {
+  id: string
+  agent_id: string
+  start_at: string
+  end_at: string
+  kind: AvailabilityBlockKind
+  notes: string | null
+}
+
+export interface WorkloadEntry {
+  agent_id: string
+  week_start: string
+  hours_worked: number
+  missions_count: number
+  consecutive_days: number
+  night_shifts: number
+}
+
+export interface FatigueScore {
+  agent_id: string
+  score: number
+  label: FatigueLabel
+  computed_at: string
+}
+
+export interface ClientConstraint {
+  id: string
+  site_id: string
+  preferred_days: string[]
+  preferred_hours_start: string | null
+  preferred_hours_end: string | null
+  access_hours_start: string | null
+  access_hours_end: string | null
+  keys_alarm: string | null
+  parking: string | null
+  elevator: boolean
+  noise_restrictions: string | null
+  equipment_access: string | null
+  urgency: string | null
+  recurrence: string | null
+}
+
+export interface SchedulingProposal {
+  id: string
+  mission_id: string
+  proposed_start: string
+  proposed_end: string
+  score: number
+  recommended_agent_ids: string[]
+  rationale: {
+    skills_match: number
+    workload: number
+    fatigue: number
+    preferences: number
+    notes?: string
+  }
+  selected: boolean
+  created_at: string
+}
+
 export interface Company {
   id: string
   name: string
@@ -179,11 +269,27 @@ export interface Mission {
   service_type: string | null
   sop_id: string | null
   status: MissionStatus
+  operational_status?: OperationalMissionStatus
   scheduled_date: string
   start_time: string | null
   planned_hours: number
   notes: string | null
   priority: string
+  // Organisation enrichie
+  estimated_workers?: number | null
+  estimated_profitability?: number | null
+  urgency?: string | null
+  recurrence?: string | null
+  required_machines?: string[]
+  consumables?: string[]
+  equipment?: string[]
+  parking_notes?: string | null
+  floor_count?: number | null
+  organization_step?: number
+  required_skills?: string[]
+  // Audit léger
+  contact_name?: string | null
+  contact_phone?: string | null
   created_at: string
   updated_at: string
   client?: Client

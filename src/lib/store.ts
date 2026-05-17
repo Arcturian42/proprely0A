@@ -3,8 +3,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage
+  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage,
+  AgentSkill, AgentCertification, AvailabilityBlock, FatigueScore, ClientConstraint, SchedulingProposal,
+  OperationalMissionStatus,
 } from '@/types'
+import { LEGACY_TO_OPERATIONAL, OPERATIONAL_TO_LEGACY } from '@/lib/constants'
 import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
   mockOperationalItems, mockSites, mockSops, mockTimeEntries,
@@ -46,6 +49,13 @@ interface AppStore {
   serviceTypes: ServiceType[]
   quotes: Quote[]
   companySettings: CompanySettings
+  // Nouvelles entités opérationnelles
+  agentSkills: AgentSkill[]
+  agentCertifications: AgentCertification[]
+  availabilityBlocks: AvailabilityBlock[]
+  fatigueScores: FatigueScore[]
+  clientConstraints: ClientConstraint[]
+  schedulingProposals: SchedulingProposal[]
 
   // Agents
   addAgent: (agent: Agent) => void
@@ -79,6 +89,18 @@ interface AppStore {
   updateMission: (id: string, data: Partial<Mission>) => void
   deleteMission: (id: string) => void
   updateMissionStatus: (id: string, status: MissionStatus, validatedHours?: number) => void
+  updateMissionOperationalStatus: (id: string, status: OperationalMissionStatus) => void
+  assignAgentsToMission: (missionId: string, agentIds: string[]) => void
+  signOpportunityContract: (opportunityId: string) => string | null // returns new mission id
+
+  // Agent skills / certs / availability
+  setAgentSkills: (agentId: string, skills: Omit<AgentSkill, 'id' | 'agent_id'>[]) => void
+  setAgentCertifications: (agentId: string, certs: Omit<AgentCertification, 'id' | 'agent_id'>[]) => void
+  addAvailabilityBlock: (block: Omit<AvailabilityBlock, 'id'>) => void
+  removeAvailabilityBlock: (id: string) => void
+  upsertClientConstraint: (siteId: string, data: Omit<ClientConstraint, 'id' | 'site_id'>) => void
+  setSchedulingProposals: (missionId: string, proposals: SchedulingProposal[]) => void
+  selectSchedulingProposal: (missionId: string, proposalId: string) => void
 
   // OperationalItems
   addOperationalItem: (item: OperationalItem) => void
@@ -129,6 +151,12 @@ export const useAppStore = create<AppStore>()(
       serviceTypes: defaultServiceTypes,
       quotes: [],
       companySettings: defaultCompanySettings,
+      agentSkills: [],
+      agentCertifications: [],
+      availabilityBlocks: [],
+      fatigueScores: [],
+      clientConstraints: [],
+      schedulingProposals: [],
 
       // Agents
       addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
@@ -244,7 +272,12 @@ export const useAppStore = create<AppStore>()(
       updateMissionStatus: (id, status, validatedHours) => {
         const now = new Date().toISOString()
         set(s => ({
-          missions: s.missions.map(m => m.id === id ? { ...m, status, updated_at: now } : m),
+          missions: s.missions.map(m => m.id === id ? {
+            ...m,
+            status,
+            operational_status: (LEGACY_TO_OPERATIONAL[status] ?? m.operational_status ?? 'planifie') as OperationalMissionStatus,
+            updated_at: now,
+          } : m),
           timeEntries: validatedHours !== undefined
             ? s.timeEntries.map(te => te.mission_id === id
                 ? { ...te, status: 'validee', validated_hours: validatedHours, validated_at: now }
@@ -253,6 +286,155 @@ export const useAppStore = create<AppStore>()(
             : s.timeEntries,
         }))
       },
+      updateMissionOperationalStatus: (id, operational_status) => {
+        const now = new Date().toISOString()
+        const legacy = (OPERATIONAL_TO_LEGACY[operational_status] ?? 'prevue') as MissionStatus
+        set(s => ({
+          missions: s.missions.map(m => m.id === id ? {
+            ...m,
+            operational_status,
+            status: legacy,
+            updated_at: now,
+          } : m),
+        }))
+      },
+      assignAgentsToMission: (missionId, agentIds) => {
+        const state = get()
+        const assignedAgents = state.agents.filter(a => agentIds.includes(a.id))
+        set(s => ({
+          missions: s.missions.map(m => m.id === missionId ? { ...m, agents: assignedAgents, updated_at: new Date().toISOString() } : m),
+        }))
+      },
+      signOpportunityContract: (opportunityId) => {
+        const state = get()
+        const opp = state.opportunities.find(o => o.id === opportunityId)
+        if (!opp) return null
+        const now = new Date().toISOString()
+
+        // Réutilise ou crée client
+        let clientId = opp.client_id
+        let client = clientId ? state.clients.find(c => c.id === clientId) : undefined
+        if (!client) {
+          clientId = crypto.randomUUID()
+          client = {
+            id: clientId, company_id: 'company-1',
+            name: opp.prospect_name, contact_name: opp.contact_name,
+            email: opp.email, phone: opp.phone,
+            billing_address: opp.site_address, city: opp.city,
+            client_type: opp.client_type, status: 'actif', notes: opp.notes,
+            created_from_opportunity_id: opp.id,
+            created_at: now, updated_at: now,
+          }
+        }
+
+        // Réutilise ou crée site
+        let siteId = opp.site_id
+        let site = siteId ? state.sites.find(s => s.id === siteId) : undefined
+        if (!site) {
+          siteId = crypto.randomUUID()
+          site = {
+            id: siteId, company_id: 'company-1', client_id: clientId!,
+            name: `Site ${opp.prospect_name}`,
+            address: opp.site_address, city: opp.city,
+            service_type: opp.service_type,
+            surface_area: null, access_code: null, access_instructions: null,
+            frequency: null, sop_id: null, notes: null,
+            created_from_opportunity_id: opp.id,
+            created_at: now, updated_at: now,
+          }
+        }
+
+        // Crée la mission draft
+        const missionId = crypto.randomUUID()
+        const newMission: Mission = {
+          id: missionId,
+          company_id: 'company-1',
+          client_id: clientId!,
+          site_id: siteId!,
+          operational_item_id: null,
+          service_type: opp.service_type,
+          sop_id: null,
+          status: 'prevue',
+          operational_status: 'a_organiser',
+          scheduled_date: new Date().toISOString().slice(0, 10),
+          start_time: null,
+          planned_hours: 3,
+          notes: opp.notes,
+          priority: 'normale',
+          urgency: 'normale',
+          recurrence: 'ponctuelle',
+          estimated_workers: 1,
+          estimated_profitability: opp.estimated_amount,
+          required_machines: [],
+          consumables: [],
+          equipment: [],
+          required_skills: [],
+          parking_notes: null,
+          floor_count: null,
+          organization_step: 0,
+          contact_name: opp.contact_name,
+          contact_phone: opp.phone,
+          created_at: now,
+          updated_at: now,
+          client,
+          site,
+          agents: [],
+        }
+
+        set(s => ({
+          opportunities: s.opportunities.map(o => o.id === opportunityId
+            ? { ...o, stage: 'gagnee', converted_to_client: true, converted_at: now, client_id: clientId!, site_id: siteId! }
+            : o
+          ),
+          clients: s.clients.find(c => c.id === clientId) ? s.clients : [...s.clients, client!],
+          sites: s.sites.find(si => si.id === siteId) ? s.sites : [...s.sites, site!],
+          missions: [...s.missions, newMission],
+        }))
+        return missionId
+      },
+
+      // Agent skills / certs / availability
+      setAgentSkills: (agentId, skills) => set(s => ({
+        agentSkills: [
+          ...s.agentSkills.filter(sk => sk.agent_id !== agentId),
+          ...skills.map(sk => ({ ...sk, id: crypto.randomUUID(), agent_id: agentId })),
+        ],
+      })),
+      setAgentCertifications: (agentId, certs) => set(s => ({
+        agentCertifications: [
+          ...s.agentCertifications.filter(c => c.agent_id !== agentId),
+          ...certs.map(c => ({ ...c, id: crypto.randomUUID(), agent_id: agentId })),
+        ],
+      })),
+      addAvailabilityBlock: (block) => set(s => ({
+        availabilityBlocks: [...s.availabilityBlocks, { ...block, id: crypto.randomUUID() }],
+      })),
+      removeAvailabilityBlock: (id) => set(s => ({
+        availabilityBlocks: s.availabilityBlocks.filter(b => b.id !== id),
+      })),
+      upsertClientConstraint: (siteId, data) => set(s => {
+        const existing = s.clientConstraints.find(c => c.site_id === siteId)
+        if (existing) {
+          return {
+            clientConstraints: s.clientConstraints.map(c => c.site_id === siteId ? { ...c, ...data } : c),
+          }
+        }
+        return {
+          clientConstraints: [...s.clientConstraints, { ...data, id: crypto.randomUUID(), site_id: siteId }],
+        }
+      }),
+      setSchedulingProposals: (missionId, proposals) => set(s => ({
+        schedulingProposals: [
+          ...s.schedulingProposals.filter(p => p.mission_id !== missionId),
+          ...proposals,
+        ],
+      })),
+      selectSchedulingProposal: (missionId, proposalId) => set(s => ({
+        schedulingProposals: s.schedulingProposals.map(p => p.mission_id === missionId
+          ? { ...p, selected: p.id === proposalId }
+          : p
+        ),
+      })),
 
       // OperationalItems
       addOperationalItem: (item) => set(s => ({ operationalItems: [...s.operationalItems, item] })),

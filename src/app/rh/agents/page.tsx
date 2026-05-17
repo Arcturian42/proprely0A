@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -11,14 +11,20 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
 import { Agent, AgentStatus, ContractType } from '@/types'
-import { AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR } from '@/lib/constants'
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react'
+import {
+  AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR,
+  FATIGUE_LABEL_COLORS, FATIGUE_LABEL_TEXT, EXPERTISE_LABELS, SKILL_LEVEL_COLORS,
+} from '@/lib/constants'
+import { computeFatigueScore, computeWeeklySummary } from '@/lib/workload'
+import { cn, initials } from '@/lib/utils'
+import { Plus, Search, Edit, Trash2, Phone, MapPin, Sparkles, Eye, Users, Activity, Clock, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { startOfWeek } from 'date-fns'
+import { AgentProfilePanel } from './_components/AgentProfilePanel'
 
 const defaultForm = {
   first_name: '', last_name: '', phone: '', email: '', specialty: '',
@@ -30,20 +36,44 @@ const defaultForm = {
 
 export default function AgentsPage() {
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
-  const { agents, missions, addAgent, updateAgent, deleteAgent } = useAppStore()
+  const { agents, missions, agentSkills, addAgent, updateAgent, deleteAgent } = useAppStore()
+
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterExpertise, setFilterExpertise] = useState<string>('all')
+  const [filterContract, setFilterContract] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [profileAgentId, setProfileAgentId] = useState<string | null>(null)
 
-  const filtered = agents.filter(a => {
-    const matchSearch = `${a.first_name} ${a.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-      (a.zone || '').toLowerCase().includes(search.toLowerCase())
-    const matchStatus = filterStatus === 'all' || a.status === filterStatus
-    return matchSearch && matchStatus
-  })
+  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
+
+  const enriched = useMemo(() => agents.map(a => {
+    const summary = computeWeeklySummary(a, missions, weekStart)
+    const fatigue = computeFatigueScore(a, missions)
+    const skillsForAgent = agentSkills.filter(s => s.agent_id === a.id)
+    return { agent: a, summary, fatigue, skills: skillsForAgent }
+  }), [agents, missions, weekStart, agentSkills])
+
+  const filtered = useMemo(() => enriched.filter(({ agent, skills }) => {
+    const matchSearch = `${agent.first_name} ${agent.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      (agent.zone || '').toLowerCase().includes(search.toLowerCase()) ||
+      (agent.specialty || '').toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || agent.status === filterStatus
+    const matchContract = filterContract === 'all' || agent.contract_type === filterContract
+    const allSkills = new Set<string>([...(agent.skills ?? []), ...skills.map(s => s.skill)])
+    const matchExp = filterExpertise === 'all' || allSkills.has(filterExpertise)
+    return matchSearch && matchStatus && matchContract && matchExp
+  }), [enriched, search, filterStatus, filterContract, filterExpertise])
+
+  // Stats
+  const totalActive = agents.filter(a => a.status === 'disponible' || a.status === 'occupe').length
+  const overloaded = enriched.filter(e => e.summary.loadRatio > 1).length
+  const burnoutRisk = enriched.filter(e => e.fatigue.label === 'surcharge' || e.fatigue.label === 'burnout').length
+  const totalCapacity = agents.reduce((s, a) => s + a.weekly_availability_hours, 0)
+  const totalUsed = enriched.reduce((s, e) => s + e.summary.weeklyHours, 0)
 
   const handleOpenCreate = () => {
     setEditingAgent(null)
@@ -119,12 +149,14 @@ export default function AgentsPage() {
     setConfirmDelete(null)
   }
 
+  const profileAgent = profileAgentId ? agents.find(a => a.id === profileAgentId) : null
+
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-6 bg-slate-50 min-h-full">
         <PageHeader
           title="Agents d'entretien"
-          description="Gestion de votre équipe d'agents"
+          description="Workforce management — expertise, charge, fatigue et disponibilité"
           action={
             <Button onClick={handleOpenCreate} className="gap-2">
               <Plus className="w-4 h-4" /> Nouvel agent
@@ -132,112 +164,186 @@ export default function AgentsPage() {
           }
         />
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {(['disponible', 'occupe', 'absent', 'inactif'] as AgentStatus[]).map(status => (
-            <Card key={status}>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">{agents.filter(a => a.status === status).length}</p>
-                <StatusBadge status={status} />
-              </CardContent>
-            </Card>
-          ))}
+        {/* Stats globales */}
+        <div className="grid grid-cols-4 gap-3 mb-5 mt-4">
+          <KpiCard icon={Users} label="Agents actifs" value={totalActive} tint="indigo" />
+          <KpiCard
+            icon={Activity}
+            label="Charge équipe"
+            value={Math.round((totalUsed / Math.max(1, totalCapacity)) * 100)}
+            suffix="%"
+            tint="violet"
+          />
+          <KpiCard icon={Clock} label="Surchargés" value={overloaded} tint={overloaded > 0 ? 'amber' : 'emerald'} />
+          <KpiCard icon={AlertTriangle} label="Risque burnout" value={burnoutRisk} tint={burnoutRisk > 0 ? 'rose' : 'emerald'} />
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-6">
-          <div className="relative flex-1 max-w-sm">
+        {/* Filtres */}
+        <div className="flex gap-3 mb-5 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input className="pl-9" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Nom, zone, spécialité…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Statut" />
-            </SelectTrigger>
+            <SelectTrigger className="w-36"><SelectValue placeholder="Statut" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous</SelectItem>
+              <SelectItem value="all">Tous statuts</SelectItem>
               {Object.entries(AGENT_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterContract} onValueChange={setFilterContract}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Contrat" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous contrats</SelectItem>
+              {Object.entries(CONTRACT_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterExpertise} onValueChange={setFilterExpertise}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Expertise" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes expertises</SelectItem>
+              {Object.entries(EXPERTISE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Agent cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(agent => (
-            <Card key={agent.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
+        {/* Cartes agents */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(({ agent, summary, fatigue, skills }) => {
+            const loadPct = Math.min(100, summary.loadRatio * 100)
+            const overloadedAgent = summary.loadRatio > 1
+            return (
+              <div
+                key={agent.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow cursor-pointer group"
+                onClick={() => setProfileAgentId(agent.id)}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                      {agent.first_name[0]}{agent.last_name[0]}
+                    <div className={cn(
+                      'w-11 h-11 rounded-full text-white font-bold flex items-center justify-center text-sm',
+                      'bg-gradient-to-br from-indigo-500 to-violet-500',
+                    )}>
+                      {initials(agent.first_name, agent.last_name)}
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-900">{agent.first_name} {agent.last_name}</p>
-                      <p className="text-xs text-slate-500">{CONTRACT_TYPE_LABELS[agent.contract_type]}</p>
+                      <p className="font-semibold text-slate-900 text-sm">{agent.first_name} {agent.last_name}</p>
+                      <p className="text-[11px] text-slate-500">{CONTRACT_TYPE_LABELS[agent.contract_type]}</p>
                     </div>
                   </div>
                   <StatusBadge status={agent.status} />
                 </div>
 
-                <div className="space-y-1.5 text-sm text-slate-600 mb-3">
-                  {agent.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3 h-3 text-slate-400" /> {agent.phone}
-                    </div>
-                  )}
-                  {agent.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3 h-3 text-slate-400" />
-                      <span className="truncate">{agent.email}</span>
-                    </div>
-                  )}
-                  {agent.zone && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-slate-400" /> {agent.zone}
-                    </div>
-                  )}
+                {/* Contact rapide */}
+                <div className="text-[11px] text-slate-500 mb-3 space-y-0.5">
+                  {agent.phone && <p className="flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {agent.phone}</p>}
+                  {agent.zone && <p className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" /> {agent.zone}</p>}
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                  {agent.specialty && <Badge variant="secondary" className="text-xs">{agent.specialty}</Badge>}
-                  {agent.hourly_cost && (
-                    <Badge variant="outline" className="text-xs">{agent.hourly_cost} €/h</Badge>
-                  )}
-                  <Badge variant="outline" className="text-xs">{agent.weekly_availability_hours}h/sem</Badge>
-                </div>
-
-                {/* Availability days */}
-                <div className="flex gap-1 mb-3">
-                  {DAYS_KEYS.map((day, idx) => (
-                    <div key={day} className={`w-6 h-6 rounded text-xs flex items-center justify-center font-medium ${agent.weekly_availability[day] ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
-                      {DAYS_FR[idx][0]}
-                    </div>
+                {/* Expertises top 3 */}
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {skills.slice(0, 3).map(s => (
+                    <Badge key={s.id} className={cn('text-[10px]', SKILL_LEVEL_COLORS[s.level])}>
+                      {EXPERTISE_LABELS[s.skill] ?? s.skill}
+                    </Badge>
                   ))}
+                  {skills.length === 0 && agent.specialty && (
+                    <Badge variant="secondary" className="text-[10px]">{agent.specialty}</Badge>
+                  )}
+                  {skills.length > 3 && (
+                    <span className="text-[10px] text-slate-400">+{skills.length - 3}</span>
+                  )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEdit(agent)}>
-                    <Edit className="w-3 h-3 mr-1" /> Modifier
+                {/* Workload */}
+                <div className="mb-2">
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-slate-500">Charge semaine</span>
+                    <span className={cn('font-medium', overloadedAgent ? 'text-rose-600' : 'text-slate-700')}>
+                      {summary.weeklyHours}h / {summary.capacityHours}h
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all',
+                        loadPct > 100 ? 'bg-rose-500' :
+                        loadPct > 85 ? 'bg-amber-500' :
+                        loadPct > 60 ? 'bg-violet-500' : 'bg-emerald-500',
+                      )}
+                      style={{ width: `${loadPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Fatigue + heatmap */}
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className={cn('text-[10px]', FATIGUE_LABEL_COLORS[fatigue.label])}>
+                    Forme {FATIGUE_LABEL_TEXT[fatigue.label]} · {fatigue.score}
+                  </Badge>
+                  <div className="flex gap-0.5">
+                    {DAYS_KEYS.map((day, idx) => {
+                      const isAvail = agent.weekly_availability?.[day]
+                      return (
+                        <div
+                          key={day}
+                          title={DAYS_FR[idx]}
+                          className={cn(
+                            'w-3 h-3 rounded-sm',
+                            isAvail ? 'bg-emerald-300' : 'bg-slate-100',
+                          )}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={(e) => { e.stopPropagation(); setProfileAgentId(agent.id) }}
+                  >
+                    <Eye className="w-3 h-3" /> Profil
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(agent.id)}>
-                    <Trash2 className="w-3 h-3 text-red-500" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleOpenEdit(agent) }}
+                  >
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); setConfirmDelete(agent.id) }}
+                  >
+                    <Trash2 className="w-3 h-3 text-rose-500" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            )
+          })}
           {filtered.length === 0 && (
-            <div className="col-span-3 text-center py-12 text-slate-500">Aucun agent trouvé</div>
+            <div className="col-span-3 text-center py-12">
+              <Sparkles className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">Aucun agent trouvé</p>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Form dialog */}
+      {/* Form dialog (édition rapide infos de base) */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAgent ? 'Modifier l\'agent' : 'Nouvel agent'}</DialogTitle>
           </DialogHeader>
+          <p className="text-xs text-slate-500 -mt-2 mb-2">
+            Infos de base. Les expertises avec niveaux, certifications et indispos se gèrent depuis le profil détaillé.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Prénom *</Label>
@@ -290,15 +396,13 @@ export default function AgentsPage() {
               <Input type="number" value={form.hourly_cost} onChange={e => setForm(f => ({ ...f, hourly_cost: e.target.value }))} />
             </div>
             <div className="col-span-2">
-              <Label>N° SIRET / Auto-entrepreneur</Label>
+              <Label>N° SIRET</Label>
               <Input value={form.business_registration_number} onChange={e => setForm(f => ({ ...f, business_registration_number: e.target.value }))} />
             </div>
             <div className="col-span-2">
-              <Label>Compétences (séparées par des virgules)</Label>
-              <Input value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))} placeholder="Ex: nettoyage industriel, vitrerie" />
+              <Label>Compétences libres (séparées par des virgules)</Label>
+              <Input value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))} placeholder="Pour expertises avec niveaux, voir le profil détaillé" />
             </div>
-
-            {/* Weekly availability */}
             <div className="col-span-2">
               <Label className="mb-2 block">Disponibilités hebdomadaires</Label>
               <div className="flex gap-2">
@@ -315,7 +419,6 @@ export default function AgentsPage() {
                 ))}
               </div>
             </div>
-
             <div className="col-span-2">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
@@ -332,11 +435,46 @@ export default function AgentsPage() {
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
         title="Supprimer l'agent"
-        description="Cette action est irréversible. L'agent sera définitivement supprimé."
+        description="Cette action est irréversible."
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
+
+      <AgentProfilePanel
+        agent={profileAgent ?? null}
+        open={!!profileAgent}
+        onClose={() => setProfileAgentId(null)}
+      />
     </AdminLayout>
+  )
+}
+
+function KpiCard({
+  icon: Icon, label, value, suffix, tint,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: number
+  suffix?: string
+  tint: 'amber' | 'indigo' | 'rose' | 'emerald' | 'violet'
+}) {
+  const tints = {
+    amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+    rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+    violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
+  }[tint]
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center gap-3">
+      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', tints.bg)}>
+        <Icon className={cn('w-4 h-4', tints.text)} />
+      </div>
+      <div>
+        <p className={cn('text-xl font-bold leading-tight', tints.text)}>{value}{suffix ?? ''}</p>
+        <p className="text-[11px] text-slate-500">{label}</p>
+      </div>
+    </div>
   )
 }

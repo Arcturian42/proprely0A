@@ -1,8 +1,28 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { Mission, OperationalMissionStatus } from '@/types'
+import { LEGACY_TO_OPERATIONAL } from './constants'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * Renvoie le statut opérationnel d'une mission, en repliant sur le mapping
+ * legacy `status` → `operational_status` si le champ n'est pas encore renseigné.
+ */
+export function getOperationalStatus(mission: Mission): OperationalMissionStatus {
+  if (mission.operational_status) return mission.operational_status
+  return (LEGACY_TO_OPERATIONAL[mission.status] ?? 'planifie') as OperationalMissionStatus
+}
+
+export function initials(firstName?: string | null, lastName?: string | null): string {
+  return `${firstName?.[0] ?? '?'}${lastName?.[0] ?? ''}`.toUpperCase()
+}
+
+export function formatHours(h: number): string {
+  if (Number.isInteger(h)) return `${h}h`
+  return `${Math.floor(h)}h${String(Math.round((h % 1) * 60)).padStart(2, '0')}`
 }
 
 export function formatDate(date: string | Date) {

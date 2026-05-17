@@ -213,7 +213,124 @@ CREATE TABLE service_types (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes
+-- ============================================================
+-- Refonte Cockpit & Agents (Phase A + B) — migrations additives
+-- ============================================================
+
+-- 1. Statut opérationnel mission (coexiste avec `status` legacy)
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS operational_status TEXT
+  CHECK (operational_status IN (
+    'a_organiser','en_preparation','en_attente_validation_client',
+    'planifie','en_cours','terminee','incident'
+  )) DEFAULT 'a_organiser';
+
+-- 2. Enrichissement mission
+ALTER TABLE missions
+  ADD COLUMN IF NOT EXISTS estimated_workers INTEGER,
+  ADD COLUMN IF NOT EXISTS estimated_profitability NUMERIC(10,2),
+  ADD COLUMN IF NOT EXISTS urgency TEXT,
+  ADD COLUMN IF NOT EXISTS recurrence TEXT,
+  ADD COLUMN IF NOT EXISTS required_machines TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS consumables TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS equipment TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS required_skills TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS parking_notes TEXT,
+  ADD COLUMN IF NOT EXISTS floor_count INTEGER,
+  ADD COLUMN IF NOT EXISTS organization_step INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS contact_name TEXT,
+  ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+
+-- 3. Expertises agents (avec niveau)
+CREATE TABLE IF NOT EXISTS agent_skills (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  skill TEXT NOT NULL,
+  level TEXT NOT NULL CHECK (level IN ('debutant','intermediaire','expert')),
+  UNIQUE(agent_id, skill)
+);
+
+-- 4. Certifications agents
+CREATE TABLE IF NOT EXISTS agent_certifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT CHECK (category IN ('machine','hauteur','chimie','permis','autre')),
+  issued_at DATE,
+  expires_at DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Blocs de disponibilité / indispos / vacances
+CREATE TABLE IF NOT EXISTS availability_blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('vacances','indispo','preferer')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Historique de workload (semaine)
+CREATE TABLE IF NOT EXISTS workload_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  week_start DATE NOT NULL,
+  hours_worked NUMERIC(6,2) DEFAULT 0,
+  missions_count INTEGER DEFAULT 0,
+  consecutive_days INTEGER DEFAULT 0,
+  night_shifts INTEGER DEFAULT 0,
+  UNIQUE(agent_id, week_start)
+);
+
+-- 7. Score de fatigue (snapshot courant)
+CREATE TABLE IF NOT EXISTS fatigue_scores (
+  agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
+  score INTEGER NOT NULL DEFAULT 0,
+  label TEXT NOT NULL CHECK (label IN ('ok','charge','surcharge','burnout')),
+  computed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Contraintes opérationnelles par site
+CREATE TABLE IF NOT EXISTS client_constraints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE UNIQUE,
+  preferred_days TEXT[] DEFAULT '{}',
+  preferred_hours_start TIME,
+  preferred_hours_end TIME,
+  access_hours_start TIME,
+  access_hours_end TIME,
+  keys_alarm TEXT,
+  parking TEXT,
+  elevator BOOLEAN DEFAULT FALSE,
+  noise_restrictions TEXT,
+  equipment_access TEXT,
+  urgency TEXT,
+  recurrence TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. Propositions de scheduling
+CREATE TABLE IF NOT EXISTS scheduling_proposals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mission_id UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+  proposed_start TIMESTAMPTZ NOT NULL,
+  proposed_end TIMESTAMPTZ NOT NULL,
+  score NUMERIC(5,2) DEFAULT 0,
+  recommended_agent_ids UUID[] DEFAULT '{}',
+  rationale JSONB DEFAULT '{}',
+  selected BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_certs_agent ON agent_certifications(agent_id);
+CREATE INDEX IF NOT EXISTS idx_availability_blocks_agent ON availability_blocks(agent_id);
+CREATE INDEX IF NOT EXISTS idx_scheduling_proposals_mission ON scheduling_proposals(mission_id);
+CREATE INDEX IF NOT EXISTS idx_missions_operational_status ON missions(operational_status);
+
+-- Indexes (existing)
 CREATE INDEX idx_leads_company ON leads(company_id);
 CREATE INDEX idx_opportunities_company ON opportunities(company_id);
 CREATE INDEX idx_clients_company ON clients(company_id);
