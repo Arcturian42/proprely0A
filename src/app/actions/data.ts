@@ -2,6 +2,7 @@
 
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import type {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem,
   Site, Sop, TimeEntry, ServiceType, Quote,
@@ -306,4 +307,50 @@ export async function upsertOperationalItem(row: OperationalItem): Promise<Write
 }
 export async function deleteOperationalItem(id: string): Promise<WriteResult> {
   return remove('operational_items', id)
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Company info — owner-only update on the companies table.                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const CompanyInfoSchema = z.object({
+  name: z.string().min(2, 'Nom requis').max(200),
+  email: z.string().email('Email invalide').or(z.literal('')).optional(),
+  phone: z.string().max(50).optional(),
+  address: z.string().max(500).optional(),
+})
+
+export async function updateCompanyInfo(formData: FormData): Promise<WriteResult> {
+  const parsed = CompanyInfoSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email') ?? undefined,
+    phone: formData.get('phone') ?? undefined,
+    address: formData.get('address') ?? undefined,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide' }
+  }
+
+  if (!isSupabaseConfigured()) return { ok: false, error: 'Supabase non configuré' }
+  const supabase = await createServerClient()
+  if (!supabase) return { ok: false, error: 'Supabase indisponible' }
+
+  // RLS only allows owner to update companies (see rls.sql companies_update).
+  const companyId = await getAuthedCompanyId()
+  if (!companyId) return { ok: false, error: 'Non authentifié' }
+
+  const { error } = await supabase
+    .from('companies')
+    .update({
+      name: parsed.data.name,
+      email: parsed.data.email || null,
+      phone: parsed.data.phone || null,
+      address: parsed.data.address || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', companyId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/parametres')
+  return { ok: true }
 }

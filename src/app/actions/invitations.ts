@@ -47,11 +47,14 @@ async function getSeatUsage(
   admin: NonNullable<Awaited<ReturnType<typeof createServiceRoleClient>>>,
   companyId: string,
 ): Promise<SeatUsage> {
+  // Désactivés (is_active=false) ne consomment pas de siège : c'est ce qui
+  // permet de libérer une place sans supprimer le profil (et perdre l'historique).
   const [{ count: active }, { count: pending }] = await Promise.all([
     admin
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
+      .eq('is_active', true)
       .neq('role', 'owner'),
     admin
       .from('invitations')

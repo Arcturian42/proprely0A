@@ -1,27 +1,36 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { ServiceType } from '@/types'
-import { Plus, Edit, Trash2, Save } from 'lucide-react'
+import { Plus, Edit, Trash2, Save, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAppStore } from '@/lib/store'
 import { InvitationsPanel } from '@/components/settings/InvitationsPanel'
+import { MembersPanel } from '@/components/settings/MembersPanel'
+import { updateCompanyInfo } from '@/app/actions/data'
+import { isSupabaseClient } from '@/lib/supabase/client-config'
+
+const VALID_TABS = ['company', 'equipe', 'services', 'notifications'] as const
+type TabValue = (typeof VALID_TABS)[number]
 
 export default function ParametresPage() {
   useEffect(() => { document.title = 'Paramètres — Proprely' }, [])
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const defaultTab: TabValue = VALID_TABS.includes(tabParam as TabValue) ? (tabParam as TabValue) : 'company'
+
   const {
     serviceTypes, addServiceType, updateServiceType, deleteServiceType,
     companySettings, updateCompanySettings,
@@ -34,6 +43,7 @@ export default function ParametresPage() {
     address: companySettings.address,
     siret: companySettings.siret,
   })
+  const [savingCompany, startSavingCompany] = useTransition()
 
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [editingService, setEditingService] = useState<ServiceType | null>(null)
@@ -41,8 +51,25 @@ export default function ParametresPage() {
   const [confirmDeleteService, setConfirmDeleteService] = useState<string | null>(null)
 
   const handleSaveCompany = () => {
+    // Local first for instant feedback, then mirror to Supabase if configured.
     updateCompanySettings(companyForm)
-    toast.success('Paramètres entreprise sauvegardés')
+    if (!isSupabaseClient()) {
+      toast.success('Paramètres entreprise sauvegardés (mode dev)')
+      return
+    }
+    startSavingCompany(async () => {
+      const fd = new FormData()
+      fd.set('name', companyForm.name)
+      fd.set('email', companyForm.email)
+      fd.set('phone', companyForm.phone)
+      fd.set('address', companyForm.address)
+      const res = await updateCompanyInfo(fd)
+      if (res.ok) {
+        toast.success('Paramètres entreprise sauvegardés')
+      } else {
+        toast.error(`Sauvegarde échouée : ${res.error}`)
+      }
+    })
   }
 
   const handleSaveService = () => {
@@ -74,7 +101,7 @@ export default function ParametresPage() {
       <div className="p-8">
         <PageHeader title="Paramètres" description="Configuration de votre espace Proprely" />
 
-        <Tabs defaultValue="company">
+        <Tabs defaultValue={defaultTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="company">Mon entreprise</TabsTrigger>
             <TabsTrigger value="equipe">Équipe</TabsTrigger>
@@ -108,15 +135,19 @@ export default function ParametresPage() {
                   <Label>N° SIRET</Label>
                   <Input value={companyForm.siret} onChange={e => setCompanyForm(f => ({ ...f, siret: e.target.value }))} />
                 </div>
-                <Button className="gap-2" onClick={handleSaveCompany}>
-                  <Save className="w-4 h-4" /> Sauvegarder
+                <Button className="gap-2" onClick={handleSaveCompany} disabled={savingCompany}>
+                  {savingCompany ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Sauvegarder
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="equipe">
-            <InvitationsPanel />
+            <div className="space-y-6 max-w-3xl">
+              <InvitationsPanel />
+              <MembersPanel />
+            </div>
           </TabsContent>
 
           <TabsContent value="services">
