@@ -248,12 +248,14 @@ function Step1Company({
   const [manualName, setManualName] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
-  // Debounced fetch.
+  // Debounced fetch — the clear-on-short-query case is queued as a microtask
+  // so we never call setState synchronously inside the effect body (would
+  // trigger react-hooks/set-state-in-effect cascade-render warning).
   useEffect(() => {
     if (manualMode || company) return
     const q = query.trim()
     if (q.length < 2) {
-      setResults(null)
+      queueMicrotask(() => setResults(null))
       return
     }
     const t = setTimeout(async () => {

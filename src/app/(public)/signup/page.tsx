@@ -43,7 +43,7 @@ export default function SignupPage() {
               required
               autoComplete="given-name"
               placeholder="Marie"
-              disabled={pending}
+              disabled={pending || result?.ok}
             />
           </div>
           <div>
@@ -54,7 +54,7 @@ export default function SignupPage() {
               required
               autoComplete="family-name"
               placeholder="Dupont"
-              disabled={pending}
+              disabled={pending || result?.ok}
             />
           </div>
         </div>
@@ -66,7 +66,7 @@ export default function SignupPage() {
             name="company_name"
             required
             placeholder="Ex: Nettoyage Pro SARL"
-            disabled={pending}
+            disabled={pending || result?.ok}
           />
         </div>
 
@@ -79,7 +79,7 @@ export default function SignupPage() {
             required
             autoComplete="email"
             placeholder="prenom@entreprise.fr"
-            disabled={pending}
+            disabled={pending || result?.ok}
           />
         </div>
 
