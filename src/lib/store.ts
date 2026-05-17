@@ -3,7 +3,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType
+  Agent, Client, Devis, Facture, Lead, Mission, MissionStatus, Opportunity,
+  OperationalItem, Site, Sop, Task, TimeEntry, ServiceType
 } from '@/types'
 import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
@@ -22,6 +23,7 @@ interface CompanySettings {
   phone: string
   address: string
   siret: string
+  tva_number?: string
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -30,6 +32,7 @@ const defaultCompanySettings: CompanySettings = {
   phone: '01 23 45 67 89',
   address: '10 Rue de la Propreté, Paris',
   siret: '12345678901234',
+  tva_number: 'FR12345678901',
 }
 
 interface AppStore {
@@ -43,6 +46,9 @@ interface AppStore {
   sops: Sop[]
   timeEntries: TimeEntry[]
   serviceTypes: ServiceType[]
+  devis: Devis[]
+  factures: Facture[]
+  tasks: Task[]
   companySettings: CompanySettings
 
   // Agents
@@ -96,6 +102,22 @@ interface AppStore {
   updateServiceType: (id: string, data: Partial<ServiceType>) => void
   deleteServiceType: (id: string) => void
 
+  // Devis
+  addDevis: (devis: Devis) => void
+  updateDevis: (id: string, data: Partial<Devis>) => void
+  deleteDevis: (id: string) => void
+  convertDevisToFacture: (devisId: string) => string | null
+
+  // Factures
+  addFacture: (facture: Facture) => void
+  updateFacture: (id: string, data: Partial<Facture>) => void
+  deleteFacture: (id: string) => void
+
+  // Tasks
+  addTask: (task: Task) => void
+  updateTask: (id: string, data: Partial<Task>) => void
+  deleteTask: (id: string) => void
+
   // Company settings
   updateCompanySettings: (settings: Partial<CompanySettings>) => void
 
@@ -103,6 +125,18 @@ interface AppStore {
   resetToMockData: () => void
 }
 
+let devisCounter = 1
+let factureCounter = 1
+
+function nextDevisNumber(): string {
+  const year = new Date().getFullYear()
+  return `DEV-${year}-${String(devisCounter++).padStart(3, '0')}`
+}
+
+function nextFactureNumber(): string {
+  const year = new Date().getFullYear()
+  return `FAC-${year}-${String(factureCounter++).padStart(3, '0')}`
+}
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -117,53 +151,44 @@ export const useAppStore = create<AppStore>()(
       sops: mockSops,
       timeEntries: mockTimeEntries,
       serviceTypes: defaultServiceTypes,
+      devis: [],
+      factures: [],
+      tasks: [],
       companySettings: defaultCompanySettings,
 
       // Agents
       addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
-      updateAgent: (id, data) => set(s => ({
-        agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a)
-      })),
-      deleteAgent: (id) => set(s => ({
-        agents: s.agents.filter(a => a.id !== id),
-      })),
+      updateAgent: (id, data) => set(s => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a) })),
+      deleteAgent: (id) => set(s => ({ agents: s.agents.filter(a => a.id !== id) })),
 
       // Clients
       addClient: (client) => set(s => ({ clients: [...s.clients, client] })),
-      updateClient: (id, data) => set(s => ({
-        clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c)
-      })),
+      updateClient: (id, data) => set(s => ({ clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c) })),
       deleteClient: (id) => set(s => {
-        const deletedMissionIds = new Set(
-          s.missions.filter(m => m.client_id === id || m.client?.id === id).map(m => m.id)
-        )
+        const deletedMissionIds = new Set(s.missions.filter(m => m.client_id === id).map(m => m.id))
         return {
           clients: s.clients.filter(c => c.id !== id),
           sites: s.sites.filter(s2 => s2.client_id !== id),
           missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
           timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+          devis: s.devis.filter(d => d.client_id !== id),
+          factures: s.factures.filter(f => f.client_id !== id),
         }
       }),
 
       // Sites
       addSite: (site) => set(s => ({ sites: [...s.sites, site] })),
-      updateSite: (id, data) => set(s => ({
-        sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
+      updateSite: (id, data) => set(s => ({ sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2) })),
       deleteSite: (id) => set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) })),
 
       // Leads
       addLead: (lead) => set(s => ({ leads: [...s.leads, lead] })),
-      updateLead: (id, data) => set(s => ({
-        leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l)
-      })),
+      updateLead: (id, data) => set(s => ({ leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l) })),
       deleteLead: (id) => set(s => ({ leads: s.leads.filter(l => l.id !== id) })),
 
       // Opportunities
       addOpportunity: (opp) => set(s => ({ opportunities: [...s.opportunities, opp] })),
-      updateOpportunity: (id, data) => set(s => ({
-        opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o)
-      })),
+      updateOpportunity: (id, data) => set(s => ({ opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o) })),
       deleteOpportunity: (id) => set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) })),
       winOpportunity: (id) => {
         const state = get()
@@ -218,9 +243,7 @@ export const useAppStore = create<AppStore>()(
 
       // Missions
       addMission: (mission) => set(s => ({ missions: [...s.missions, mission] })),
-      updateMission: (id, data) => set(s => ({
-        missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m)
-      })),
+      updateMission: (id, data) => set(s => ({ missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m) })),
       deleteMission: (id) => set(s => ({ missions: s.missions.filter(m => m.id !== id) })),
       updateMissionStatus: (id, status, validatedHours) => {
         const now = new Date().toISOString()
@@ -240,15 +263,11 @@ export const useAppStore = create<AppStore>()(
       updateOperationalItem: (id, data) => set(s => ({
         operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i)
       })),
-      deleteOperationalItem: (id) => set(s => ({
-        operationalItems: s.operationalItems.filter(i => i.id !== id)
-      })),
+      deleteOperationalItem: (id) => set(s => ({ operationalItems: s.operationalItems.filter(i => i.id !== id) })),
 
       // SOPs
       addSop: (sop) => set(s => ({ sops: [...s.sops, sop] })),
-      updateSop: (id, data) => set(s => ({
-        sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
+      updateSop: (id, data) => set(s => ({ sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2) })),
       deleteSop: (id) => set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) })),
 
       // TimeEntries
@@ -264,6 +283,54 @@ export const useAppStore = create<AppStore>()(
       })),
       deleteServiceType: (id) => set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) })),
 
+      // Devis
+      addDevis: (devis) => set(s => ({ devis: [...s.devis, devis] })),
+      updateDevis: (id, data) => set(s => ({ devis: s.devis.map(d => d.id === id ? { ...d, ...data } : d) })),
+      deleteDevis: (id) => set(s => ({ devis: s.devis.filter(d => d.id !== id) })),
+      convertDevisToFacture: (devisId) => {
+        const state = get()
+        const d = state.devis.find(x => x.id === devisId)
+        if (!d) return null
+        const now = new Date().toISOString()
+        const dueDate = new Date()
+        dueDate.setDate(dueDate.getDate() + 30)
+        const factureId = `facture-${Date.now()}`
+        const newFacture: Facture = {
+          id: factureId,
+          company_id: 'company-1',
+          number: nextFactureNumber(),
+          devis_id: devisId,
+          client_id: d.client_id,
+          site_id: d.site_id,
+          mission_id: null,
+          opportunity_id: d.opportunity_id,
+          title: d.title,
+          lines: d.lines.map(l => ({ ...l })),
+          tva_rate: d.tva_rate,
+          status: 'brouillon',
+          due_date: dueDate.toISOString().split('T')[0],
+          paid_at: null,
+          notes: d.notes,
+          created_at: now,
+          updated_at: now,
+        }
+        set(s => ({
+          factures: [...s.factures, newFacture],
+          devis: s.devis.map(x => x.id === devisId ? { ...x, status: 'accepte', updated_at: now } : x),
+        }))
+        return factureId
+      },
+
+      // Factures
+      addFacture: (facture) => set(s => ({ factures: [...s.factures, facture] })),
+      updateFacture: (id, data) => set(s => ({ factures: s.factures.map(f => f.id === id ? { ...f, ...data } : f) })),
+      deleteFacture: (id) => set(s => ({ factures: s.factures.filter(f => f.id !== id) })),
+
+      // Tasks
+      addTask: (task) => set(s => ({ tasks: [...s.tasks, task] })),
+      updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
+      deleteTask: (id) => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
+
       // Company settings
       updateCompanySettings: (settings) => set(s => ({ companySettings: { ...s.companySettings, ...settings } })),
 
@@ -272,10 +339,15 @@ export const useAppStore = create<AppStore>()(
         missions: mockMissions, opportunities: mockOpportunities,
         operationalItems: mockOperationalItems, sites: mockSites,
         sops: mockSops, timeEntries: mockTimeEntries,
+        devis: [], factures: [], tasks: [],
       }),
     }),
-    {
-      name: 'proprely-store',
-    }
+    { name: 'proprely-store' }
   )
 )
+
+export function computeDevisTotal(lines: { quantity: number; unit_price: number; tva_rate: number }[], globalTva = 20) {
+  const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
+  const tva = lines.reduce((s, l) => s + l.quantity * l.unit_price * (l.tva_rate / 100), 0) || subtotal * (globalTva / 100)
+  return { subtotal, tva, total: subtotal + tva }
+}

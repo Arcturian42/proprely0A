@@ -55,6 +55,28 @@ export const OPERATIONAL_ITEM_STATUS_LABELS: Record<string, string> = {
   annule: 'Annulé',
 }
 
+export const DEVIS_STATUS_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  envoye: 'Envoyé',
+  accepte: 'Accepté',
+  refuse: 'Refusé',
+  expire: 'Expiré',
+}
+
+export const FACTURE_STATUS_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  envoyee: 'Envoyée',
+  payee: 'Payée',
+  retard: 'En retard',
+  annulee: 'Annulée',
+}
+
+export const TASK_PRIORITY_LABELS: Record<string, string> = {
+  basse: 'Basse',
+  normale: 'Normale',
+  haute: 'Haute',
+}
+
 export const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 export const DAYS_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']

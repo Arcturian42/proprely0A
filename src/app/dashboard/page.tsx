@@ -18,16 +18,26 @@ import {
   Calendar,
   CheckCircle2,
   TrendingUp,
+  Receipt,
+  FileText,
+  Euro,
 } from 'lucide-react'
 import Link from 'next/link'
+import { computeDevisTotal } from '@/lib/store'
 
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
-  const { missions, clients, agents, operationalItems } = useAppStore()
+  const { missions, clients, agents, operationalItems, devis, factures } = useAppStore()
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
   const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
+
+  const devisEnAttente = devis.filter(d => d.status === 'envoye').length
+  const facturesAEncaisser = factures
+    .filter(f => f.status === 'envoyee' || f.status === 'retard')
+    .reduce((sum, f) => { const { total } = computeDevisTotal(f.lines, f.tva_rate); return sum + total }, 0)
+  const facturesEnRetard = factures.filter(f => f.status === 'envoyee' && f.due_date && new Date(f.due_date) < new Date()).length
 
   return (
     <AdminLayout>
@@ -148,6 +158,68 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Financial summary */}
+          <Card className="card-hover">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Situation financière</CardTitle>
+              <Link href="/facturation">
+                <Button variant="ghost" size="sm" className="text-indigo-600">
+                  Factures <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#111]">Devis en attente</p>
+                      <p className="text-[11px] text-[#787774]">En cours de réponse</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-blue-600">{devisEnAttente}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Euro className="w-3.5 h-3.5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#111]">À encaisser</p>
+                      <p className="text-[11px] text-[#787774]">Factures envoyées</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-green-600">
+                    {facturesAEncaisser.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+                {facturesEnRetard > 0 && (
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-red-700">Factures en retard</p>
+                        <p className="text-[11px] text-[#787774]">Relance nécessaire</p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-red-600">{facturesEnRetard}</span>
+                  </div>
+                )}
+                {facturesEnRetard === 0 && (
+                  <div className="flex items-center gap-2 py-2 text-green-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <p className="text-sm">Aucune facture en retard</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Quick actions */}
           <Card className="card-hover">
             <CardHeader className="pb-2">
@@ -167,16 +239,16 @@ export default function DashboardPage() {
                     <span>Planifier mission</span>
                   </Button>
                 </Link>
-                <Link href="/rh/agents">
+                <Link href="/commercial/devis">
                   <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <UserCog className="w-4 h-4" />
-                    <span>Nouvel agent</span>
+                    <FileText className="w-4 h-4" />
+                    <span>Nouveau devis</span>
                   </Button>
                 </Link>
-                <Link href="/commercial/clients-sites">
+                <Link href="/facturation">
                   <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                    <Users className="w-4 h-4" />
-                    <span>Nouveau client</span>
+                    <Receipt className="w-4 h-4" />
+                    <span>Nouvelle facture</span>
                   </Button>
                 </Link>
               </div>

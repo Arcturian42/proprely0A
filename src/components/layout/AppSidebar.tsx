@@ -20,6 +20,8 @@ import {
   ChevronUp,
   User,
   LogOut,
+  FileText,
+  Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -49,6 +51,13 @@ const navSections: NavSection[] = [
       { label: 'Pipeline commercial', href: '/commercial/pipeline', icon: TrendingUp },
       { label: 'Prospection IA', href: '/commercial/prospection', icon: Search },
       { label: 'Clients & Sites', href: '/commercial/clients-sites', icon: Users },
+      { label: 'Devis', href: '/commercial/devis', icon: FileText },
+    ],
+  },
+  {
+    title: 'Facturation',
+    items: [
+      { label: 'Factures', href: '/facturation', icon: Receipt },
     ],
   },
   {
@@ -70,8 +79,8 @@ const navSections: NavSection[] = [
   {
     title: 'Pilotage rentabilité',
     items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, badge: 'À venir' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, badge: 'À venir' },
+      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3 },
+      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart },
     ],
   },
   {

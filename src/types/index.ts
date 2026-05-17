@@ -5,6 +5,9 @@ export type AgentStatus = 'disponible' | 'occupe' | 'absent' | 'inactif'
 export type ContractType = 'auto_entrepreneur' | 'cdd' | 'cdi' | 'extra' | 'sous_traitant'
 export type TimeEntryStatus = 'prevue' | 'a_valider' | 'validee' | 'corrigee'
 export type OperationalItemStatus = 'a_organiser' | 'en_cours' | 'planifie' | 'annule'
+export type DevisStatus = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expire'
+export type FactureStatus = 'brouillon' | 'envoyee' | 'payee' | 'retard' | 'annulee'
+export type TaskPriority = 'basse' | 'normale' | 'haute'
 
 export interface Company {
   id: string
@@ -172,12 +175,21 @@ export interface Mission {
   planned_hours: number
   notes: string | null
   priority: string
+  rapport?: MissionRapport | null
   created_at: string
   updated_at: string
   client?: Client
   site?: Site
   agents?: Agent[]
   sop?: Sop
+}
+
+export interface MissionRapport {
+  qualite: 'excellent' | 'bon' | 'moyen' | 'insuffisant'
+  incidents: string
+  commentaires: string
+  heures_reelles: number
+  completed_at: string
 }
 
 export interface MissionAgent {
@@ -217,6 +229,75 @@ export interface ServiceType {
   estimated_duration_minutes: number | null
   indicative_price: number | null
   default_sop_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DevisLine {
+  id: string
+  description: string
+  quantity: number
+  unit_price: number
+  tva_rate: number
+}
+
+export interface Devis {
+  id: string
+  company_id: string
+  number: string
+  opportunity_id: string | null
+  client_id: string | null
+  site_id: string | null
+  title: string
+  lines: DevisLine[]
+  tva_rate: number
+  status: DevisStatus
+  valid_until: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FactureLine {
+  id: string
+  description: string
+  quantity: number
+  unit_price: number
+  tva_rate: number
+}
+
+export interface Facture {
+  id: string
+  company_id: string
+  number: string
+  devis_id: string | null
+  client_id: string | null
+  site_id: string | null
+  mission_id: string | null
+  opportunity_id: string | null
+  title: string
+  lines: FactureLine[]
+  tva_rate: number
+  status: FactureStatus
+  due_date: string | null
+  paid_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Task {
+  id: string
+  company_id: string
+  opportunity_id: string | null
+  client_id: string | null
+  mission_id: string | null
+  title: string
+  description: string | null
+  due_date: string | null
+  completed: boolean
+  completed_at: string | null
+  priority: TaskPriority
   created_at: string
   updated_at: string
 }

@@ -5,7 +5,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -14,20 +14,33 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
-import { Mission, MissionStatus } from '@/types'
+import { Mission, MissionRapport, MissionStatus } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { CheckCircle2, Clock, Users, MapPin, AlertTriangle, BookOpen } from 'lucide-react'
+import { CheckCircle2, Clock, Users, MapPin, AlertTriangle, BookOpen, FileText, Star } from 'lucide-react'
 import { toast } from 'sonner'
-import { addDays, format, parseISO, startOfWeek } from 'date-fns'
+import { addDays, format, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
+
+const QUALITE_OPTIONS: { value: MissionRapport['qualite']; label: string; color: string }[] = [
+  { value: 'excellent', label: 'Excellent', color: 'bg-green-100 text-green-700 border-green-200' },
+  { value: 'bon', label: 'Bon', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { value: 'moyen', label: 'Moyen', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  { value: 'insuffisant', label: 'Insuffisant', color: 'bg-red-100 text-red-700 border-red-200' },
+]
 
 export default function MissionsDuJourPage() {
   useEffect(() => { document.title = 'Missions du Jour — Proprely' }, [])
-  const { missions, updateMissionStatus, agents } = useAppStore()
+  const { missions, updateMissionStatus, updateMission, agents } = useAppStore()
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
-  const [validationHours, setValidationHours] = useState('')
+  const [showRapport, setShowRapport] = useState<Mission | null>(null)
   const [filterAgent, setFilterAgent] = useState('all')
+
+  // Validation + rapport form
+  const [validationHours, setValidationHours] = useState('')
+  const [qualite, setQualite] = useState<MissionRapport['qualite']>('bon')
+  const [incidents, setIncidents] = useState('')
+  const [commentaires, setCommentaires] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
   const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -41,11 +54,17 @@ export default function MissionsDuJourPage() {
   const todayMissions = filterByAgent(missions.filter(m => m.scheduled_date === today))
   const weekMissions = filterByAgent(missions.filter(m => weekDates.includes(m.scheduled_date)))
 
+  const openValidation = (mission: Mission) => {
+    setSelectedMission(mission)
+    setValidationHours(mission.planned_hours.toString())
+    setQualite('bon')
+    setIncidents('')
+    setCommentaires('')
+  }
+
   const handleUpdateStatus = (mission: Mission, status: MissionStatus) => {
     if (status === 'terminee') {
-      // "Valider" button: open dialog to confirm hours
-      setSelectedMission(mission)
-      setValidationHours(mission.planned_hours.toString())
+      openValidation(mission)
     } else {
       updateMissionStatus(mission.id, status)
       toast.success(`Mission : ${MISSION_STATUS_LABELS[status]}`)
@@ -55,11 +74,18 @@ export default function MissionsDuJourPage() {
   const handleValidate = () => {
     if (!selectedMission) return
     const hours = parseFloat(validationHours)
-    if (isNaN(hours) || hours <= 0) {
-      toast.error('Heures invalides')
-      return
+    if (isNaN(hours) || hours <= 0) { toast.error('Heures invalides'); return }
+
+    const rapport: MissionRapport = {
+      qualite,
+      incidents,
+      commentaires,
+      heures_reelles: hours,
+      completed_at: new Date().toISOString(),
     }
+
     updateMissionStatus(selectedMission.id, 'terminee', hours)
+    updateMission(selectedMission.id, { rapport, updated_at: new Date().toISOString() })
     toast.success(`Mission validée — ${hours}h enregistrées`)
     setSelectedMission(null)
   }
@@ -106,6 +132,22 @@ export default function MissionsDuJourPage() {
           </div>
         )}
 
+        {/* Rapport badge */}
+        {mission.rapport && (
+          <div className="mb-3">
+            <button
+              onClick={() => setShowRapport(mission)}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 hover:border-blue-200"
+            >
+              <FileText className="w-3 h-3" />
+              Rapport disponible
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${QUALITE_OPTIONS.find(q => q.value === mission.rapport!.qualite)?.color}`}>
+                {QUALITE_OPTIONS.find(q => q.value === mission.rapport!.qualite)?.label}
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
           {mission.status === 'prevue' && (
@@ -125,10 +167,18 @@ export default function MissionsDuJourPage() {
           )}
           {mission.status === 'a_valider' && (
             <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateStatus(mission, 'terminee')}>
-              <CheckCircle2 className="w-3 h-3" /> Valider
+              <CheckCircle2 className="w-3 h-3" /> Valider + Rapport
             </Button>
           )}
-          {mission.status === 'terminee' && (
+          {mission.status === 'terminee' && !mission.rapport && (
+            <button
+              onClick={() => openValidation(mission)}
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <FileText className="w-3 h-3" /> Ajouter un rapport
+            </button>
+          )}
+          {mission.status === 'terminee' && mission.rapport && (
             <div className="flex items-center gap-1 text-xs text-green-600">
               <CheckCircle2 className="w-3 h-3" /> Mission validée
             </div>
@@ -189,9 +239,7 @@ export default function MissionsDuJourPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {todayMissions.map(mission => (
-                  <MissionCard key={mission.id} mission={mission} />
-                ))}
+                {todayMissions.map(mission => <MissionCard key={mission.id} mission={mission} />)}
               </div>
             )}
           </TabsContent>
@@ -209,9 +257,7 @@ export default function MissionsDuJourPage() {
                       {date === today && <Badge variant="default" className="ml-1 text-xs">Aujourd'hui</Badge>}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {dayMissions.map(mission => (
-                        <MissionCard key={mission.id} mission={mission} />
-                      ))}
+                      {dayMissions.map(mission => <MissionCard key={mission.id} mission={mission} />)}
                     </div>
                   </div>
                 )
@@ -221,11 +267,11 @@ export default function MissionsDuJourPage() {
         </Tabs>
       </div>
 
-      {/* Validation dialog */}
+      {/* Validation + Rapport dialog */}
       <Dialog open={!!selectedMission} onOpenChange={() => setSelectedMission(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Valider les heures</DialogTitle>
+            <DialogTitle>Valider la mission & Rapport</DialogTitle>
           </DialogHeader>
           {selectedMission && (
             <div className="space-y-4">
@@ -234,21 +280,118 @@ export default function MissionsDuJourPage() {
                 <p className="text-slate-500">{selectedMission.site?.name}</p>
                 <p className="text-slate-500">Prévu: {selectedMission.planned_hours}h</p>
               </div>
+
               <div>
-                <Label>Heures réalisées</Label>
+                <Label>Heures réalisées *</Label>
                 <Input
-                  type="number"
-                  min="0.5"
-                  step="0.5"
+                  type="number" min="0.5" step="0.5"
                   value={validationHours}
                   onChange={e => setValidationHours(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label className="mb-2 block">Qualité du travail</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {QUALITE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setQualite(opt.value)}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${qualite === opt.value ? opt.color + ' ring-2 ring-offset-1 ring-current' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      {opt.value === 'excellent' && '⭐ '}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label>Incidents / Problèmes</Label>
+                <Textarea
+                  value={incidents}
+                  onChange={e => setIncidents(e.target.value)}
+                  placeholder="Aucun incident (laisser vide si rien à signaler)"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label>Commentaires</Label>
+                <Textarea
+                  value={commentaires}
+                  onChange={e => setCommentaires(e.target.value)}
+                  placeholder="Observations, points d'attention pour la prochaine fois..."
+                  rows={2}
                 />
               </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedMission(null)}>Annuler</Button>
-            <Button onClick={handleValidate}>Valider</Button>
+            <Button onClick={handleValidate} className="gap-1">
+              <CheckCircle2 className="w-4 h-4" /> Valider la mission
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View rapport dialog */}
+      <Dialog open={!!showRapport} onOpenChange={() => setShowRapport(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rapport de mission</DialogTitle>
+          </DialogHeader>
+          {showRapport?.rapport && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                <p className="font-medium">{showRapport.client?.name}</p>
+                <p className="text-slate-500">{showRapport.site?.name} · {formatDate(showRapport.scheduled_date)}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-[10px] text-slate-400 mb-1">Heures prévues</p>
+                  <p className="font-bold text-slate-900">{showRapport.planned_hours}h</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-[10px] text-slate-400 mb-1">Heures réalisées</p>
+                  <p className="font-bold text-slate-900">{showRapport.rapport.heures_reelles}h</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Qualité</p>
+                <span className={`inline-flex px-3 py-1.5 rounded-lg border text-sm font-medium ${QUALITE_OPTIONS.find(q => q.value === showRapport.rapport!.qualite)?.color}`}>
+                  {QUALITE_OPTIONS.find(q => q.value === showRapport.rapport!.qualite)?.label}
+                </span>
+              </div>
+
+              {showRapport.rapport.incidents && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Incidents</p>
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm text-red-700">
+                    {showRapport.rapport.incidents}
+                  </div>
+                </div>
+              )}
+
+              {showRapport.rapport.commentaires && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Commentaires</p>
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-amber-800">
+                    {showRapport.rapport.commentaires}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[10px] text-slate-400">
+                Rapport complété le {formatDate(showRapport.rapport.completed_at)}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRapport(null)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
