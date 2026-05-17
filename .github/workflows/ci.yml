@@ -44,6 +44,24 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-fake-anon-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
+      - name: Audit dependencies (high+ only)
+        # Blocks merges on `high` or `critical` vulnerabilities. Moderate
+        # advisories are reviewed manually; we don't want noisy reds on every
+        # transitive bump while still catching real RCE/auth bypasses.
+        run: npm audit --audit-level=high
+        continue-on-error: true # downgrade to warning until we triage current findings
+
+  deps-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Review dependency diff
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
   e2e:
     name: Playwright smoke tests
     runs-on: ubuntu-latest

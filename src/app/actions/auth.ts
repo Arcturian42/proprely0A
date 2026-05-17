@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rate-limit'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 
@@ -29,6 +30,18 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Email invalide' }
   }
 
+  // Rate-limit : 5 magic-link tentatives / 10 min par email pour éviter le
+  // spam (en plus du rate-limit Supabase interne). Empêche aussi un user de
+  // crasher accidentellement sa propre boîte mail.
+  const email = parsed.data.email.toLowerCase().trim()
+  const rl = rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      error: 'Trop de tentatives. Réessaie dans quelques minutes.',
+    }
+  }
+
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
@@ -40,7 +53,7 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
   if (!supabase) return { ok: false, error: 'Erreur interne (client Supabase indisponible).' }
 
   const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
+    email,
     options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
   })
 

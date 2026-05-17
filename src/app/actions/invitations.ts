@@ -5,6 +5,7 @@ import { createServerClient, createServiceRoleClient, isSupabaseConfigured } fro
 import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { invitationEmail } from '@/lib/email/templates'
 import { ROLE_LABELS } from '@/lib/auth/rbac'
+import { rateLimit } from '@/lib/rate-limit'
 import type { Role } from '@/lib/auth/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
@@ -199,6 +200,13 @@ export async function createInvitation(formData: FormData): Promise<InvitationAc
   }
   const inviterName = [inviter.first_name, inviter.last_name].filter(Boolean).join(' ') || user.email || 'Un administrateur'
   const companyName = inviter.companies?.name ?? 'ton entreprise'
+
+  // Rate-limit côté inviteur : 10 invitations / 10 min, suffisant pour
+  // remplir les 5 sièges + retries sans bloquer un usage normal.
+  const rl = rateLimit(`invite:${inviter.id}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return { ok: false, error: 'Trop d\'invitations en peu de temps. Réessaie dans quelques minutes.' }
+  }
 
   // Limite de sièges : 1 owner + 5 collaborateurs max.
   // Le trigger PostgreSQL est la source de vérité ; on check ici aussi pour un message FR clair.
@@ -439,6 +447,12 @@ export async function resendInvitation(invitationId: string): Promise<Invitation
   }
   const inviterName = [caller.first_name, caller.last_name].filter(Boolean).join(' ') || user.email || 'Un administrateur'
   const companyName = caller.companies?.name ?? 'ton entreprise'
+
+  // Rate-limit le renvoi : 5 / 10 min par invitation.
+  const rl = rateLimit(`resend:${invitationId}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return { ok: false, error: 'Trop de renvois récents. Réessaie dans quelques minutes.' }
+  }
 
   // Nouveau token (le précédent est invalidé puisque le hash en base change)
   const clearToken = randomBytes(32).toString('hex')

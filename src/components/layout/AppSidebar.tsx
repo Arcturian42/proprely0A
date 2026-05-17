@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useMemo } from 'react'
 import { signOut } from '@/app/actions/auth'
 import { useCurrentUser, useCurrentCompany, useCurrentRole } from '@/lib/auth'
 import { roleCan } from '@/lib/auth/rbac'
@@ -97,12 +98,16 @@ export function AppSidebar() {
 
   // Hide nav items the current role can't access. Hides empty sections too so
   // an "agent" doesn't see a "Ressources humaines" header with nothing under it.
-  const visibleSections = navSections
-    .map(section => ({
-      ...section,
-      items: section.items.filter(i => !i.permission || roleCan(role, i.permission)),
-    }))
-    .filter(section => section.items.length > 0)
+  // Memoized on `role` since navSections is a module constant and roleCan is pure.
+  const visibleSections = useMemo(
+    () => navSections
+      .map(section => ({
+        ...section,
+        items: section.items.filter(i => !i.permission || roleCan(role, i.permission)),
+      }))
+      .filter(section => section.items.length > 0),
+    [role],
+  )
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
