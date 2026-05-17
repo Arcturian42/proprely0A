@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppStore } from '@/lib/store'
 import { Opportunity, OpportunityStage } from '@/types'
-import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
+import { OPPORTUNITY_STAGE_LABELS, NEXT_ACTION_TYPE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   X, Phone, Mail, MapPin, Euro, Building2, Tag, Calendar, FileText,
@@ -79,13 +79,31 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
     }
   }
 
+  const nextActionLabel = opportunity.next_action_type
+    ? NEXT_ACTION_TYPE_LABELS[opportunity.next_action_type] || opportunity.next_action_type
+    : null
+
   const activities = [
     { date: opportunity.created_at, text: 'Opportunité créée', type: 'create' },
-    { date: opportunity.updated_at, text: 'Dernière modification', type: 'update' },
+    opportunity.next_action_date || opportunity.next_action_note
+      ? {
+          date: opportunity.next_action_date || opportunity.updated_at,
+          text: [
+            `Prochaine action${nextActionLabel ? ` — ${nextActionLabel}` : ''}`,
+            opportunity.next_action_note,
+          ].filter(Boolean).join(' : '),
+          type: 'next_action' as const,
+        }
+      : null,
+    opportunity.notes
+      ? { date: opportunity.updated_at, text: `Note : ${opportunity.notes}`, type: 'note' as const }
+      : null,
     ...oppQuotes.map(q => ({ date: q.created_at, text: `Devis ${q.quote_number} créé`, type: 'quote' })),
     ...oppQuotes.filter(q => q.status === 'envoye').map(q => ({ date: q.updated_at, text: `Devis ${q.quote_number} envoyé`, type: 'sent' })),
     ...oppQuotes.filter(q => q.status === 'signe').map(q => ({ date: q.signed_at || q.updated_at, text: `Devis ${q.quote_number} signé ✓`, type: 'signed' })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  ]
+    .filter((a): a is { date: string; text: string; type: string } => a !== null)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
     <AnimatePresence>
@@ -220,16 +238,38 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
             <TabsContent value="overview" className="flex-1 overflow-y-auto px-6 py-4 space-y-4 mt-0">
               <div className="grid grid-cols-2 gap-3">
                 <InfoCard icon={<Building2 className="w-3.5 h-3.5" />} label="Prospect" value={opportunity.prospect_name} />
-                {opportunity.contact_name && <InfoCard icon={<User className="w-3.5 h-3.5" />} label="Contact" value={opportunity.contact_name} />}
+                {opportunity.contact_name && (
+                  <InfoCard
+                    icon={<User className="w-3.5 h-3.5" />}
+                    label={opportunity.contact_role ? `Contact · ${opportunity.contact_role}` : 'Contact'}
+                    value={opportunity.contact_name}
+                  />
+                )}
                 {opportunity.phone && <InfoCard icon={<Phone className="w-3.5 h-3.5" />} label="Téléphone" value={opportunity.phone} />}
                 {opportunity.email && <InfoCard icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={opportunity.email} truncate />}
-                {opportunity.city && <InfoCard icon={<MapPin className="w-3.5 h-3.5" />} label="Ville" value={opportunity.city} />}
+                {(opportunity.city || opportunity.postal_code) && (
+                  <InfoCard
+                    icon={<MapPin className="w-3.5 h-3.5" />}
+                    label="Ville"
+                    value={[opportunity.postal_code, opportunity.city].filter(Boolean).join(' ')}
+                  />
+                )}
                 {opportunity.service_type && <InfoCard icon={<Tag className="w-3.5 h-3.5" />} label="Type service" value={opportunity.service_type} />}
                 {opportunity.estimated_amount && (
                   <InfoCard icon={<Euro className="w-3.5 h-3.5" />} label="Montant estimé" value={formatCurrency(opportunity.estimated_amount)} highlight />
                 )}
-                {opportunity.next_action_date && (
-                  <InfoCard icon={<Calendar className="w-3.5 h-3.5" />} label="Prochaine action" value={formatDate(opportunity.next_action_date)} />
+                {opportunity.siret && <InfoCard icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SIRET" value={opportunity.siret} truncate />}
+                {opportunity.siren && !opportunity.siret && (
+                  <InfoCard icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SIREN" value={opportunity.siren} />
+                )}
+                {opportunity.naf_code && <InfoCard icon={<Tag className="w-3.5 h-3.5" />} label="Code NAF" value={opportunity.naf_code} />}
+                {opportunity.legal_form && <InfoCard icon={<Building2 className="w-3.5 h-3.5" />} label="Forme juridique" value={opportunity.legal_form} truncate />}
+                {opportunity.source && (
+                  <InfoCard
+                    icon={opportunity.source === 'sirene_api' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
+                    label="Source"
+                    value={opportunity.source === 'sirene_api' ? 'SIRENE vérifiée' : 'Saisie manuelle'}
+                  />
                 )}
               </div>
 
@@ -237,6 +277,31 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-500 mb-1">Adresse du site</p>
                   <p className="text-sm text-slate-700">{opportunity.site_address}</p>
+                </div>
+              )}
+
+              {/* Next action block */}
+              {(opportunity.next_action_type || opportunity.next_action_date || opportunity.next_action_note) && (
+                <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/60 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 mb-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Prochaine action
+                  </div>
+                  <div className="text-sm text-slate-800">
+                    {opportunity.next_action_type
+                      ? NEXT_ACTION_TYPE_LABELS[opportunity.next_action_type] || opportunity.next_action_type
+                      : 'Action'}
+                    {opportunity.next_action_date && (
+                      <span className="text-slate-500 font-normal ml-1">
+                        · {formatDate(opportunity.next_action_date)}
+                      </span>
+                    )}
+                  </div>
+                  {opportunity.next_action_note && (
+                    <p className="text-sm text-slate-700 mt-1.5 whitespace-pre-wrap">
+                      {opportunity.next_action_note}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -274,36 +339,57 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
                 </div>
               )}
 
-              {/* Quick actions */}
-              {!opportunity.converted_to_client && (
-                <div className="pt-2 border-t border-slate-100">
-                  <Button
-                    className="w-full gap-2 h-9 bg-green-600 hover:bg-green-700 text-sm"
-                    onClick={() => onWin(opportunity.id)}
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> Marquer comme Gagnée
-                  </Button>
-                </div>
-              )}
             </TabsContent>
 
             {/* Notes Tab */}
             <TabsContent value="notes" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
-              <div className="space-y-3">
-                <Label className="text-xs text-slate-500">Notes internes</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                  rows={8}
-                  placeholder="Ajoutez des notes sur cette opportunité..."
-                  className="text-sm resize-none"
-                />
-                <Button size="sm" className="gap-1.5" onClick={() => {
-                  updateOpportunity(opportunity.id, { notes: form.notes, updated_at: new Date().toISOString() })
-                  toast.success('Notes sauvegardées')
-                }}>
-                  <Save className="w-3.5 h-3.5" /> Sauvegarder
-                </Button>
+              <div className="space-y-4">
+                {(opportunity.next_action_note || opportunity.next_action_type) && (
+                  <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/60 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 mb-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Prochaine action
+                      {opportunity.next_action_type && (
+                        <span className="font-medium text-amber-700">
+                          · {NEXT_ACTION_TYPE_LABELS[opportunity.next_action_type] || opportunity.next_action_type}
+                        </span>
+                      )}
+                      {opportunity.next_action_date && (
+                        <span className="text-amber-700/70 font-normal">
+                          · {formatDate(opportunity.next_action_date)}
+                        </span>
+                      )}
+                    </div>
+                    {opportunity.next_action_note && (
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                        {opportunity.next_action_note}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-500">Notes internes</Label>
+                  <Textarea
+                    value={form.notes}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                    rows={8}
+                    placeholder="Ajoutez des notes sur cette opportunité..."
+                    className="text-sm resize-none"
+                  />
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => {
+                      updateOpportunity(opportunity.id, {
+                        notes: form.notes,
+                        updated_at: new Date().toISOString(),
+                      })
+                      toast.success('Notes sauvegardées')
+                    }}
+                  >
+                    <Save className="w-3.5 h-3.5" /> Sauvegarder
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 
@@ -327,6 +413,8 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
                       a.type === 'signed' ? 'bg-green-500'
                       : a.type === 'quote' ? 'bg-blue-500'
                       : a.type === 'sent' ? 'bg-orange-500'
+                      : a.type === 'next_action' ? 'bg-amber-500'
+                      : a.type === 'note' ? 'bg-violet-500'
                       : 'bg-slate-300'
                     }`} />
                     <div className="flex-1">
