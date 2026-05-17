@@ -13,6 +13,22 @@ import { Resend } from 'resend'
 const apiKey = process.env.RESEND_API_KEY
 const FROM = process.env.RESEND_FROM ?? 'Proprely <onboarding@resend.dev>'
 
+// Fail loud in production if the Resend sandbox sender is still in use —
+// it limits delivery to the Resend account owner's email (so invitations to
+// real users would just disappear). RESEND_FROM must point to a verified
+// domain in prod.
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
+  FROM.includes('onboarding@resend.dev')
+) {
+  console.warn(
+    '[resend] WARNING: RESEND_FROM still uses the Resend sandbox sender. ' +
+    'Verify a custom domain on Resend and set RESEND_FROM="Proprely <noreply@your-domain>". ' +
+    'Invitations sent to anyone other than the Resend account owner will be rejected.',
+  )
+}
+
 const client = apiKey ? new Resend(apiKey) : null
 
 export interface EmailPayload {

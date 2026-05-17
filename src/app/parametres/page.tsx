@@ -174,19 +174,31 @@ export default function ParametresPage() {
                       <TableCell>{service.indicative_price ? `${service.indicative_price} €` : '—'}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                            setEditingService(service)
-                            setServiceForm({
-                              name: service.name,
-                              estimated_duration_minutes: service.estimated_duration_minutes?.toString() || '',
-                              indicative_price: service.indicative_price?.toString() || '',
-                            })
-                            setShowServiceForm(true)
-                          }}>
-                            <Edit className="w-3 h-3" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            aria-label={`Modifier ${service.name}`}
+                            onClick={() => {
+                              setEditingService(service)
+                              setServiceForm({
+                                name: service.name,
+                                estimated_duration_minutes: service.estimated_duration_minutes?.toString() || '',
+                                indicative_price: service.indicative_price?.toString() || '',
+                              })
+                              setShowServiceForm(true)
+                            }}
+                          >
+                            <Edit className="w-3 h-3" aria-hidden="true" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteService(service.id)}>
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            aria-label={`Supprimer ${service.name}`}
+                            onClick={() => setConfirmDeleteService(service.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                           </Button>
                         </div>
                       </TableCell>

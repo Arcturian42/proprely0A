@@ -5,26 +5,38 @@ import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useAppStore } from '@/lib/store'
-import { Mission, MissionStatus } from '@/types'
+import {
+  useAppStore,
+  useCompanyMissions,
+  useCompanyAgents,
+  useCompanyClients,
+  useCompanySites,
+  useCompanySops,
+} from '@/lib/store'
+import { Mission } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { Plus, ChevronLeft, ChevronRight, Calendar, Clock, Users } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Clock, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns'
+import { addDays, startOfWeek, format, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
   useEffect(() => { document.title = 'Planning — Proprely' }, [])
-  const { missions, agents, clients, sites, sops, addMission, addTimeEntry } = useAppStore()
+  const missions = useCompanyMissions()
+  const agents = useCompanyAgents()
+  const clients = useCompanyClients()
+  const sites = useCompanySites()
+  const sops = useCompanySops()
+  const addMission = useAppStore(s => s.addMission)
+  const addTimeEntry = useAppStore(s => s.addTimeEntry)
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)

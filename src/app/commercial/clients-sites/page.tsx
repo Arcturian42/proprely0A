@@ -13,11 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Client, Site } from '@/types'
-import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Can } from '@/components/auth/Can'
@@ -227,8 +225,13 @@ export default function ClientsSitesPage() {
                           <Edit className="w-3 h-3 mr-1" /> Modifier
                         </Button>
                         <Can permission="client:delete">
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Supprimer le client ${client.name}`}
+                            onClick={() => setConfirmDeleteClient(client.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                           </Button>
                         </Can>
                       </div>
@@ -281,11 +284,23 @@ export default function ClientsSitesPage() {
                         <TableCell>
                           <Can permission="site:write" fallback={<span className="text-xs text-slate-400">—</span>}>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
-                                <Edit className="w-3 h-3" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Modifier le site ${site.name}`}
+                                onClick={() => handleOpenEditSite(site)}
+                              >
+                                <Edit className="w-3 h-3" aria-hidden="true" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
-                                <Trash2 className="w-3 h-3 text-red-500" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Supprimer le site ${site.name}`}
+                                onClick={() => setConfirmDeleteSite(site.id)}
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                               </Button>
                             </div>
                           </Can>

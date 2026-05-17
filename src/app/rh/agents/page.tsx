@@ -328,16 +328,18 @@ export default function AgentsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Modifier ${agent.first_name} ${agent.last_name}`}
                       onClick={(e) => { e.stopPropagation(); handleOpenEdit(agent) }}
                     >
-                      <Edit className="w-3 h-3" />
+                      <Edit className="w-3 h-3" aria-hidden="true" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Supprimer ${agent.first_name} ${agent.last_name}`}
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete(agent.id) }}
                     >
-                      <Trash2 className="w-3 h-3 text-rose-500" />
+                      <Trash2 className="w-3 h-3 text-rose-500" aria-hidden="true" />
                     </Button>
                   </Can>
                 </div>

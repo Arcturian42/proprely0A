@@ -2,7 +2,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { BarChart3, Construction } from 'lucide-react'
+import { BarChart3 } from 'lucide-react'
 
 export default function RentabiliteClientPage() {
   return (
