@@ -122,7 +122,14 @@ export default function SopPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sops.map(sop => (
-            <Card key={sop.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedSop(sop)}>
+            <Card
+              key={sop.id}
+              className="cursor-pointer hover:shadow-md transition-shadow focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedSop(sop)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSop(sop) } }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
@@ -357,9 +364,17 @@ export default function SopPage() {
               <Label className="mb-2 block">Matériels requis</Label>
               <div className="flex flex-wrap gap-1 mb-2">
                 {requiredMaterials.map(m => (
-                  <Badge key={m} variant="outline" className="gap-1 cursor-pointer" onClick={() => setRequiredMaterials(prev => prev.filter(x => x !== m))}>
-                    {m} <X className="w-2 h-2" />
-                  </Badge>
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setRequiredMaterials(prev => prev.filter(x => x !== m))}
+                    aria-label={`Retirer ${m}`}
+                    className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  >
+                    <Badge variant="outline" className="gap-1 cursor-pointer">
+                      {m} <X className="w-2 h-2" aria-hidden="true" />
+                    </Badge>
+                  </button>
                 ))}
               </div>
               <div className="flex gap-2">
@@ -377,9 +392,17 @@ export default function SopPage() {
               <Label className="mb-2 block">Produits requis</Label>
               <div className="flex flex-wrap gap-1 mb-2">
                 {requiredProducts.map(p => (
-                  <Badge key={p} variant="secondary" className="gap-1 cursor-pointer" onClick={() => setRequiredProducts(prev => prev.filter(x => x !== p))}>
-                    {p} <X className="w-2 h-2" />
-                  </Badge>
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setRequiredProducts(prev => prev.filter(x => x !== p))}
+                    aria-label={`Retirer ${p}`}
+                    className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  >
+                    <Badge variant="secondary" className="gap-1 cursor-pointer">
+                      {p} <X className="w-2 h-2" aria-hidden="true" />
+                    </Badge>
+                  </button>
                 ))}
               </div>
               <div className="flex gap-2">

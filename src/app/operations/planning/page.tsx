@@ -175,7 +175,7 @@ export default function PlanningPage() {
                 </div>
                 <div className="space-y-2">
                   {dayMissions.map(mission => (
-                    <div key={mission.id} className="bg-white rounded-lg border border-slate-200 p-2 hover:shadow-sm cursor-pointer">
+                    <div key={mission.id} className="bg-white rounded-lg border border-slate-200 p-2">
                       <p className="text-xs font-semibold text-slate-800 truncate">{mission.client?.name}</p>
                       <p className="text-xs text-slate-500 truncate">{mission.site?.name}</p>
                       {mission.start_time && (

@@ -500,13 +500,19 @@ export default function CockpitPage() {
                             })
                           : false
 
+                        const slotDisabled = isPast || isOccupied || !selectedAgentId
                         return (
-                          <div
+                          <button
                             key={day.toISOString()}
-                            onClick={() => !isPast && !isOccupied && selectedAgentId && handleCalendarSlotClick(day, hour)}
+                            type="button"
+                            onClick={() => handleCalendarSlotClick(day, hour)}
+                            disabled={slotDisabled}
+                            aria-label={`${format(day, 'EEEE d MMMM', { locale: fr })} à ${String(hour).padStart(2, '0')}:00${isOccupied ? ' — occupé' : ''}${isPast ? ' — passé' : ''}`}
+                            aria-pressed={isSelectedSlot}
                             className={cn(
-                              'border-r border-slate-100 last:border-0 relative transition-colors',
-                              !isPast && !isOccupied && selectedAgentId && 'cursor-pointer hover:bg-indigo-50',
+                              'border-r border-slate-100 last:border-0 relative transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset',
+                              !slotDisabled && 'cursor-pointer hover:bg-indigo-50',
+                              slotDisabled && 'cursor-not-allowed',
                               isPast && 'bg-slate-50',
                               isOccupied && 'bg-rose-50',
                               isSelectedSlot && 'bg-indigo-100',
@@ -529,7 +535,7 @@ export default function CockpitPage() {
                                 ← Sélectionné
                               </div>
                             )}
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
