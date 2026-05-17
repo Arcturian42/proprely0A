@@ -300,6 +300,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'proprely-store',
+      version: 1,
     }
   )
 )

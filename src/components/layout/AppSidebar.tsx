@@ -71,8 +71,8 @@ const navSections: NavSection[] = [
   {
     title: 'Pilotage rentabilité',
     items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, badge: 'À venir' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, badge: 'À venir' },
+      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3 },
+      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart },
     ],
   },
   {
