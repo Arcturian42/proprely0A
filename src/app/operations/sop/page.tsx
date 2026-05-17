@@ -77,7 +77,7 @@ export default function SopPage() {
       toast.success('Protocole mis à jour')
     } else {
       const newSop: Sop = {
-        id: `sop-${Date.now()}`, company_id: 'company-1', ...sopData,
+        id: crypto.randomUUID(), company_id: 'company-1', ...sopData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addSop(newSop)
@@ -329,14 +329,14 @@ export default function SopPage() {
                   onChange={e => setNewChecklistItem(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && newChecklistItem.trim()) {
-                      setChecklistItems(prev => [...prev, { id: `c-${Date.now()}`, text: newChecklistItem.trim() }])
+                      setChecklistItems(prev => [...prev, { id: crypto.randomUUID(), text: newChecklistItem.trim() }])
                       setNewChecklistItem('')
                     }
                   }}
                 />
                 <Button size="sm" variant="outline" onClick={() => {
                   if (newChecklistItem.trim()) {
-                    setChecklistItems(prev => [...prev, { id: `c-${Date.now()}`, text: newChecklistItem.trim() }])
+                    setChecklistItems(prev => [...prev, { id: crypto.randomUUID(), text: newChecklistItem.trim() }])
                     setNewChecklistItem('')
                   }
                 }}>

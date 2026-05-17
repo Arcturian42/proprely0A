@@ -71,8 +71,8 @@ export default function AgentsPage() {
     if (isNaN(hours) || hours < 1 || hours > 60) { toast.error('Heures/semaine doit être entre 1 et 60'); return }
     const cost = form.hourly_cost ? parseFloat(form.hourly_cost) : null
     if (cost !== null && cost < 0) { toast.error('Le coût horaire ne peut pas être négatif'); return }
-    const phoneRegex = /^0[1-9][0-9]{8}$/
-    if (form.phone && !phoneRegex.test(form.phone.replace(/\s/g, ''))) {
+    const phoneRegex = /^(?:\+33|0)[1-9]\d{8}$/
+    if (form.phone && !phoneRegex.test(form.phone.replace(/[\s.-]/g, ''))) {
       toast.error('Téléphone invalide — format attendu: 06 12 34 56 78')
       return
     }
@@ -108,7 +108,10 @@ export default function AgentsPage() {
   }
 
   const handleDelete = (id: string) => {
-    const hasActiveMissions = missions.some(m => m.agents?.some(a => a.id === id))
+    const activeStatuses: Array<string> = ['prevue', 'en_cours', 'a_valider', 'probleme_signale']
+    const hasActiveMissions = missions.some(m =>
+      activeStatuses.includes(m.status) && m.agents?.some(a => a.id === id)
+    )
     if (hasActiveMissions) {
       toast.error('Impossible de supprimer cet agent : il est affecté à des missions actives.')
       setConfirmDelete(null)

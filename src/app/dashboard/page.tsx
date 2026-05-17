@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 import { formatDate } from '@/lib/utils'
+import { format } from 'date-fns'
 import {
   Sun,
   Users,
@@ -24,7 +25,7 @@ import Link from 'next/link'
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
   const { missions, clients, agents, operationalItems } = useAppStore()
-  const today = new Date().toISOString().split('T')[0]
+  const today = format(new Date(), 'yyyy-MM-dd')
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
   const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
@@ -140,7 +141,13 @@ export default function DashboardPage() {
                           {item.client?.name} · {item.site?.name}
                         </p>
                       </div>
-                      <StatusBadge status={item.priority === 'haute' ? 'a_valider' : 'prevue'} />
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        item.priority === 'haute' || item.priority === 'urgente'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}>
+                        {item.priority}
+                      </span>
                     </li>
                   ))}
                 </ul>

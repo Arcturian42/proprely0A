@@ -41,10 +41,17 @@ function getAgentMissionsForWeek(
   })
 }
 
+function parseTimeToHours(time: string | null | undefined, fallback = 8): number {
+  if (!time) return fallback
+  const [h, m] = time.split(':')
+  const hours = parseInt(h, 10)
+  const minutes = parseInt(m ?? '0', 10)
+  if (!Number.isFinite(hours)) return fallback
+  return hours + (Number.isFinite(minutes) ? minutes / 60 : 0)
+}
+
 function missionToSlot(mission: Mission): { start: number; end: number } {
-  const startH = mission.start_time
-    ? parseInt(mission.start_time.split(':')[0]) + parseInt(mission.start_time.split(':')[1]) / 60
-    : 8
+  const startH = parseTimeToHours(mission.start_time)
   return { start: startH, end: startH + mission.planned_hours }
 }
 
@@ -125,7 +132,7 @@ export default function CockpitPage() {
 
   const hasConflict = useMemo(() => {
     if (!selectedAgentId || !missionForm.scheduled_date || !missionForm.start_time) return false
-    const startH = parseInt(missionForm.start_time.split(':')[0]) + parseInt(missionForm.start_time.split(':')[1]) / 60
+    const startH = parseTimeToHours(missionForm.start_time)
     return isSlotConflict(selectedAgentId, missionForm.scheduled_date, startH, parseFloat(missionForm.planned_hours) || 2, missions)
   }, [selectedAgentId, missionForm.scheduled_date, missionForm.start_time, missionForm.planned_hours, missions])
 
@@ -170,7 +177,7 @@ export default function CockpitPage() {
     const sop = sops.find(s => s.id === missionForm.sop_id)
 
     const newMission: Mission = {
-      id: `mission-${Date.now()}`,
+      id: crypto.randomUUID(),
       company_id: 'company-1',
       client_id: assigningItem.client_id,
       site_id: assigningItem.site_id,
@@ -200,7 +207,7 @@ export default function CockpitPage() {
 
     // Create time entry
     const te: TimeEntry = {
-      id: `te-${Date.now()}`,
+      id: crypto.randomUUID(),
       company_id: 'company-1',
       mission_id: newMission.id,
       agent_id: agent.id,
@@ -507,8 +514,8 @@ export default function CockpitPage() {
                         const slotMission = selectedAgentId
                           ? agentWeekMissions.find(m => {
                               if (m.scheduled_date !== dateStr) return false
-                              const startH = m.start_time ? parseInt(m.start_time.split(':')[0]) : 8
-                              return startH === hour
+                              const slot = missionToSlot(m)
+                              return Math.floor(slot.start) === hour
                             })
                           : null
 
@@ -517,7 +524,7 @@ export default function CockpitPage() {
                           ? agentWeekMissions.some(m => {
                               if (m.scheduled_date !== dateStr) return false
                               const slot = missionToSlot(m)
-                              return hour >= slot.start && hour < slot.end
+                              return hour + 1 > slot.start && hour < slot.end
                             })
                           : false
 

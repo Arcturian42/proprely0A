@@ -56,7 +56,7 @@ export default function ParametresPage() {
       toast.success('Service mis à jour')
     } else {
       const newService: ServiceType = {
-        id: `st-${Date.now()}`, company_id: 'company-1', ...serviceForm,
+        id: crypto.randomUUID(), company_id: 'company-1', ...serviceForm,
         estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
         indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
         default_sop_id: null,

@@ -29,7 +29,7 @@ export default function MissionsDuJourPage() {
   const [validationHours, setValidationHours] = useState('')
   const [filterAgent, setFilterAgent] = useState('all')
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = format(new Date(), 'yyyy-MM-dd')
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const start = startOfWeek(new Date(), { weekStartsOn: 1 })
     return format(addDays(start, i), 'yyyy-MM-dd')
@@ -222,7 +222,7 @@ export default function MissionsDuJourPage() {
       </div>
 
       {/* Validation dialog */}
-      <Dialog open={!!selectedMission} onOpenChange={() => setSelectedMission(null)}>
+      <Dialog open={!!selectedMission} onOpenChange={(open) => { if (!open) { setSelectedMission(null); setValidationHours('') } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Valider les heures</DialogTitle>

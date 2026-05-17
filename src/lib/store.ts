@@ -134,14 +134,28 @@ export const useAppStore = create<AppStore>()(
         clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c)
       })),
       deleteClient: (id) => set(s => {
+        const deletedSiteIds = new Set(s.sites.filter(si => si.client_id === id).map(si => si.id))
         const deletedMissionIds = new Set(
-          s.missions.filter(m => m.client_id === id || m.client?.id === id).map(m => m.id)
+          s.missions.filter(m => m.client_id === id).map(m => m.id)
         )
         return {
           clients: s.clients.filter(c => c.id !== id),
-          sites: s.sites.filter(s2 => s2.client_id !== id),
+          sites: s.sites.filter(si => si.client_id !== id),
           missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
           timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+          opportunities: s.opportunities.map(o =>
+            o.client_id === id ? { ...o, client_id: null, site_id: null } : o
+          ),
+          operationalItems: s.operationalItems.filter(
+            i => i.client_id !== id && !deletedSiteIds.has(i.site_id ?? '')
+          ),
+          leads: s.leads.map(l =>
+            l.converted_opportunity_id && s.opportunities.find(
+              o => o.id === l.converted_opportunity_id && o.client_id === id
+            )
+              ? { ...l, converted_opportunity_id: null, status: 'qualifie' }
+              : l
+          ),
         }
       }),
 
@@ -224,11 +238,21 @@ export const useAppStore = create<AppStore>()(
       deleteMission: (id) => set(s => ({ missions: s.missions.filter(m => m.id !== id) })),
       updateMissionStatus: (id, status, validatedHours) => {
         const now = new Date().toISOString()
+        const sanitizedHours = validatedHours !== undefined
+          ? Math.max(0, Math.min(24, Number.isFinite(validatedHours) ? validatedHours : 0))
+          : undefined
         set(s => ({
           missions: s.missions.map(m => m.id === id ? { ...m, status, updated_at: now } : m),
-          timeEntries: validatedHours !== undefined
+          timeEntries: sanitizedHours !== undefined
             ? s.timeEntries.map(te => te.mission_id === id
-                ? { ...te, status: 'validee', validated_hours: validatedHours, validated_at: now }
+                ? {
+                    ...te,
+                    status: 'validee',
+                    validated_hours: sanitizedHours,
+                    total_cost: te.hourly_cost != null ? sanitizedHours * te.hourly_cost : te.total_cost,
+                    validated_at: now,
+                    updated_at: now,
+                  }
                 : te
               )
             : s.timeEntries,

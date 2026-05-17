@@ -50,7 +50,39 @@ export default function PlanningPage() {
       toast.error('Client, site et date requis')
       return
     }
+    const plannedHours = parseFloat(form.planned_hours)
+    if (!Number.isFinite(plannedHours) || plannedHours < 0.5 || plannedHours > 12) {
+      toast.error('Durée invalide (entre 0.5h et 12h)')
+      return
+    }
     const missionAgents = agents.filter(a => selectedAgents.includes(a.id))
+    if (missionAgents.length === 0) {
+      toast.error('Sélectionnez au moins un agent')
+      return
+    }
+
+    // Détection de conflits horaires pour chaque agent
+    if (form.start_time) {
+      const [h, m] = form.start_time.split(':')
+      const startH = parseInt(h, 10) + (parseInt(m ?? '0', 10) || 0) / 60
+      const endH = startH + plannedHours
+      const conflictedAgent = missionAgents.find(agent =>
+        missions
+          .filter(mi => mi.scheduled_date === form.scheduled_date && mi.agents?.some(a => a.id === agent.id))
+          .some(mi => {
+            if (!mi.start_time) return false
+            const [mh, mm] = mi.start_time.split(':')
+            const mStart = parseInt(mh, 10) + (parseInt(mm ?? '0', 10) || 0) / 60
+            const mEnd = mStart + mi.planned_hours
+            return startH < mEnd && endH > mStart
+          })
+      )
+      if (conflictedAgent) {
+        toast.error(`Conflit horaire pour ${conflictedAgent.first_name} ${conflictedAgent.last_name}`)
+        return
+      }
+    }
+
     const client = clients.find(c => c.id === form.client_id)
     const site = sites.find(s => s.id === form.site_id)
     const sop = sops.find(s => s.id === form.sop_id)
@@ -90,6 +122,7 @@ export default function PlanningPage() {
     }
 
     toast.success('Mission planifiée')
+    setSelectedAgents([])
     setShowForm(false)
   }
 
@@ -142,11 +175,10 @@ export default function PlanningPage() {
           {weekDays.map((day, idx) => {
             const dayMissions = getMissionsForDay(day)
             const isToday = isSameDay(day, new Date())
-            const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
             return (
               <div key={idx} className="min-h-[200px]">
                 <div className={`text-center py-2 mb-2 rounded-lg ${isToday ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200'}`}>
-                  <p className="text-xs font-medium">{dayNames[idx]}</p>
+                  <p className="text-xs font-medium capitalize">{format(day, 'EEE', { locale: fr })}</p>
                   <p className={`text-lg font-bold ${isToday ? 'text-white' : 'text-slate-900'}`}>
                     {format(day, 'd')}
                   </p>

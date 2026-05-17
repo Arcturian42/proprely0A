@@ -99,7 +99,7 @@ export default function PipelinePage() {
       toast.success('Opportunité mise à jour')
     } else {
       const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`, company_id: 'company-1',
+        id: crypto.randomUUID(), company_id: 'company-1',
         lead_id: null, client_id: null, site_id: null,
         ...form,
         estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
@@ -291,7 +291,7 @@ export default function PipelinePage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}>
+              <Button variant="outline" size="sm" onClick={() => { handleOpenEdit(selectedOpp); setSelectedOpp(null) }}>
                 Modifier
               </Button>
               <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(selectedOpp.id)}>

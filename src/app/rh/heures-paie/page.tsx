@@ -48,7 +48,7 @@ export default function HeuresPaiePage() {
     if (!selectedEntry) return
     const hours = parseFloat(validatedHours)
     if (isNaN(hours) || hours < 0 || hours > 12) { toast.error('Les heures doivent être entre 0 et 12h'); return }
-    const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
+    const cost = (selectedEntry.hourly_cost ?? 0) * hours
     updateTimeEntry(selectedEntry.id, {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
       validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -72,8 +72,8 @@ export default function HeuresPaiePage() {
       escapeCsv(String(e.total_cost || '')),
       escapeCsv(TIME_ENTRY_STATUS_LABELS[e.status] || e.status),
     ])
-    const csv = [headers.map(escapeCsv), ...rows].map(r => r.join(';')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const csv = [headers.map(escapeCsv), ...rows].map(r => r.join(';')).join('\r\n')
+    const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

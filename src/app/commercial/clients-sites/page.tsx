@@ -69,7 +69,7 @@ export default function ClientsSitesPage() {
       toast.success('Client mis à jour')
     } else {
       const newClient: Client = {
-        id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
+        id: crypto.randomUUID(), company_id: 'company-1', ...clientForm,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addClient(newClient)
@@ -113,7 +113,7 @@ export default function ClientsSitesPage() {
     } else {
       const client = clients.find(c => c.id === siteForm.client_id)
       const newSite: Site = {
-        id: `site-${Date.now()}`, company_id: 'company-1', ...siteForm,
+        id: crypto.randomUUID(), company_id: 'company-1', ...siteForm,
         surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
         sop_id: null, created_from_opportunity_id: null, client,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
