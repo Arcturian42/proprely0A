@@ -6,25 +6,25 @@
 const BASE = 'https://api.signnow.com'
 
 async function getToken(): Promise<string> {
-  const clientId = process.env.SIGNNOW_CLIENT_ID!
-  const clientSecret = process.env.SIGNNOW_CLIENT_SECRET!
-  const username = process.env.SIGNNOW_USERNAME!
-  const password = process.env.SIGNNOW_PASSWORD!
+  // Use pre-encoded Basic token if available (preferred — avoids re-encoding)
+  const basicToken = process.env.SIGNNOW_BASIC_TOKEN
+    || Buffer.from(`${process.env.SIGNNOW_CLIENT_ID}:${process.env.SIGNNOW_CLIENT_SECRET}`).toString('base64')
 
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  const username = process.env.SIGNNOW_USERNAME
+  const password = process.env.SIGNNOW_PASSWORD
+
+  // Try password grant if credentials provided, else try client_credentials
+  const grantParams = username && password
+    ? new URLSearchParams({ grant_type: 'password', username, password, scope: '*' })
+    : new URLSearchParams({ grant_type: 'client_credentials', scope: '*' })
 
   const res = await fetch(`${BASE}/oauth2/token`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${basic}`,
+      Authorization: `Basic ${basicToken}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      grant_type: 'password',
-      username,
-      password,
-      scope: '*',
-    }),
+    body: grantParams,
   })
 
   if (!res.ok) throw new Error(`SignNow auth failed: ${await res.text()}`)
