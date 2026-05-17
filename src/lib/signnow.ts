@@ -1,39 +1,31 @@
 /**
- * SignNow API client (https://api.signnow.com)
- * Auth: OAuth2 password grant with Basic Auth header
+ * SignNow integration using official @signnow/api-client SDK
+ * Auth: API key (access token) stored in SIGNNOW_API_KEY env var
  */
 
-const BASE = 'https://api.signnow.com'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const SignNow = require('@signnow/api-client')
 
-async function getToken(): Promise<string> {
-  // Use pre-encoded Basic token if available (preferred — avoids re-encoding)
-  const basicToken = process.env.SIGNNOW_BASIC_TOKEN
-    || Buffer.from(`${process.env.SIGNNOW_CLIENT_ID}:${process.env.SIGNNOW_CLIENT_SECRET}`).toString('base64')
-
-  const username = process.env.SIGNNOW_USERNAME
-  const password = process.env.SIGNNOW_PASSWORD
-
-  // Try password grant if credentials provided, else try client_credentials
-  const grantParams = username && password
-    ? new URLSearchParams({ grant_type: 'password', username, password, scope: '*' })
-    : new URLSearchParams({ grant_type: 'client_credentials', scope: '*' })
-
-  const res = await fetch(`${BASE}/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basicToken}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: grantParams,
-  })
-
-  if (!res.ok) throw new Error(`SignNow auth failed: ${await res.text()}`)
-  const data: { access_token: string } = await res.json()
-  return data.access_token
+function getClient() {
+  const basicToken = process.env.SIGNNOW_BASIC_TOKEN!
+  return SignNow({ credentials: basicToken, production: true })
 }
 
-function bearer(token: string) {
-  return { Authorization: `Bearer ${token}` }
+function getToken(): string {
+  return process.env.SIGNNOW_API_KEY!
+}
+
+// Promisify a SignNow SDK call
+function call<T>(fn: (args: Record<string, unknown>, cb: (err: unknown, res: T) => void) => void, args: Record<string, unknown>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    fn({ ...args, token: getToken() }, (err: unknown, res: T) => {
+      if (err) return reject(new Error(typeof err === 'string' ? err : JSON.stringify(err)))
+      if (typeof res === 'string' && (res as string).includes('not in allowlist')) {
+        return reject(new Error(`SignNow IP restriction: server IP must be whitelisted in app.signnow.com/webapp/api-dashboard/keys`))
+      }
+      resolve(res)
+    })
+  })
 }
 
 export interface SignNowSigner {
@@ -53,94 +45,81 @@ export async function sendForSignature(
   pdfBuffer: Buffer,
   signer: SignNowSigner
 ): Promise<SignNowResult> {
-  const token = await getToken()
+  const sn = getClient()
 
-  // 1. Upload document
-  const form = new FormData()
-  form.append('file', new Blob([pdfBuffer.buffer as ArrayBuffer], { type: 'application/pdf' }), 'devis.pdf')
+  // Write PDF to temp file (SDK requires a file path)
+  const { writeFileSync, unlinkSync } = await import('fs')
+  const { tmpdir } = await import('os')
+  const { join } = await import('path')
+  const tmpPath = join(tmpdir(), `devis-${Date.now()}.pdf`)
+  writeFileSync(tmpPath, pdfBuffer)
 
-  const uploadRes = await fetch(`${BASE}/document`, {
-    method: 'POST',
-    headers: bearer(token),
-    body: form,
+  let documentId: string
+  try {
+    // 1. Upload document
+    const upload = await call<{ id: string }>(sn.document.create, { filepath: tmpPath })
+    documentId = upload.id
+  } finally {
+    unlinkSync(tmpPath)
+  }
+
+  // 2. Add signature field
+  await call(sn.document.update, {
+    id: documentId,
+    fields: [{
+      x: 77, y: 680, width: 200, height: 50,
+      page_number: 0, role: 'Signer 1',
+      required: true, type: 'signature',
+    }],
   })
-  if (!uploadRes.ok) throw new Error(`Upload failed: ${await uploadRes.text()}`)
-  const upload: { id: string } = await uploadRes.json()
-  const documentId = upload.id
 
-  // 2. Add signature field on page 1
-  const fieldsRes = await fetch(`${BASE}/document/${documentId}`, {
-    method: 'PUT',
-    headers: { ...bearer(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fields: [
-        {
-          x: 77,
-          y: 580,
-          width: 200,
-          height: 50,
-          page_number: 0,
-          role: 'Signer 1',
-          required: true,
-          type: 'signature',
-        },
-      ],
-    }),
-  })
-  if (!fieldsRes.ok) throw new Error(`Add fields failed: ${await fieldsRes.text()}`)
+  // 3. Get sender email
+  const user = await call<{ email: string }>(sn.user.retrieve, {})
 
-  // 3. Send free-form invite
-  const inviteRes = await fetch(`${BASE}/document/${documentId}/invite`, {
-    method: 'POST',
-    headers: { ...bearer(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: process.env.SIGNNOW_USERNAME,
-      to: [
-        {
-          email: signer.email,
-          role: 'Signer 1',
-          role_id: '',
-          order: 1,
-          subject: `Devis à signer — ${title}`,
-          message: `Bonjour ${signer.firstName},\n\nVeuillez trouver ci-joint votre devis à signer électroniquement.\n\nCordialement,\nL'équipe Proprely`,
-        },
-      ],
-    }),
+  // 4. Send invite
+  const invite = await call<{ id?: string; status?: string }>(sn.document.invite, {
+    id: documentId,
+    data: {
+      from: user.email,
+      to: [{
+        email: signer.email,
+        role: 'Signer 1',
+        role_id: '',
+        order: 1,
+        subject: `Devis à signer — ${title}`,
+        message: `Bonjour ${signer.firstName},\n\nVeuillez trouver votre devis à signer électroniquement.\n\nCordialement,\nProprely Nettoyage Pro`,
+      }],
+    },
   })
-  if (!inviteRes.ok) throw new Error(`Send invite failed: ${await inviteRes.text()}`)
-  const invite: { id?: string; status?: string } = await inviteRes.json()
 
-  // 4. Get signing link for direct access
-  const linkRes = await fetch(`${BASE}/document/${documentId}/invite/link`, {
-    method: 'POST',
-    headers: { ...bearer(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: signer.email }),
-  })
-  const linkData: { link?: string } = linkRes.ok ? await linkRes.json() : {}
+  // 5. Get direct signing link (best-effort)
+  let signerUrl = `https://app.signnow.com/webapp/document/${documentId}`
+  try {
+    const link = await call<{ link?: string }>(sn.link.create, {
+      document_id: documentId,
+      data: { email: signer.email },
+    })
+    if (link.link) signerUrl = link.link
+  } catch {
+    // link endpoint is optional
+  }
 
   return {
     documentId,
-    inviteId: invite.id || documentId,
-    signerUrl: linkData.link || `https://app.signnow.com/webapp/document/${documentId}`,
+    inviteId: invite?.id || documentId,
+    signerUrl,
   }
 }
 
-/** Register a webhook for document.complete events */
+/** Register document.complete webhook in SignNow */
 export async function registerWebhook(callbackUrl: string): Promise<void> {
-  const token = await getToken()
-
-  await fetch(`${BASE}/api/v2/events`, {
-    method: 'POST',
-    headers: { ...bearer(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const sn = getClient()
+  await call(sn.webhook.create, {
+    data: {
       event: 'document.complete',
       entity_id: process.env.SIGNNOW_CLIENT_ID,
       action: 'callback',
-      attributes: {
-        callback: callbackUrl,
-        use_tls_12: true,
-        docid_queryparam: false,
-      },
-    }),
+      attributes: { callback: callbackUrl, use_tls_12: true },
+    },
   })
 }
