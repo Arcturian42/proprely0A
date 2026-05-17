@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ProspectingFlow } from './_components/ProspectingFlow'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -151,9 +152,12 @@ export default function PipelinePage() {
           title="Pipeline commercial"
           description="Suivi de vos opportunités par étape"
           action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="w-4 h-4" /> Nouvelle opportunité
-            </Button>
+            <div className="flex items-center gap-2">
+              <ProspectingFlow />
+              <Button onClick={handleOpenCreate} className="gap-2">
+                <Plus className="w-4 h-4" /> Nouvelle opportunité
+              </Button>
+            </div>
           }
         />
 

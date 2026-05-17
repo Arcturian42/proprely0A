@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   TrendingUp,
-  Search,
   Users,
   Gauge,
   Calendar,
@@ -47,7 +46,6 @@ const navSections: NavSection[] = [
     title: 'Commercial',
     items: [
       { label: 'Pipeline commercial', href: '/commercial/pipeline', icon: TrendingUp },
-      { label: 'Prospection IA', href: '/commercial/prospection', icon: Search },
       { label: 'Clients & Sites', href: '/commercial/clients-sites', icon: Users },
     ],
   },
