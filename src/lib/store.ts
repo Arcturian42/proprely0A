@@ -3,7 +3,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useMemo } from 'react'
+import { toast } from 'sonner'
 import { useCurrentCompanyId } from '@/lib/auth'
+import { isSupabaseClient } from '@/lib/supabase/client-config'
 import {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage,
   AgentSkill, AgentCertification, AvailabilityBlock, FatigueScore, ClientConstraint, SchedulingProposal,
@@ -14,6 +16,38 @@ import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
   mockOperationalItems, mockSites, mockSops, mockTimeEntries,
 } from '@/lib/mock-data'
+import type { CompanyDataSnapshot } from '@/app/actions/data'
+import {
+  upsertAgent as _upsertAgent, deleteAgent as _deleteAgent,
+  upsertClient as _upsertClient, deleteClient as _deleteClient,
+  upsertSite as _upsertSite, deleteSite as _deleteSite,
+  upsertLead as _upsertLead, deleteLead as _deleteLead,
+  upsertOpportunity as _upsertOpportunity, deleteOpportunity as _deleteOpportunity,
+  upsertMission as _upsertMission, deleteMission as _deleteMission,
+  assignAgentsToMission as _assignAgentsToMission,
+  upsertTimeEntry as _upsertTimeEntry,
+  upsertSop as _upsertSop, deleteSop as _deleteSop,
+  upsertServiceType as _upsertServiceType, deleteServiceType as _deleteServiceType,
+  upsertQuote as _upsertQuote, deleteQuote as _deleteQuote,
+  upsertOperationalItem as _upsertOperationalItem, deleteOperationalItem as _deleteOperationalItem,
+  type WriteResult,
+} from '@/app/actions/data'
+
+/**
+ * Fire-and-forget bridge to Supabase server actions. We update the store
+ * synchronously for UX, then mirror the change to the DB in background.
+ * On failure we toast — the next page navigation will refetch and reconcile.
+ *
+ * No-op in dummy mode (no NEXT_PUBLIC_SUPABASE_URL set).
+ */
+function syncToSupabase(label: string, action: () => Promise<WriteResult>): void {
+  if (!isSupabaseClient()) return
+  void action().then(r => {
+    if (!r.ok) toast.error(`Sauvegarde ${label} échouée : ${r.error}`)
+  }).catch(err => {
+    toast.error(`Sauvegarde ${label} échouée : ${err?.message ?? 'erreur réseau'}`)
+  })
+}
 
 const defaultServiceTypes: ServiceType[] = [
   { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
@@ -135,22 +169,32 @@ interface AppStore {
 
   // Reset
   resetToMockData: () => void
+
+  // Hydration from Supabase — replaces all tenant-scoped arrays with a fresh
+  // snapshot from the DB. Called by SupabaseHydrator at mount and after writes.
+  hydrateCompanyData: (data: CompanyDataSnapshot) => void
 }
 
+
+// En dummy mode (Supabase non configuré) on démarre avec les mocks pour pouvoir
+// développer/démo sans backend. En mode réel, on part vide et SupabaseHydrator
+// remplace tout au mount via hydrateCompanyData() — sinon le user verrait
+// les données mock flasher pendant la fetch initiale.
+const useMocks = !isSupabaseClient()
 
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      agents: mockAgents,
-      clients: mockClients,
-      leads: mockLeads,
-      missions: mockMissions,
-      opportunities: mockOpportunities,
-      operationalItems: mockOperationalItems,
-      sites: mockSites,
-      sops: mockSops,
-      timeEntries: mockTimeEntries,
-      serviceTypes: defaultServiceTypes,
+      agents: useMocks ? mockAgents : [],
+      clients: useMocks ? mockClients : [],
+      leads: useMocks ? mockLeads : [],
+      missions: useMocks ? mockMissions : [],
+      opportunities: useMocks ? mockOpportunities : [],
+      operationalItems: useMocks ? mockOperationalItems : [],
+      sites: useMocks ? mockSites : [],
+      sops: useMocks ? mockSops : [],
+      timeEntries: useMocks ? mockTimeEntries : [],
+      serviceTypes: useMocks ? defaultServiceTypes : [],
       quotes: [],
       companySettings: defaultCompanySettings,
       agentSkills: [
@@ -177,72 +221,114 @@ export const useAppStore = create<AppStore>()(
       schedulingProposals: [],
 
       // Agents
-      addAgent: (agent) => set(s => ({ agents: [...s.agents, agent] })),
-      updateAgent: (id, data) => set(s => ({
-        agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a)
-      })),
-      deleteAgent: (id) => set(s => ({
-        agents: s.agents.filter(a => a.id !== id),
-      })),
+      addAgent: (agent) => {
+        set(s => ({ agents: [...s.agents, agent] }))
+        syncToSupabase('agent', () => _upsertAgent(agent))
+      },
+      updateAgent: (id, data) => {
+        const next = get().agents.find(a => a.id === id)
+        set(s => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...data } : a) }))
+        if (next) syncToSupabase('agent', () => _upsertAgent({ ...next, ...data }))
+      },
+      deleteAgent: (id) => {
+        set(s => ({ agents: s.agents.filter(a => a.id !== id) }))
+        syncToSupabase('agent', () => _deleteAgent(id))
+      },
 
       // Clients
-      addClient: (client) => set(s => ({ clients: [...s.clients, client] })),
-      updateClient: (id, data) => set(s => ({
-        clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c)
-      })),
-      deleteClient: (id) => set(s => {
-        const deletedSiteIds = new Set(s.sites.filter(si => si.client_id === id).map(si => si.id))
-        const deletedMissionIds = new Set(
-          s.missions.filter(m => m.client_id === id).map(m => m.id)
-        )
-        return {
-          clients: s.clients.filter(c => c.id !== id),
-          sites: s.sites.filter(si => si.client_id !== id),
-          missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
-          timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
-          opportunities: s.opportunities.map(o =>
-            o.client_id === id ? { ...o, client_id: null, site_id: null } : o
-          ),
-          operationalItems: s.operationalItems.filter(
-            i => i.client_id !== id && !deletedSiteIds.has(i.site_id ?? '')
-          ),
-          leads: s.leads.map(l =>
-            l.converted_opportunity_id && s.opportunities.find(
-              o => o.id === l.converted_opportunity_id && o.client_id === id
-            )
-              ? { ...l, converted_opportunity_id: null, status: 'qualifie' }
-              : l
-          ),
-        }
-      }),
+      addClient: (client) => {
+        set(s => ({ clients: [...s.clients, client] }))
+        syncToSupabase('client', () => _upsertClient(client))
+      },
+      updateClient: (id, data) => {
+        const next = get().clients.find(c => c.id === id)
+        set(s => ({ clients: s.clients.map(c => c.id === id ? { ...c, ...data } : c) }))
+        if (next) syncToSupabase('client', () => _upsertClient({ ...next, ...data }))
+      },
+      deleteClient: (id) => {
+        // Cascade locale : on miroirise ce que la DB fera via ON DELETE CASCADE
+        // (sites + missions via FK, leads/opportunities ré-affectés en local).
+        set(s => {
+          const deletedSiteIds = new Set(s.sites.filter(si => si.client_id === id).map(si => si.id))
+          const deletedMissionIds = new Set(
+            s.missions.filter(m => m.client_id === id).map(m => m.id)
+          )
+          return {
+            clients: s.clients.filter(c => c.id !== id),
+            sites: s.sites.filter(si => si.client_id !== id),
+            missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
+            timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+            opportunities: s.opportunities.map(o =>
+              o.client_id === id ? { ...o, client_id: null, site_id: null } : o
+            ),
+            operationalItems: s.operationalItems.filter(
+              i => i.client_id !== id && !deletedSiteIds.has(i.site_id ?? '')
+            ),
+            leads: s.leads.map(l =>
+              l.converted_opportunity_id && s.opportunities.find(
+                o => o.id === l.converted_opportunity_id && o.client_id === id
+              )
+                ? { ...l, converted_opportunity_id: null, status: 'qualifie' }
+                : l
+            ),
+          }
+        })
+        syncToSupabase('client', () => _deleteClient(id))
+      },
 
       // Sites
-      addSite: (site) => set(s => ({ sites: [...s.sites, site] })),
-      updateSite: (id, data) => set(s => ({
-        sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
-      deleteSite: (id) => set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) })),
+      addSite: (site) => {
+        set(s => ({ sites: [...s.sites, site] }))
+        syncToSupabase('site', () => _upsertSite(site))
+      },
+      updateSite: (id, data) => {
+        const next = get().sites.find(s2 => s2.id === id)
+        set(s => ({ sites: s.sites.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
+        if (next) syncToSupabase('site', () => _upsertSite({ ...next, ...data }))
+      },
+      deleteSite: (id) => {
+        set(s => ({ sites: s.sites.filter(s2 => s2.id !== id) }))
+        syncToSupabase('site', () => _deleteSite(id))
+      },
 
       // Leads
-      addLead: (lead) => set(s => ({ leads: [...s.leads, lead] })),
-      updateLead: (id, data) => set(s => ({
-        leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l)
-      })),
-      deleteLead: (id) => set(s => ({ leads: s.leads.filter(l => l.id !== id) })),
+      addLead: (lead) => {
+        set(s => ({ leads: [...s.leads, lead] }))
+        syncToSupabase('lead', () => _upsertLead(lead))
+      },
+      updateLead: (id, data) => {
+        const next = get().leads.find(l => l.id === id)
+        set(s => ({ leads: s.leads.map(l => l.id === id ? { ...l, ...data } : l) }))
+        if (next) syncToSupabase('lead', () => _upsertLead({ ...next, ...data }))
+      },
+      deleteLead: (id) => {
+        set(s => ({ leads: s.leads.filter(l => l.id !== id) }))
+        syncToSupabase('lead', () => _deleteLead(id))
+      },
 
       // Opportunities
-      addOpportunity: (opp) => set(s => ({ opportunities: [...s.opportunities, opp] })),
-      updateOpportunity: (id, data) => set(s => ({
-        opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o)
-      })),
-      deleteOpportunity: (id) => set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) })),
+      addOpportunity: (opp) => {
+        set(s => ({ opportunities: [...s.opportunities, opp] }))
+        syncToSupabase('opportunité', () => _upsertOpportunity(opp))
+      },
+      updateOpportunity: (id, data) => {
+        const next = get().opportunities.find(o => o.id === id)
+        set(s => ({ opportunities: s.opportunities.map(o => o.id === id ? { ...o, ...data } : o) }))
+        if (next) syncToSupabase('opportunité', () => _upsertOpportunity({ ...next, ...data }))
+      },
+      deleteOpportunity: (id) => {
+        set(s => ({ opportunities: s.opportunities.filter(o => o.id !== id) }))
+        syncToSupabase('opportunité', () => _deleteOpportunity(id))
+      },
       moveOpportunity: (id, stage) => {
         const now = new Date().toISOString()
+        const next = get().opportunities.find(o => o.id === id)
         set(s => ({
           opportunities: s.opportunities.map(o =>
             o.id === id ? { ...o, stage, updated_at: now } : o
           )
         }))
+        if (next) syncToSupabase('opportunité', () => _upsertOpportunity({ ...next, stage, updated_at: now }))
       },
       winOpportunity: (id) => {
         const state = get()
@@ -253,9 +339,10 @@ export const useAppStore = create<AppStore>()(
         const siteId = crypto.randomUUID()
         const itemId = crypto.randomUUID()
         const now = new Date().toISOString()
+        const companyId = opp.company_id
 
         const newClient: Client = {
-          id: clientId, company_id: 'company-1',
+          id: clientId, company_id: companyId,
           name: opp.prospect_name, contact_name: opp.contact_name,
           email: opp.email, phone: opp.phone,
           billing_address: opp.site_address, city: opp.city,
@@ -264,7 +351,7 @@ export const useAppStore = create<AppStore>()(
           created_at: now, updated_at: now,
         }
         const newSite: Site = {
-          id: siteId, company_id: 'company-1', client_id: clientId,
+          id: siteId, company_id: companyId, client_id: clientId,
           name: `Site ${opp.prospect_name}`,
           address: opp.site_address, city: opp.city,
           service_type: opp.service_type,
@@ -274,7 +361,7 @@ export const useAppStore = create<AppStore>()(
           created_at: now, updated_at: now,
         }
         const newItem: OperationalItem = {
-          id: itemId, company_id: 'company-1',
+          id: itemId, company_id: companyId,
           client_id: clientId, site_id: siteId,
           opportunity_id: opp.id,
           source: 'pipeline',
@@ -283,29 +370,45 @@ export const useAppStore = create<AppStore>()(
           notes: null, converted_to_mission: false, mission_id: null,
           created_at: now, updated_at: now,
         }
+        const updatedOpp: Opportunity = {
+          ...opp, stage: 'gagne', converted_to_client: true, converted_at: now,
+          client_id: clientId, site_id: siteId,
+        }
 
         set(s => ({
-          opportunities: s.opportunities.map(o => o.id === id
-            ? { ...o, stage: 'gagne', converted_to_client: true, converted_at: now, client_id: clientId, site_id: siteId }
-            : o
-          ),
+          opportunities: s.opportunities.map(o => o.id === id ? updatedOpp : o),
           clients: [...s.clients, newClient],
           sites: [...s.sites, newSite],
           operationalItems: [...s.operationalItems, newItem],
         }))
+        // Ordre : client → site (FK client) → item (FK client+site) → opportunity update.
+        syncToSupabase('client', () => _upsertClient(newClient))
+        syncToSupabase('site', () => _upsertSite(newSite))
+        syncToSupabase('item opérationnel', () => _upsertOperationalItem(newItem))
+        syncToSupabase('opportunité', () => _upsertOpportunity(updatedOpp))
       },
 
       // Missions
-      addMission: (mission) => set(s => ({ missions: [...s.missions, mission] })),
-      updateMission: (id, data) => set(s => ({
-        missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m)
-      })),
-      deleteMission: (id) => set(s => ({ missions: s.missions.filter(m => m.id !== id) })),
+      addMission: (mission) => {
+        set(s => ({ missions: [...s.missions, mission] }))
+        syncToSupabase('mission', () => _upsertMission(mission))
+      },
+      updateMission: (id, data) => {
+        const next = get().missions.find(m => m.id === id)
+        set(s => ({ missions: s.missions.map(m => m.id === id ? { ...m, ...data } : m) }))
+        if (next) syncToSupabase('mission', () => _upsertMission({ ...next, ...data }))
+      },
+      deleteMission: (id) => {
+        set(s => ({ missions: s.missions.filter(m => m.id !== id) }))
+        syncToSupabase('mission', () => _deleteMission(id))
+      },
       updateMissionStatus: (id, status, validatedHours) => {
         const now = new Date().toISOString()
         const sanitizedHours = validatedHours !== undefined
           ? Math.max(0, Math.min(24, Number.isFinite(validatedHours) ? validatedHours : 0))
           : undefined
+        const before = get()
+        const updatedMission = before.missions.find(m => m.id === id)
         set(s => ({
           missions: s.missions.map(m => m.id === id ? {
             ...m,
@@ -327,10 +430,24 @@ export const useAppStore = create<AppStore>()(
               )
             : s.timeEntries,
         }))
+        if (updatedMission) {
+          syncToSupabase('mission', () => _upsertMission({
+            ...updatedMission, status,
+            operational_status: (LEGACY_TO_OPERATIONAL[status] ?? updatedMission.operational_status ?? 'planifie') as OperationalMissionStatus,
+            updated_at: now,
+          }))
+          // Mirror sanitized time entries too.
+          if (sanitizedHours !== undefined) {
+            get().timeEntries
+              .filter(te => te.mission_id === id)
+              .forEach(te => syncToSupabase('heures', () => _upsertTimeEntry(te)))
+          }
+        }
       },
       updateMissionOperationalStatus: (id, operational_status) => {
         const now = new Date().toISOString()
         const legacy = (OPERATIONAL_TO_LEGACY[operational_status] ?? 'prevue') as MissionStatus
+        const before = get().missions.find(m => m.id === id)
         set(s => ({
           missions: s.missions.map(m => m.id === id ? {
             ...m,
@@ -339,6 +456,9 @@ export const useAppStore = create<AppStore>()(
             updated_at: now,
           } : m),
         }))
+        if (before) {
+          syncToSupabase('mission', () => _upsertMission({ ...before, operational_status, status: legacy, updated_at: now }))
+        }
       },
       assignAgentsToMission: (missionId, agentIds) => {
         const state = get()
@@ -346,20 +466,23 @@ export const useAppStore = create<AppStore>()(
         set(s => ({
           missions: s.missions.map(m => m.id === missionId ? { ...m, agents: assignedAgents, updated_at: new Date().toISOString() } : m),
         }))
+        syncToSupabase('affectation', () => _assignAgentsToMission(missionId, agentIds))
       },
       signOpportunityContract: (opportunityId) => {
         const state = get()
         const opp = state.opportunities.find(o => o.id === opportunityId)
         if (!opp) return null
         const now = new Date().toISOString()
+        const companyId = opp.company_id
 
         // Réutilise ou crée client
         let clientId = opp.client_id
         let client = clientId ? state.clients.find(c => c.id === clientId) : undefined
+        const isNewClient = !client
         if (!client) {
           clientId = crypto.randomUUID()
           client = {
-            id: clientId, company_id: 'company-1',
+            id: clientId, company_id: companyId,
             name: opp.prospect_name, contact_name: opp.contact_name,
             email: opp.email, phone: opp.phone,
             billing_address: opp.site_address, city: opp.city,
@@ -372,10 +495,11 @@ export const useAppStore = create<AppStore>()(
         // Réutilise ou crée site
         let siteId = opp.site_id
         let site = siteId ? state.sites.find(s => s.id === siteId) : undefined
+        const isNewSite = !site
         if (!site) {
           siteId = crypto.randomUUID()
           site = {
-            id: siteId, company_id: 'company-1', client_id: clientId!,
+            id: siteId, company_id: companyId, client_id: clientId!,
             name: `Site ${opp.prospect_name}`,
             address: opp.site_address, city: opp.city,
             service_type: opp.service_type,
@@ -390,7 +514,7 @@ export const useAppStore = create<AppStore>()(
         const missionId = crypto.randomUUID()
         const newMission: Mission = {
           id: missionId,
-          company_id: 'company-1',
+          company_id: companyId,
           client_id: clientId!,
           site_id: siteId!,
           operational_item_id: null,
@@ -422,16 +546,22 @@ export const useAppStore = create<AppStore>()(
           site,
           agents: [],
         }
+        const updatedOpp: Opportunity = {
+          ...opp, stage: 'gagne', converted_to_client: true, converted_at: now,
+          client_id: clientId!, site_id: siteId!,
+        }
 
         set(s => ({
-          opportunities: s.opportunities.map(o => o.id === opportunityId
-            ? { ...o, stage: 'gagne', converted_to_client: true, converted_at: now, client_id: clientId!, site_id: siteId! }
-            : o
-          ),
+          opportunities: s.opportunities.map(o => o.id === opportunityId ? updatedOpp : o),
           clients: s.clients.find(c => c.id === clientId) ? s.clients : [...s.clients, client!],
           sites: s.sites.find(si => si.id === siteId) ? s.sites : [...s.sites, site!],
           missions: [...s.missions, newMission],
         }))
+        // Persist : client (si nouveau) → site (si nouveau) → mission → opportunity.
+        if (isNewClient && client) syncToSupabase('client', () => _upsertClient(client!))
+        if (isNewSite && site) syncToSupabase('site', () => _upsertSite(site!))
+        syncToSupabase('mission', () => _upsertMission(newMission))
+        syncToSupabase('opportunité', () => _upsertOpportunity(updatedOpp))
         return missionId
       },
 
@@ -479,70 +609,107 @@ export const useAppStore = create<AppStore>()(
       })),
 
       // OperationalItems
-      addOperationalItem: (item) => set(s => ({ operationalItems: [...s.operationalItems, item] })),
-      updateOperationalItem: (id, data) => set(s => ({
-        operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i)
-      })),
-      deleteOperationalItem: (id) => set(s => ({
-        operationalItems: s.operationalItems.filter(i => i.id !== id)
-      })),
+      addOperationalItem: (item) => {
+        set(s => ({ operationalItems: [...s.operationalItems, item] }))
+        syncToSupabase('item opérationnel', () => _upsertOperationalItem(item))
+      },
+      updateOperationalItem: (id, data) => {
+        const next = get().operationalItems.find(i => i.id === id)
+        set(s => ({ operationalItems: s.operationalItems.map(i => i.id === id ? { ...i, ...data } : i) }))
+        if (next) syncToSupabase('item opérationnel', () => _upsertOperationalItem({ ...next, ...data }))
+      },
+      deleteOperationalItem: (id) => {
+        set(s => ({ operationalItems: s.operationalItems.filter(i => i.id !== id) }))
+        syncToSupabase('item opérationnel', () => _deleteOperationalItem(id))
+      },
 
       // SOPs
-      addSop: (sop) => set(s => ({ sops: [...s.sops, sop] })),
-      updateSop: (id, data) => set(s => ({
-        sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2)
-      })),
-      deleteSop: (id) => set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) })),
+      addSop: (sop) => {
+        set(s => ({ sops: [...s.sops, sop] }))
+        syncToSupabase('SOP', () => _upsertSop(sop))
+      },
+      updateSop: (id, data) => {
+        const next = get().sops.find(s2 => s2.id === id)
+        set(s => ({ sops: s.sops.map(s2 => s2.id === id ? { ...s2, ...data } : s2) }))
+        if (next) syncToSupabase('SOP', () => _upsertSop({ ...next, ...data }))
+      },
+      deleteSop: (id) => {
+        set(s => ({ sops: s.sops.filter(s2 => s2.id !== id) }))
+        syncToSupabase('SOP', () => _deleteSop(id))
+      },
 
       // TimeEntries
-      addTimeEntry: (entry) => set(s => ({ timeEntries: [...s.timeEntries, entry] })),
-      updateTimeEntry: (id, data) => set(s => ({
-        timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te)
-      })),
+      addTimeEntry: (entry) => {
+        set(s => ({ timeEntries: [...s.timeEntries, entry] }))
+        syncToSupabase('heures', () => _upsertTimeEntry(entry))
+      },
+      updateTimeEntry: (id, data) => {
+        const next = get().timeEntries.find(te => te.id === id)
+        set(s => ({ timeEntries: s.timeEntries.map(te => te.id === id ? { ...te, ...data } : te) }))
+        if (next) syncToSupabase('heures', () => _upsertTimeEntry({ ...next, ...data }))
+      },
 
       // ServiceTypes
-      addServiceType: (serviceType) => set(s => ({ serviceTypes: [...s.serviceTypes, serviceType] })),
-      updateServiceType: (id, data) => set(s => ({
-        serviceTypes: s.serviceTypes.map(st => st.id === id ? { ...st, ...data } : st)
-      })),
-      deleteServiceType: (id) => set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) })),
+      addServiceType: (serviceType) => {
+        set(s => ({ serviceTypes: [...s.serviceTypes, serviceType] }))
+        syncToSupabase('type de service', () => _upsertServiceType(serviceType))
+      },
+      updateServiceType: (id, data) => {
+        const next = get().serviceTypes.find(st => st.id === id)
+        set(s => ({ serviceTypes: s.serviceTypes.map(st => st.id === id ? { ...st, ...data } : st) }))
+        if (next) syncToSupabase('type de service', () => _upsertServiceType({ ...next, ...data }))
+      },
+      deleteServiceType: (id) => {
+        set(s => ({ serviceTypes: s.serviceTypes.filter(st => st.id !== id) }))
+        syncToSupabase('type de service', () => _deleteServiceType(id))
+      },
 
       // Quotes
-      addQuote: (quote) => set(s => ({ quotes: [...s.quotes, quote] })),
-      updateQuote: (id, data) => set(s => ({
-        quotes: s.quotes.map(q => q.id === id ? { ...q, ...data } : q)
-      })),
-      deleteQuote: (id) => set(s => ({ quotes: s.quotes.filter(q => q.id !== id) })),
+      addQuote: (quote) => {
+        set(s => ({ quotes: [...s.quotes, quote] }))
+        syncToSupabase('devis', () => _upsertQuote(quote))
+      },
+      updateQuote: (id, data) => {
+        const next = get().quotes.find(q => q.id === id)
+        set(s => ({ quotes: s.quotes.map(q => q.id === id ? { ...q, ...data } : q) }))
+        if (next) syncToSupabase('devis', () => _upsertQuote({ ...next, ...data }))
+      },
+      deleteQuote: (id) => {
+        set(s => ({ quotes: s.quotes.filter(q => q.id !== id) }))
+        syncToSupabase('devis', () => _deleteQuote(id))
+      },
       sendQuote: (quoteId) => {
         const state = get()
         const quote = state.quotes.find(q => q.id === quoteId)
         if (!quote) return
         const now = new Date().toISOString()
-        // Update quote to sent
+        const opp = state.opportunities.find(o => o.id === quote.opportunity_id)
+        const updatedQuote: Quote = { ...quote, status: 'envoye', updated_at: now }
         set(s => ({
-          quotes: s.quotes.map(q => q.id === quoteId ? { ...q, status: 'envoye', updated_at: now } : q),
-          // Auto-move opportunity to proposition
+          quotes: s.quotes.map(q => q.id === quoteId ? updatedQuote : q),
           opportunities: s.opportunities.map(o =>
             o.id === quote.opportunity_id ? { ...o, stage: 'proposition', updated_at: now } : o
           ),
         }))
+        syncToSupabase('devis', () => _upsertQuote(updatedQuote))
+        if (opp) syncToSupabase('opportunité', () => _upsertOpportunity({ ...opp, stage: 'proposition', updated_at: now }))
       },
       signQuote: (quoteId) => {
         const state = get()
         const quote = state.quotes.find(q => q.id === quoteId)
         if (!quote) return
         const now = new Date().toISOString()
-
         const opp = state.opportunities.find(o => o.id === quote.opportunity_id)
+        const updatedQuote: Quote = { ...quote, status: 'signe', signed_at: now, updated_at: now }
 
         set(s => ({
-          quotes: s.quotes.map(q =>
-            q.id === quoteId ? { ...q, status: 'signe', signed_at: now, updated_at: now } : q
-          ),
+          quotes: s.quotes.map(q => q.id === quoteId ? updatedQuote : q),
           opportunities: s.opportunities.map(o =>
             o.id === quote.opportunity_id ? { ...o, stage: 'gagne', updated_at: now } : o
           ),
         }))
+        syncToSupabase('devis', () => _upsertQuote(updatedQuote))
+        if (opp) syncToSupabase('opportunité', () => _upsertOpportunity({ ...opp, stage: 'gagne', updated_at: now }))
 
         // If opportunity not yet converted, trigger winOpportunity logic
         if (opp && !opp.converted_to_client) {
@@ -560,10 +727,31 @@ export const useAppStore = create<AppStore>()(
         sops: mockSops, timeEntries: mockTimeEntries,
         quotes: [],
       }),
+
+      hydrateCompanyData: (data) => set({
+        agents: data.agents,
+        clients: data.clients,
+        sites: data.sites,
+        leads: data.leads,
+        opportunities: data.opportunities,
+        missions: data.missions,
+        operationalItems: data.operationalItems,
+        sops: data.sops,
+        timeEntries: data.timeEntries,
+        serviceTypes: data.serviceTypes,
+        quotes: data.quotes,
+      }),
     }),
     {
       name: 'proprely-store',
-      version: 2, // bump pour invalider les caches localStorage antérieurs à la refonte cockpit
+      // v3 : ne persiste plus les données business en mode réel (re-hydratées
+      // depuis Supabase à chaque mount via SupabaseHydrator). On garde la
+      // persistance complète en dummy mode pour démo offline.
+      version: 3,
+      partialize: (state) => (isSupabaseClient()
+        ? { companySettings: state.companySettings }
+        : state
+      ) as Partial<AppStore>,
     }
   )
 )
