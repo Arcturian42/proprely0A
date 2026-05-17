@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
-import { useCurrentUser, useCurrentCompany } from '@/lib/auth'
+import { useCurrentUser, useCurrentCompany, useCurrentRole } from '@/lib/auth'
+import { roleCan } from '@/lib/auth/rbac'
+import type { Permission } from '@/lib/auth/types'
 import { useAppStore } from '@/lib/store'
 import {
   LayoutDashboard,
@@ -31,6 +33,8 @@ interface NavItem {
   href: string
   icon: React.ElementType
   badge?: string
+  /** Permission required to see this item — undefined = visible to everyone. */
+  permission?: Permission
 }
 
 interface NavSection {
@@ -48,37 +52,37 @@ const navSections: NavSection[] = [
   {
     title: 'Commercial',
     items: [
-      { label: 'Pipeline commercial', href: '/commercial/pipeline', icon: TrendingUp },
-      { label: 'Clients & Sites', href: '/commercial/clients-sites', icon: Users },
+      { label: 'Pipeline commercial', href: '/commercial/pipeline', icon: TrendingUp, permission: 'opportunity:read' },
+      { label: 'Clients & Sites', href: '/commercial/clients-sites', icon: Users, permission: 'client:read' },
     ],
   },
   {
     title: 'Opérations terrain',
     items: [
-      { label: 'Cockpit opérationnel', href: '/operations/cockpit', icon: Gauge },
-      { label: 'Planning des missions', href: '/operations/planning', icon: Calendar },
-      { label: 'Missions du jour', href: '/operations/missions-du-jour', icon: Sun },
-      { label: 'Protocoles SOP', href: '/operations/sop', icon: BookOpen },
+      { label: 'Cockpit opérationnel', href: '/operations/cockpit', icon: Gauge, permission: 'mission:read' },
+      { label: 'Planning des missions', href: '/operations/planning', icon: Calendar, permission: 'mission:read' },
+      { label: 'Missions du jour', href: '/operations/missions-du-jour', icon: Sun, permission: 'mission:read' },
+      { label: 'Protocoles SOP', href: '/operations/sop', icon: BookOpen, permission: 'sop:read' },
     ],
   },
   {
     title: 'Ressources humaines',
     items: [
-      { label: "Agents d'entretien", href: '/rh/agents', icon: UserCog },
-      { label: 'Heures & Paie', href: '/rh/heures-paie', icon: Clock },
+      { label: "Agents d'entretien", href: '/rh/agents', icon: UserCog, permission: 'agent:read' },
+      { label: 'Heures & Paie', href: '/rh/heures-paie', icon: Clock, permission: 'time:read' },
     ],
   },
   {
     title: 'Pilotage rentabilité',
     items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, badge: 'À venir' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, badge: 'À venir' },
+      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, badge: 'À venir', permission: 'analytics:read' },
+      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, badge: 'À venir', permission: 'analytics:read' },
     ],
   },
   {
     title: '',
     items: [
-      { label: 'Paramètres', href: '/parametres', icon: Settings },
+      { label: 'Paramètres', href: '/parametres', icon: Settings, permission: 'settings:read' },
     ],
   },
 ]
@@ -87,8 +91,18 @@ export function AppSidebar() {
   const pathname = usePathname()
   const user = useCurrentUser()
   const company = useCurrentCompany()
+  const role = useCurrentRole()
   const initials = (user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')
   const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Utilisateur'
+
+  // Hide nav items the current role can't access. Hides empty sections too so
+  // an "agent" doesn't see a "Ressources humaines" header with nothing under it.
+  const visibleSections = navSections
+    .map(section => ({
+      ...section,
+      items: section.items.filter(i => !i.permission || roleCan(role, i.permission)),
+    }))
+    .filter(section => section.items.length > 0)
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
@@ -104,7 +118,7 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {navSections.map((section, sectionIdx) => (
+        {visibleSections.map((section, sectionIdx) => (
           <div key={sectionIdx} className={sectionIdx > 0 ? 'mt-5' : ''}>
             {section.title && (
               <p className="text-[10px] font-semibold tracking-[0.08em] uppercase text-[#9b9a97] px-3 mb-1">

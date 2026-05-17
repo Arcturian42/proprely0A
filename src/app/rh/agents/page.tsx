@@ -25,6 +25,7 @@ import { Plus, Search, Edit, Trash2, Phone, MapPin, Sparkles, Eye, Users, Activi
 import { toast } from 'sonner'
 import { startOfWeek } from 'date-fns'
 import { AgentProfilePanel } from './_components/AgentProfilePanel'
+import { Can } from '@/components/auth/Can'
 
 const defaultForm = {
   first_name: '', last_name: '', phone: '', email: '', specialty: '',
@@ -158,9 +159,11 @@ export default function AgentsPage() {
           title="Agents d'entretien"
           description="Workforce management — expertise, charge, fatigue et disponibilité"
           action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="w-4 h-4" /> Nouvel agent
-            </Button>
+            <Can permission="agent:write">
+              <Button onClick={handleOpenCreate} className="gap-2">
+                <Plus className="w-4 h-4" /> Nouvel agent
+              </Button>
+            </Can>
           }
         />
 
@@ -308,20 +311,22 @@ export default function AgentsPage() {
                   >
                     <Eye className="w-3 h-3" /> Profil
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); handleOpenEdit(agent) }}
-                  >
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); setConfirmDelete(agent.id) }}
-                  >
-                    <Trash2 className="w-3 h-3 text-rose-500" />
-                  </Button>
+                  <Can permission="agent:write">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleOpenEdit(agent) }}
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setConfirmDelete(agent.id) }}
+                    >
+                      <Trash2 className="w-3 h-3 text-rose-500" />
+                    </Button>
+                  </Can>
                 </div>
               </div>
             )

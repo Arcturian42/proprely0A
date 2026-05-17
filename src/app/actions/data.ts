@@ -1,8 +1,10 @@
 'use server'
 
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/server-guard'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import type { Permission } from '@/lib/auth/types'
 import type {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem,
   Site, Sop, TimeEntry, ServiceType, Quote,
@@ -114,20 +116,6 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
 
 export type WriteResult = { ok: true } | { ok: false; error: string }
 
-async function getAuthedCompanyId(): Promise<string | null> {
-  if (!isSupabaseConfigured()) return null
-  const supabase = await createServerClient()
-  if (!supabase) return null
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-  return profile?.company_id ?? null
-}
-
 /**
  * Generic upsert helper. The client-side store generates the row with an
  * already-set company_id and id (UUID), so on the server we just override
@@ -152,84 +140,96 @@ function stripJoins<T extends Record<string, unknown>>(row: T): T {
   return out
 }
 
-async function upsert(table: string, row: Record<string, unknown>): Promise<WriteResult> {
-  const companyId = await getAuthedCompanyId()
-  if (!companyId) return { ok: false, error: 'Non authentifié' }
+async function upsert(
+  table: string,
+  row: Record<string, unknown>,
+  permission: Permission,
+): Promise<WriteResult> {
+  const guard = await requirePermission(permission)
+  if (!guard.ok) return { ok: false, error: guard.error }
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
 
-  const payload = { ...stripJoins(row), company_id: companyId }
+  const payload = { ...stripJoins(row), company_id: guard.caller.companyId }
   const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' })
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 
-async function remove(table: string, id: string): Promise<WriteResult> {
-  const companyId = await getAuthedCompanyId()
-  if (!companyId) return { ok: false, error: 'Non authentifié' }
+async function remove(
+  table: string,
+  id: string,
+  permission: Permission,
+): Promise<WriteResult> {
+  const guard = await requirePermission(permission)
+  if (!guard.ok) return { ok: false, error: guard.error }
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
-  // RLS already restricts to current company; we still defend with eq().
-  const { error } = await supabase.from(table).delete().eq('id', id).eq('company_id', companyId)
+  // RLS already restricts to current company; eq() is belt-and-braces.
+  const { error } = await supabase
+    .from(table).delete()
+    .eq('id', id).eq('company_id', guard.caller.companyId)
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 
-/* Per-entity wrappers — same signature for everyone. */
+/* Per-entity wrappers — same signature for everyone. Each declares the RBAC
+ * permission it requires; requirePermission() inside upsert/remove enforces
+ * it server-side regardless of what the UI hides. */
 
 export async function upsertAgent(row: Agent): Promise<WriteResult> {
-  const r = await upsert('agents', row as unknown as Record<string, unknown>)
+  const r = await upsert('agents', row as unknown as Record<string, unknown>, 'agent:write')
   if (r.ok) revalidatePath('/rh/agents')
   return r
 }
 export async function deleteAgent(id: string): Promise<WriteResult> {
-  const r = await remove('agents', id)
+  const r = await remove('agents', id, 'agent:write')
   if (r.ok) revalidatePath('/rh/agents')
   return r
 }
 
 export async function upsertClient(row: Client): Promise<WriteResult> {
-  const r = await upsert('clients', row as unknown as Record<string, unknown>)
+  const r = await upsert('clients', row as unknown as Record<string, unknown>, 'client:write')
   if (r.ok) revalidatePath('/commercial/clients-sites')
   return r
 }
 export async function deleteClient(id: string): Promise<WriteResult> {
-  const r = await remove('clients', id)
+  const r = await remove('clients', id, 'client:delete')
   if (r.ok) revalidatePath('/commercial/clients-sites')
   return r
 }
 
 export async function upsertSite(row: Site): Promise<WriteResult> {
-  const r = await upsert('sites', row as unknown as Record<string, unknown>)
+  const r = await upsert('sites', row as unknown as Record<string, unknown>, 'site:write')
   if (r.ok) revalidatePath('/commercial/clients-sites')
   return r
 }
 export async function deleteSite(id: string): Promise<WriteResult> {
-  const r = await remove('sites', id)
+  const r = await remove('sites', id, 'site:write')
   if (r.ok) revalidatePath('/commercial/clients-sites')
   return r
 }
 
 export async function upsertLead(row: Lead): Promise<WriteResult> {
-  return upsert('leads', row as unknown as Record<string, unknown>)
+  return upsert('leads', row as unknown as Record<string, unknown>, 'lead:write')
 }
 export async function deleteLead(id: string): Promise<WriteResult> {
-  return remove('leads', id)
+  return remove('leads', id, 'lead:write')
 }
 
 export async function upsertOpportunity(row: Opportunity): Promise<WriteResult> {
-  const r = await upsert('opportunities', row as unknown as Record<string, unknown>)
+  const r = await upsert('opportunities', row as unknown as Record<string, unknown>, 'opportunity:write')
   if (r.ok) revalidatePath('/commercial/pipeline')
   return r
 }
 export async function deleteOpportunity(id: string): Promise<WriteResult> {
-  const r = await remove('opportunities', id)
+  const r = await remove('opportunities', id, 'opportunity:write')
   if (r.ok) revalidatePath('/commercial/pipeline')
   return r
 }
 
 export async function upsertMission(row: Mission): Promise<WriteResult> {
-  const r = await upsert('missions', row as unknown as Record<string, unknown>)
+  const r = await upsert('missions', row as unknown as Record<string, unknown>, 'mission:write')
   if (r.ok) {
     revalidatePath('/operations/cockpit')
     revalidatePath('/operations/missions-du-jour')
@@ -237,15 +237,15 @@ export async function upsertMission(row: Mission): Promise<WriteResult> {
   return r
 }
 export async function deleteMission(id: string): Promise<WriteResult> {
-  const r = await remove('missions', id)
+  const r = await remove('missions', id, 'mission:write')
   if (r.ok) revalidatePath('/operations/cockpit')
   return r
 }
 
 /** Sync mission_agents join table with a desired set of agent ids. */
 export async function assignAgentsToMission(missionId: string, agentIds: string[]): Promise<WriteResult> {
-  const companyId = await getAuthedCompanyId()
-  if (!companyId) return { ok: false, error: 'Non authentifié' }
+  const guard = await requirePermission('mission:assign')
+  if (!guard.ok) return { ok: false, error: guard.error }
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
 
@@ -256,7 +256,7 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     .select('id, company_id')
     .eq('id', missionId)
     .single()
-  if (!mission || mission.company_id !== companyId) {
+  if (!mission || mission.company_id !== guard.caller.companyId) {
     return { ok: false, error: 'Mission introuvable' }
   }
 
@@ -272,41 +272,41 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
 }
 
 export async function upsertTimeEntry(row: TimeEntry): Promise<WriteResult> {
-  const r = await upsert('time_entries', row as unknown as Record<string, unknown>)
+  const r = await upsert('time_entries', row as unknown as Record<string, unknown>, 'time:write')
   if (r.ok) revalidatePath('/rh/heures-paie')
   return r
 }
 
 export async function upsertSop(row: Sop): Promise<WriteResult> {
-  const r = await upsert('sops', row as unknown as Record<string, unknown>)
+  const r = await upsert('sops', row as unknown as Record<string, unknown>, 'sop:write')
   if (r.ok) revalidatePath('/operations/sop')
   return r
 }
 export async function deleteSop(id: string): Promise<WriteResult> {
-  const r = await remove('sops', id)
+  const r = await remove('sops', id, 'sop:write')
   if (r.ok) revalidatePath('/operations/sop')
   return r
 }
 
 export async function upsertServiceType(row: ServiceType): Promise<WriteResult> {
-  return upsert('service_types', row as unknown as Record<string, unknown>)
+  return upsert('service_types', row as unknown as Record<string, unknown>, 'settings:write')
 }
 export async function deleteServiceType(id: string): Promise<WriteResult> {
-  return remove('service_types', id)
+  return remove('service_types', id, 'settings:write')
 }
 
 export async function upsertQuote(row: Quote): Promise<WriteResult> {
-  return upsert('quotes', row as unknown as Record<string, unknown>)
+  return upsert('quotes', row as unknown as Record<string, unknown>, 'opportunity:write')
 }
 export async function deleteQuote(id: string): Promise<WriteResult> {
-  return remove('quotes', id)
+  return remove('quotes', id, 'opportunity:write')
 }
 
 export async function upsertOperationalItem(row: OperationalItem): Promise<WriteResult> {
-  return upsert('operational_items', row as unknown as Record<string, unknown>)
+  return upsert('operational_items', row as unknown as Record<string, unknown>, 'mission:write')
 }
 export async function deleteOperationalItem(id: string): Promise<WriteResult> {
-  return remove('operational_items', id)
+  return remove('operational_items', id, 'mission:write')
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -331,13 +331,12 @@ export async function updateCompanyInfo(formData: FormData): Promise<WriteResult
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide' }
   }
 
-  if (!isSupabaseConfigured()) return { ok: false, error: 'Supabase non configuré' }
+  // RLS only allows owner to update companies (rls.sql companies_update),
+  // but we double-check with the RBAC matrix for a clean French error.
+  const guard = await requirePermission('company:write')
+  if (!guard.ok) return { ok: false, error: guard.error }
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
-
-  // RLS only allows owner to update companies (see rls.sql companies_update).
-  const companyId = await getAuthedCompanyId()
-  if (!companyId) return { ok: false, error: 'Non authentifié' }
 
   const { error } = await supabase
     .from('companies')
@@ -348,7 +347,7 @@ export async function updateCompanyInfo(formData: FormData): Promise<WriteResult
       address: parsed.data.address || null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', companyId)
+    .eq('id', guard.caller.companyId)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/parametres')
