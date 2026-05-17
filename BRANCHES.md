@@ -53,9 +53,7 @@ Préfixe : `archive/`. Aucun travail futur dessus. Servent uniquement de référ
 
 ## PRs ouvertes restantes
 
-| PR | Branche | Sujet | Prochaine action |
-|---|---|---|---|
-| **#10** | `claude/qa-review-bugs-yCGVK` | Multi-tenant + RBAC (7 rôles, 29 permissions) + RLS SQL + audit_logs + profiles + dummy auth provider | **Phase B du cleanup** — rebase sur main, résoudre conflits sur `mock-data.ts`/`store.ts`/`types/index.ts`/`schema.sql`, ouvrir PR `feat/multi-tenant-rbac → main` |
+Aucune. Toutes les PRs du cleanup ont été mergées.
 
 ---
 
@@ -78,14 +76,14 @@ Préfixe : `archive/`. Aucun travail futur dessus. Servent uniquement de référ
 
 ## Roadmap cleanup post-2026-05-17
 
-| Phase | Sujet | Branche feature | Statut |
-|---|---|---|---|
-| A | Setup main + backups + archivages + BRANCHES.md | — | ✅ Terminé |
-| B | Merge multi-tenant + RBAC + RLS (PR #10) | `feat/multi-tenant-rbac` | ⏳ À démarrer |
-| C | Auth Supabase réelle (magic link + signup self-serve) | `feat/auth-real` | À venir |
-| D | Système d'invitations admin & agent | `feat/invitations` | À venir |
-| E | Route groups admin vs agent + middleware role gating | `feat/route-groups` | À venir |
-| F | Re-audit du `main` consolidé pour identifier les manques avant beta 15 entreprises | — | À venir |
+| Phase | Sujet | Branche feature | PR | Statut |
+|---|---|---|---|---|
+| A | Setup main + backups + archivages + BRANCHES.md | — | — | ✅ Terminé |
+| B | Multi-tenant + RBAC + RLS + dummy auth provider | `feat/multi-tenant-rbac` | [#13](https://github.com/Arcturian42/proprely0A/pull/13) | ✅ Mergée |
+| C | Auth Supabase réelle (magic link + signup self-serve + proxy gating) | `feat/auth-real` | [#14](https://github.com/Arcturian42/proprely0A/pull/14) | ✅ Mergée |
+| D | Système d'invitations admin & agent | `feat/invitations` | [#15](https://github.com/Arcturian42/proprely0A/pull/15) | ✅ Mergée |
+| E | Espace agent à `/agent/*` + role gating bidirectionnel | `feat/route-groups` | [#16](https://github.com/Arcturian42/proprely0A/pull/16) | ✅ Mergée |
+| F | Re-audit du `main` consolidé pour identifier les manques avant beta 15 entreprises | — | — | ✅ Terminé (voir plan file Partie IV) |
 
 ---
 
