@@ -201,12 +201,53 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     setStep('preview')
   }
 
-  const handleSendQuote = (quoteId: string) => {
-    sendQuote(quoteId)
-    toast.success('Devis envoyé via Yousign — Opportunité déplacée en Proposition', { duration: 5000 })
-    setStep('list')
-    setCurrentDraftId(null)
-    onQuoteSent?.()
+  const handleSendQuote = async (quoteId: string) => {
+    const quote = quotes.find(q => q.id === quoteId)
+    if (!quote) return
+
+    if (!quote.client_email) {
+      toast.error('Email client requis pour envoyer via Yousign')
+      return
+    }
+
+    const toastId = toast.loading('Envoi via Yousign...')
+
+    try {
+      const res = await fetch('/api/quotes/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quote,
+          company: companySettings,
+          signerEmail: quote.client_email,
+          signerFirstName: quote.client_name.split(' ')[0] || quote.client_name,
+          signerLastName: quote.client_name.split(' ').slice(1).join(' ') || '.',
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error || 'Erreur Yousign')
+
+      sendQuote(quoteId)
+      // Store Yousign procedure ID and signer URL
+      updateQuote(quoteId, {
+        yousign_procedure_id: data.signatureRequestId,
+        yousign_signature_url: data.signerUrl,
+      })
+
+      toast.dismiss(toastId)
+      toast.success(
+        `✅ Devis envoyé ! Le client recevra un email de signature.`,
+        { duration: 6000 }
+      )
+      setStep('list')
+      setCurrentDraftId(null)
+      onQuoteSent?.()
+    } catch (err) {
+      toast.dismiss(toastId)
+      toast.error(`Erreur Yousign: ${err instanceof Error ? err.message : 'Inconnu'}`)
+    }
   }
 
   const handleDeleteQuote = (quoteId: string) => {
