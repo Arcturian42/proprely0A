@@ -15,6 +15,10 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
+function isAgentPath(pathname: string): boolean {
+  return pathname === '/agent' || pathname.startsWith('/agent/')
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -38,12 +42,40 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Session + sur /login ou /signup → redirige vers /dashboard
+  // Session + sur /login ou /signup → on charge le rôle pour landing par défaut
   if (user && (pathname === '/login' || pathname === '/signup')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = profile?.role === 'agent' ? '/agent/mon-agenda' : '/dashboard'
     url.search = ''
     return NextResponse.redirect(url)
+  }
+
+  // Role gating : agent ne voit que /agent/* (+ public + auth callback)
+  if (user && !isPublicPath(pathname)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (profile) {
+      if (profile.role === 'agent' && !isAgentPath(pathname)) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/agent/mon-agenda'
+        url.search = ''
+        return NextResponse.redirect(url)
+      }
+      if (profile.role !== 'agent' && isAgentPath(pathname)) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        url.search = ''
+        return NextResponse.redirect(url)
+      }
+    }
   }
 
   return response

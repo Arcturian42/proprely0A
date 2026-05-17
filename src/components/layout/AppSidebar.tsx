@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from '@/app/actions/auth'
+import { useCurrentUser, useCurrentCompany } from '@/lib/auth'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -82,6 +84,10 @@ const navSections: NavSection[] = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const user = useCurrentUser()
+  const company = useCurrentCompany()
+  const initials = (user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')
+  const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Utilisateur'
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
@@ -140,12 +146,12 @@ export function AppSidebar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-[#f7f6f3] transition-colors text-left">
-              <div className="w-7 h-7 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
-                A
+              <div className="w-7 h-7 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 uppercase">
+                {initials || 'P'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#111] truncate">Admin</p>
-                <p className="text-[11px] text-[#9b9a97] truncate">Proprely</p>
+                <p className="text-[13px] font-medium text-[#111] truncate">{displayName}</p>
+                <p className="text-[11px] text-[#9b9a97] truncate">{company.name}</p>
               </div>
               <ChevronUp className="w-4 h-4 text-[#9b9a97] flex-shrink-0" />
             </button>
@@ -164,9 +170,10 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
-              window.location.href = '/'
-            }}>
+            <DropdownMenuItem
+              className="text-red-600 flex items-center gap-2 cursor-pointer"
+              onClick={() => { void signOut() }}
+            >
               <LogOut className="w-4 h-4" />
               Se déconnecter
             </DropdownMenuItem>
