@@ -743,7 +743,7 @@ function DoneView({
       <h2 className="text-xl font-semibold mb-1">Session terminée</h2>
       <p className="text-sm text-slate-500 mb-6">
         {accepted > 0
-          ? `${accepted} prospect${accepted > 1 ? 's' : ''} ajouté${accepted > 1 ? 's' : ''} au pipeline en étape "Lead".`
+          ? `${accepted} prospect${accepted > 1 ? 's' : ''} ajouté${accepted > 1 ? 's' : ''} au pipeline en étape "Ouvert".`
           : 'Aucun prospect ajouté cette fois-ci.'}
       </p>
       <div className="flex gap-2 justify-center">
@@ -778,7 +778,7 @@ function leadToOpportunity(lead: ProspectLead): Opportunity {
     client_type: null,
     service_type: null,
     estimated_amount: lead.estimatedMonthlyValue * 12,
-    stage: 'lead',
+    stage: 'ouvert',
     next_action_date: null,
     notes: [
       `Prospect IA · SIREN ${lead.siren}`,

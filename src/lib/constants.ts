@@ -8,13 +8,12 @@ export const LEAD_STATUS_LABELS: Record<string, string> = {
 }
 
 export const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
-  lead: 'Lead',
-  prise_de_contact: 'Prise de contact',
+  ouvert: 'Ouvert',
   decouverte: 'Découverte',
   proposition: 'Proposition',
   negociation: 'Négociation',
-  gagnee: 'Gagnée',
-  perdue: 'Perdue',
+  gagne: 'Gagné',
+  perdu: 'Perdu',
 }
 
 export const MISSION_STATUS_LABELS: Record<string, string> = {
@@ -53,6 +52,24 @@ export const OPERATIONAL_ITEM_STATUS_LABELS: Record<string, string> = {
   en_cours: 'En cours',
   planifie: 'Planifié',
   annule: 'Annulé',
+}
+
+export const QUOTE_STATUS_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  envoye: 'Envoyé',
+  signe: 'Signé',
+  refuse: 'Refusé',
+  expire: 'Expiré',
+}
+
+export const SERVICE_CATEGORY_LABELS: Record<string, string> = {
+  fin_chantier: 'Fin de chantier',
+  terrasse: 'Nettoyage terrasse',
+  sols_mecanises: 'Remise en état sols mécanisés',
+  moquette: 'Nettoyage moquette',
+  bureaux_recurrent: 'Nettoyage bureaux récurrent',
+  vitres: 'Nettoyage vitres',
+  autre: 'Autre prestation',
 }
 
 export const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']

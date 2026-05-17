@@ -1,37 +1,108 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core'
 import { AdminLayout } from '@/components/layout/AdminLayout'
-import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ProspectingFlow } from './_components/ProspectingFlow'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Phone, Mail, MapPin, Euro, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Plus, MapPin, Calendar, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CardDetailPanel } from '@/components/commercial/CardDetailPanel'
 
-const STAGES: OpportunityStage[] = ['lead', 'prise_de_contact', 'decouverte', 'proposition', 'negociation', 'gagnee', 'perdue']
+// ─── Stage config ─────────────────────────────────────────────────────────────
 
-const STAGE_COLORS: Record<OpportunityStage, string> = {
-  lead: 'border-t-slate-400',
-  prise_de_contact: 'border-t-blue-400',
-  decouverte: 'border-t-indigo-400',
-  proposition: 'border-t-violet-400',
-  negociation: 'border-t-amber-400',
-  gagnee: 'border-t-green-500',
-  perdue: 'border-t-red-400',
+const STAGES: OpportunityStage[] = [
+  'ouvert',
+  'decouverte',
+  'proposition',
+  'negociation',
+  'gagne',
+  'perdu',
+]
+
+const STAGE_CONFIG: Record<
+  OpportunityStage,
+  {
+    dot: string
+    headerText: string
+    borderAccent: string
+    serviceBadge: string
+    emptyBg: string
+    gradient: string
+  }
+> = {
+  ouvert: {
+    dot: 'bg-slate-400',
+    headerText: 'text-slate-700',
+    borderAccent: 'border-l-slate-400',
+    serviceBadge: 'bg-slate-100 text-slate-600',
+    emptyBg: 'bg-slate-50/50',
+    gradient: 'from-slate-500/10 to-slate-400/5',
+  },
+  decouverte: {
+    dot: 'bg-blue-400',
+    headerText: 'text-blue-700',
+    borderAccent: 'border-l-blue-400',
+    serviceBadge: 'bg-blue-50 text-blue-600',
+    emptyBg: 'bg-blue-50/30',
+    gradient: 'from-blue-500/10 to-blue-400/5',
+  },
+  proposition: {
+    dot: 'bg-violet-500',
+    headerText: 'text-violet-700',
+    borderAccent: 'border-l-violet-500',
+    serviceBadge: 'bg-violet-50 text-violet-600',
+    emptyBg: 'bg-violet-50/30',
+    gradient: 'from-violet-500/10 to-violet-400/5',
+  },
+  negociation: {
+    dot: 'bg-amber-400',
+    headerText: 'text-amber-700',
+    borderAccent: 'border-l-amber-400',
+    serviceBadge: 'bg-amber-50 text-amber-600',
+    emptyBg: 'bg-amber-50/30',
+    gradient: 'from-amber-500/10 to-amber-400/5',
+  },
+  gagne: {
+    dot: 'bg-emerald-500',
+    headerText: 'text-emerald-700',
+    borderAccent: 'border-l-emerald-500',
+    serviceBadge: 'bg-emerald-50 text-emerald-600',
+    emptyBg: 'bg-emerald-50/30',
+    gradient: 'from-green-500/10 to-emerald-400/5',
+  },
+  perdu: {
+    dot: 'bg-red-400',
+    headerText: 'text-red-600',
+    borderAccent: 'border-l-red-400',
+    serviceBadge: 'bg-red-50 text-red-500',
+    emptyBg: 'bg-red-50/20',
+    gradient: 'from-red-500/10 to-red-400/5',
+  },
 }
+
+// ─── Default form ─────────────────────────────────────────────────────────────
 
 const defaultForm = {
   title: '',
@@ -44,45 +115,289 @@ const defaultForm = {
   client_type: '',
   service_type: '',
   estimated_amount: '',
-  stage: 'lead' as OpportunityStage,
+  stage: 'ouvert' as OpportunityStage,
   next_action_date: '',
   notes: '',
 }
 
+// ─── KanbanCard ───────────────────────────────────────────────────────────────
+
+function KanbanCard({
+  opportunity,
+  stage,
+  onClick,
+  isDragOverlay = false,
+}: {
+  opportunity: Opportunity
+  stage: OpportunityStage
+  onClick: () => void
+  isDragOverlay?: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: opportunity.id,
+    data: { opportunity, stage },
+  })
+
+  const config = STAGE_CONFIG[stage]
+
+  const style: React.CSSProperties =
+    transform && !isDragOverlay
+      ? {
+          transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+          zIndex: 999,
+          position: 'relative',
+        }
+      : {}
+
+  // Urgency: overdue next_action_date
+  const isOverdue = opportunity.next_action_date
+    ? new Date(opportunity.next_action_date) < new Date()
+    : false
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={onClick}
+      className={[
+        // Base glassmorphism
+        'group relative bg-white/90 backdrop-blur-sm',
+        'rounded-xl border border-white/60 shadow-sm select-none',
+        // Left border accent (4px colored strip)
+        'border-l-4',
+        config.borderAccent,
+        // Hover lift animation
+        'hover:shadow-lg hover:scale-[1.01] hover:-translate-y-0.5 transition-all duration-200',
+        // Dragging / overlay states
+        isDragging ? 'opacity-40 scale-95 shadow-none' : '',
+        isDragOverlay
+          ? 'rotate-1 shadow-2xl ring-2 ring-blue-400/50 cursor-grabbing'
+          : 'cursor-pointer',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="p-3.5">
+        {/* Row 1: company name + amount badge */}
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <p className="text-sm font-bold text-slate-900 leading-tight line-clamp-2 flex-1">
+            {opportunity.prospect_name || opportunity.title}
+          </p>
+          {opportunity.estimated_amount ? (
+            <span className="flex-shrink-0 bg-emerald-50 text-emerald-700 font-semibold text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+              {formatCurrency(opportunity.estimated_amount)}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Row 2: contact name */}
+        {opportunity.contact_name && (
+          <p className="text-xs text-slate-500 mb-2.5 truncate">
+            {opportunity.contact_name}
+          </p>
+        )}
+
+        {/* Row 3: service pill + city pill */}
+        {(opportunity.service_type || opportunity.city) && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
+            {opportunity.service_type && (
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-medium ${config.serviceBadge}`}
+              >
+                {opportunity.service_type}
+              </span>
+            )}
+            {opportunity.city && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                <MapPin className="w-2.5 h-2.5" />
+                {opportunity.city}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Footer: action date + urgency + converted badge */}
+        {(opportunity.next_action_date || opportunity.converted_to_client) && (
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+            {opportunity.next_action_date && (
+              <span
+                className={`inline-flex items-center gap-1 text-xs ${
+                  isOverdue ? 'text-red-500' : 'text-amber-600'
+                }`}
+              >
+                <Calendar className="w-3 h-3" />
+                Action&nbsp;: {formatDate(opportunity.next_action_date)}
+                {isOverdue && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                    Urgent
+                  </span>
+                )}
+              </span>
+            )}
+            {opportunity.converted_to_client && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium ml-auto">
+                <CheckCircle2 className="w-3 h-3" />
+                Converti
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── KanbanColumn ─────────────────────────────────────────────────────────────
+
+function KanbanColumn({
+  stage,
+  opportunities,
+  onCardClick,
+  onAddCard,
+  isDraggingOver,
+}: {
+  stage: OpportunityStage
+  opportunities: Opportunity[]
+  onCardClick: (opp: Opportunity) => void
+  onAddCard: (stage: OpportunityStage) => void
+  isDraggingOver: boolean
+}) {
+  const { setNodeRef } = useDroppable({ id: stage })
+  const config = STAGE_CONFIG[stage]
+  const total = opportunities.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
+
+  return (
+    <div className="flex-shrink-0 w-[280px] flex flex-col gap-2">
+      {/* Glassmorphism column header */}
+      <div className="bg-white/70 backdrop-blur-sm border border-white/50 shadow-sm rounded-xl px-3 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${config.dot}`} />
+          <span className={`text-xs font-semibold ${config.headerText}`}>
+            {OPPORTUNITY_STAGE_LABELS[stage]}
+          </span>
+          <span className="text-xs text-slate-400 bg-white/60 px-1.5 py-0.5 rounded-full">
+            {opportunities.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {total > 0 && (
+            <span className="text-xs font-medium text-slate-500">
+              {formatCurrency(total)}
+            </span>
+          )}
+          <button
+            onClick={() => onAddCard(stage)}
+            className="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-white/80 transition-all"
+            aria-label={`Ajouter une opportunité en ${OPPORTUNITY_STAGE_LABELS[stage]}`}
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Cards drop zone */}
+      <div
+        ref={setNodeRef}
+        className={[
+          'flex-1 min-h-[120px] space-y-2.5 rounded-xl p-2 transition-all duration-200',
+          isDraggingOver
+            ? `bg-gradient-to-b ${config.gradient} border-2 border-dashed border-current opacity-80`
+            : 'bg-transparent',
+        ].join(' ')}
+      >
+        {opportunities.map((opp) => (
+          <KanbanCard
+            key={opp.id}
+            opportunity={opp}
+            stage={stage}
+            onClick={() => onCardClick(opp)}
+          />
+        ))}
+
+        {opportunities.length === 0 && !isDraggingOver && (
+          <div
+            className={`${config.emptyBg} rounded-xl p-5 text-center border-2 border-dashed border-slate-200/70`}
+          >
+            <p className="text-xs text-slate-400">Aucune opportunité</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function PipelinePage() {
-  useEffect(() => { document.title = 'Pipeline — Proprely' }, [])
-  const { opportunities, addOpportunity, updateOpportunity, deleteOpportunity, winOpportunity } = useAppStore()
+  useEffect(() => {
+    document.title = 'Pipeline — Proprely'
+  }, [])
+
+  const { opportunities, addOpportunity, deleteOpportunity, winOpportunity, moveOpportunity } =
+    useAppStore()
+
   const [showForm, setShowForm] = useState(false)
-  const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [draggedId, setDraggedId] = useState<string | null>(null)
-  const [dragOverStage, setDragOverStage] = useState<OpportunityStage | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<OpportunityStage | null>(null)
 
-  const handleOpenCreate = () => {
-    setEditingOpp(null)
-    setForm(defaultForm)
-    setShowForm(true)
+  // Delay-based activation: quick tap (< 200ms) → onClick fires normally.
+  // Hold (≥ 200ms) → drag starts. No conflict between click and drag.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    })
+  )
+
+  // ── Drag handlers ─────────────────────────────────────────────────────────
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
   }
 
-  const handleOpenEdit = (opp: Opportunity) => {
-    setEditingOpp(opp)
-    setForm({
-      title: opp.title,
-      prospect_name: opp.prospect_name,
-      contact_name: opp.contact_name || '',
-      email: opp.email || '',
-      phone: opp.phone || '',
-      city: opp.city || '',
-      site_address: opp.site_address || '',
-      client_type: opp.client_type || '',
-      service_type: opp.service_type || '',
-      estimated_amount: opp.estimated_amount?.toString() || '',
-      stage: opp.stage,
-      next_action_date: opp.next_action_date ? opp.next_action_date.split('T')[0] : '',
-      notes: opp.notes || '',
-    })
+  const handleDragOver = (event: DragOverEvent) => {
+    if (event.over && STAGES.includes(event.over.id as OpportunityStage)) {
+      setOverId(event.over.id as OpportunityStage)
+    } else {
+      setOverId(null)
+    }
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+    setOverId(null)
+
+    if (!over) return
+
+    const opportunityId = active.id as string
+    const targetStage = over.id as OpportunityStage
+
+    if (!STAGES.includes(targetStage)) return
+
+    const opp = opportunities.find((o) => o.id === opportunityId)
+    if (!opp || opp.stage === targetStage) return
+
+    if (targetStage === 'gagne') {
+      winOpportunity(opportunityId)
+      toast.success('🎉 Opportunité gagnée ! Client et site créés automatiquement.', {
+        duration: 5000,
+      })
+    } else {
+      moveOpportunity(opportunityId, targetStage)
+      toast.success(`Déplacé en ${OPPORTUNITY_STAGE_LABELS[targetStage]}`)
+    }
+  }
+
+  // ── Create / delete ────────────────────────────────────────────────────────
+
+  const handleOpenCreate = (stage: OpportunityStage = 'ouvert') => {
+    setForm({ ...defaultForm, stage })
     setShowForm(true)
   }
 
@@ -91,38 +406,26 @@ export default function PipelinePage() {
       toast.error('Titre et nom du prospect requis')
       return
     }
-
-    if (editingOpp) {
-      updateOpportunity(editingOpp.id, {
-        ...form,
-        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
-        next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      toast.success('Opportunité mise à jour')
-    } else {
-      const newOpp: Opportunity = {
-        id: `opp-${Date.now()}`, company_id: 'company-1',
-        lead_id: null, client_id: null, site_id: null,
-        ...form,
-        estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
-        next_action_date: form.next_action_date ? new Date(form.next_action_date).toISOString() : null,
-        status: 'ouvert', converted_to_client: false, converted_at: null,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }
-      addOpportunity(newOpp)
-      toast.success('Opportunité créée')
+    const newOpp: Opportunity = {
+      id: `opp-${Date.now()}`,
+      company_id: 'company-1',
+      lead_id: null,
+      client_id: null,
+      site_id: null,
+      ...form,
+      estimated_amount: form.estimated_amount ? parseFloat(form.estimated_amount) : null,
+      next_action_date: form.next_action_date
+        ? new Date(form.next_action_date).toISOString()
+        : null,
+      status: 'ouvert',
+      converted_to_client: false,
+      converted_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
+    addOpportunity(newOpp)
+    toast.success('Opportunité créée')
     setShowForm(false)
-  }
-
-  const handleMoveStage = (opp: Opportunity, newStage: OpportunityStage) => {
-    if (newStage === 'gagnee' && !opp.converted_to_client) {
-      winOpportunity(opp.id)
-      toast.success(`Opportunité gagnée ! Client "${opp.prospect_name}" et site créés automatiquement.`, { duration: 5000 })
-    } else {
-      updateOpportunity(opp.id, { stage: newStage, updated_at: new Date().toISOString() })
-    }
   }
 
   const handleDelete = (id: string) => {
@@ -132,269 +435,202 @@ export default function PipelinePage() {
     toast.success('Opportunité supprimée')
   }
 
-  const oppsByStage = (stage: OpportunityStage) =>
-    opportunities.filter(o => o.stage === stage)
-
-  const handleDropOnStage = (stage: OpportunityStage) => {
-    const id = draggedId
-    setDraggedId(null)
-    setDragOverStage(null)
-    if (!id) return
-    const opp = opportunities.find(o => o.id === id)
-    if (!opp || opp.stage === stage) return
-    handleMoveStage(opp, stage)
+  const handleWin = (id: string) => {
+    winOpportunity(id)
+    toast.success('🎉 Opportunité gagnée ! Client créé automatiquement.', { duration: 5000 })
+    setSelectedOpp(null)
   }
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const oppsByStage = (stage: OpportunityStage) =>
+    opportunities.filter((o) => o.stage === stage)
+
+  const activeOpp = activeId ? opportunities.find((o) => o.id === activeId) : null
+
+  const totalPipeline = opportunities.reduce((s, o) => s + (o.estimated_amount || 0), 0)
+  const wonCount = oppsByStage('gagne').length
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <AdminLayout>
-      <div className="p-8">
-        <PageHeader
-          title="Pipeline commercial"
-          description="Suivi de vos opportunités par étape"
-          action={
+      <div className="flex flex-col h-screen overflow-hidden">
+        {/* Top bar */}
+        <div className="flex-shrink-0 px-8 py-5 border-b border-slate-100 bg-white/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Pipeline commercial</h1>
+              <p className="text-sm text-slate-500 mt-0.5">
+                {opportunities.length} opportunités · {formatCurrency(totalPipeline)} pipeline ·{' '}
+                {wonCount} gagnées
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <ProspectingFlow />
-              <Button onClick={handleOpenCreate} className="gap-2">
-                <Plus className="w-4 h-4" /> Nouvelle opportunité
+              <Button
+                onClick={() => handleOpenCreate()}
+                className="gap-2 bg-slate-900 hover:bg-slate-700 text-white shadow-sm h-9"
+                size="sm"
+              >
+                <Plus className="w-4 h-4" />
+                Nouvelle opportunité
               </Button>
             </div>
-          }
-        />
+          </div>
+        </div>
 
         {/* Kanban board */}
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {STAGES.map(stage => {
-            const opps = oppsByStage(stage)
-            const total = opps.reduce((sum, o) => sum + (o.estimated_amount || 0), 0)
-            return (
-              <div
-                key={stage}
-                className="flex-shrink-0 w-72"
-                onDragOver={(e) => {
-                  if (!draggedId) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  if (dragOverStage !== stage) setDragOverStage(stage)
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDragOverStage(prev => (prev === stage ? null : prev))
-                  }
-                }}
-                onDrop={(e) => { e.preventDefault(); handleDropOnStage(stage) }}
-              >
-                <div className={`bg-white rounded-xl border-t-4 shadow-sm ${STAGE_COLORS[stage]} border border-slate-200 mb-3`}>
-                  <div className="p-3 flex items-center justify-between">
-                    <span className="font-semibold text-sm text-slate-800">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
-                    <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">{opps.length}</span>
-                  </div>
-                  {total > 0 && (
-                    <div className="px-3 pb-2 text-xs text-slate-500">{formatCurrency(total)}</div>
-                  )}
-                </div>
-
-                <div className={`space-y-3 rounded-xl transition-colors ${dragOverStage === stage ? 'bg-slate-100 ring-2 ring-slate-300 ring-offset-2' : ''}`}>
-                  {opps.map(opp => (
-                    <Card
-                      key={opp.id}
-                      draggable
-                      onDragStart={(e) => {
-                        setDraggedId(opp.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                        e.dataTransfer.setData('text/plain', opp.id)
-                      }}
-                      onDragEnd={() => { setDraggedId(null); setDragOverStage(null) }}
-                      className={`cursor-pointer hover:shadow-md transition-shadow ${draggedId === opp.id ? 'opacity-40' : ''}`}
-                      onClick={() => setSelectedOpp(opp)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOpp(opp) } }}
-                    >
-                      <CardContent className="p-4">
-                        <p className="font-semibold text-sm text-slate-900 mb-1">{opp.title}</p>
-                        <p className="text-xs text-slate-500 mb-2">{opp.prospect_name}</p>
-                        {opp.estimated_amount && (
-                          <div className="flex items-center gap-1 text-xs text-slate-600 mb-2">
-                            <Euro className="w-3 h-3" />
-                            {formatCurrency(opp.estimated_amount)}
-                          </div>
-                        )}
-                        {opp.city && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="w-3 h-3" />
-                            {opp.city}
-                          </div>
-                        )}
-                        {opp.next_action_date && (
-                          <p className="text-xs text-amber-600 mt-2">
-                            Action: {formatDate(opp.next_action_date)}
-                          </p>
-                        )}
-                        {opp.converted_to_client && (
-                          <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Converti en client
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-
-                  {opps.length === 0 && (
-                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                      <p className="text-xs text-slate-400">Aucune opportunité</p>
-                    </div>
-                  )}
-                </div>
+        <div className="flex-1 overflow-hidden">
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="h-full overflow-x-auto">
+              <div className="flex gap-4 p-6 h-full min-w-max">
+                {STAGES.map((stage) => (
+                  <KanbanColumn
+                    key={stage}
+                    stage={stage}
+                    opportunities={oppsByStage(stage)}
+                    onCardClick={(opp) => setSelectedOpp(opp)}
+                    onAddCard={handleOpenCreate}
+                    isDraggingOver={overId === stage}
+                  />
+                ))}
               </div>
-            )
-          })}
+            </div>
+
+            <DragOverlay>
+              {activeOpp ? (
+                <KanbanCard
+                  opportunity={activeOpp}
+                  stage={activeOpp.stage}
+                  onClick={() => {}}
+                  isDragOverlay
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       </div>
 
-      {/* Detail side panel */}
+      {/* Card detail panel — opens on card click */}
       {selectedOpp && (
-        <Dialog open={!!selectedOpp} onOpenChange={() => setSelectedOpp(null)}>
-          <DialogContent className="opp-side-panel left-auto right-0 top-0 translate-x-0 translate-y-0 h-screen max-h-screen w-full sm:max-w-md rounded-none rounded-l-2xl border-l border-y-0 border-r-0 p-0 flex flex-col gap-0">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <DialogTitle className="pr-8">{selectedOpp.title}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={selectedOpp.stage} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {selectedOpp.contact_name && (
-                  <div>
-                    <p className="text-xs text-slate-500">Contact</p>
-                    <p className="font-medium">{selectedOpp.contact_name}</p>
-                  </div>
-                )}
-                {selectedOpp.estimated_amount && (
-                  <div>
-                    <p className="text-xs text-slate-500">Montant</p>
-                    <p className="font-medium text-green-600">{formatCurrency(selectedOpp.estimated_amount)}</p>
-                  </div>
-                )}
-                {selectedOpp.phone && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-400" />
-                    <p>{selectedOpp.phone}</p>
-                  </div>
-                )}
-                {selectedOpp.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-slate-400" />
-                    <p className="truncate">{selectedOpp.email}</p>
-                  </div>
-                )}
-              </div>
-              {selectedOpp.notes && (
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-500 mb-1">Notes</p>
-                  <p className="whitespace-pre-wrap">{selectedOpp.notes}</p>
-                </div>
-              )}
-              {/* Stage progression */}
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Changer l&apos;étape</p>
-                <div className="flex flex-wrap gap-2">
-                  {STAGES.filter(s => s !== selectedOpp.stage && s !== 'perdue' && s !== 'gagnee').map(s => (
-                    <Button
-                      key={s}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        handleMoveStage(selectedOpp, s)
-                        setSelectedOpp(prev => prev ? { ...prev, stage: s } : null)
-                      }}
-                    >
-                      {OPPORTUNITY_STAGE_LABELS[s]}
-                    </Button>
-                  ))}
-                  {!selectedOpp.converted_to_client && (
-                    <Button
-                      size="sm"
-                      className="gap-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        winOpportunity(selectedOpp.id)
-                        toast.success(`Opportunité gagnée ! Client "${selectedOpp.prospect_name}" créé automatiquement.`, { duration: 5000 })
-                        setSelectedOpp(null)
-                      }}
-                    >
-                      <CheckCircle2 className="w-3 h-3" /> Marquer Gagnée
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/60">
-              <Button variant="outline" size="sm" onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}>
-                Modifier
-              </Button>
-              <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(selectedOpp.id)}>
-                Supprimer
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CardDetailPanel
+          opportunity={selectedOpp}
+          onClose={() => setSelectedOpp(null)}
+          onDelete={(id) => {
+            setConfirmDelete(id)
+            setSelectedOpp(null)
+          }}
+          onWin={handleWin}
+        />
       )}
 
-      {/* Create/Edit form dialog */}
+      {/* Create dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingOpp ? 'Modifier l\'opportunité' : 'Nouvelle opportunité'}</DialogTitle>
+            <DialogTitle>Nouvelle opportunité</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label>Titre *</Label>
-                <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Nettoyage bureaux - Société X" />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Titre *</Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Ex: Nettoyage bureaux - Société X"
+                />
               </div>
               <div className="col-span-2">
-                <Label>Nom du prospect *</Label>
-                <Input value={form.prospect_name} onChange={e => setForm(f => ({ ...f, prospect_name: e.target.value }))} placeholder="Nom de l'entreprise" />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Nom du prospect *</Label>
+                <Input
+                  value={form.prospect_name}
+                  onChange={(e) => setForm((f) => ({ ...f, prospect_name: e.target.value }))}
+                />
               </div>
               <div>
-                <Label>Contact</Label>
-                <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Nom complet" />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Contact</Label>
+                <Input
+                  value={form.contact_name}
+                  onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))}
+                />
               </div>
               <div>
-                <Label>Téléphone</Label>
-                <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Téléphone</Label>
+                <Input
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
               </div>
               <div>
-                <Label>Email</Label>
-                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Email</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
               </div>
               <div>
-                <Label>Ville</Label>
-                <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Ville</Label>
+                <Input
+                  value={form.city}
+                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                />
               </div>
               <div>
-                <Label>Montant estimé (€)</Label>
-                <Input type="number" value={form.estimated_amount} onChange={e => setForm(f => ({ ...f, estimated_amount: e.target.value }))} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Montant estimé (€)</Label>
+                <Input
+                  type="number"
+                  value={form.estimated_amount}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, estimated_amount: e.target.value }))
+                  }
+                />
               </div>
               <div>
-                <Label>Étape</Label>
-                <Select value={form.stage} onValueChange={(v) => setForm(f => ({ ...f, stage: v as OpportunityStage }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label className="text-xs text-slate-600 mb-1.5 block">Étape</Label>
+                <Select
+                  value={form.stage}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, stage: v as OpportunityStage }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {STAGES.map(s => (
-                      <SelectItem key={s} value={s}>{OPPORTUNITY_STAGE_LABELS[s]}</SelectItem>
+                    {STAGES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {OPPORTUNITY_STAGE_LABELS[s]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Prochaine action</Label>
-                <Input type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Prochaine action</Label>
+                <Input
+                  type="date"
+                  value={form.next_action_date}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, next_action_date: e.target.value }))
+                  }
+                />
               </div>
               <div>
-                <Label>Type client</Label>
-                <Select value={form.client_type} onValueChange={(v) => setForm(f => ({ ...f, client_type: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                <Label className="text-xs text-slate-600 mb-1.5 block">Type client</Label>
+                <Select
+                  value={form.client_type}
+                  onValueChange={(v) => setForm((f) => ({ ...f, client_type: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir..." />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="entreprise">Entreprise</SelectItem>
                     <SelectItem value="professionnel">Professionnel libéral</SelectItem>
@@ -404,18 +640,25 @@ export default function PipelinePage() {
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
+                <Label className="text-xs text-slate-600 mb-1.5 block">Notes</Label>
+                <Textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button onClick={handleSave}>{editingOpp ? 'Mettre à jour' : 'Créer'}</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleSave}>Créer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete confirmation */}
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
