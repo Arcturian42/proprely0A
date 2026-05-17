@@ -252,14 +252,14 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Detail/Edit Dialog */}
+      {/* Detail side panel */}
       {selectedOpp && (
         <Dialog open={!!selectedOpp} onOpenChange={() => setSelectedOpp(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{selectedOpp.title}</DialogTitle>
+          <DialogContent className="opp-side-panel left-auto right-0 top-0 translate-x-0 translate-y-0 h-screen max-h-screen w-full sm:max-w-md rounded-none rounded-l-2xl border-l border-y-0 border-r-0 p-0 flex flex-col gap-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <DialogTitle className="pr-8">{selectedOpp.title}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 text-sm">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
               <div className="flex items-center gap-2">
                 <StatusBadge status={selectedOpp.stage} />
               </div>
@@ -292,12 +292,12 @@ export default function PipelinePage() {
               {selectedOpp.notes && (
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-500 mb-1">Notes</p>
-                  <p>{selectedOpp.notes}</p>
+                  <p className="whitespace-pre-wrap">{selectedOpp.notes}</p>
                 </div>
               )}
               {/* Stage progression */}
               <div>
-                <p className="text-xs text-slate-500 mb-2">Changer l'étape</p>
+                <p className="text-xs text-slate-500 mb-2">Changer l&apos;étape</p>
                 <div className="flex flex-wrap gap-2">
                   {STAGES.filter(s => s !== selectedOpp.stage && s !== 'perdue' && s !== 'gagnee').map(s => (
                     <Button
@@ -328,7 +328,7 @@ export default function PipelinePage() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/60">
               <Button variant="outline" size="sm" onClick={() => { setSelectedOpp(null); handleOpenEdit(selectedOpp) }}>
                 Modifier
               </Button>
