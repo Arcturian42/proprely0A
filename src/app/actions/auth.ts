@@ -99,10 +99,11 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     .insert({
       id: userData.user.id,
       company_id: companyData.id,
+      email: parsed.data.email,
       first_name: parsed.data.owner_first_name,
       last_name: parsed.data.owner_last_name,
       role: 'owner',
-      status: 'active',
+      is_active: true,
     })
   if (profileError) {
     await admin.from('companies').delete().eq('id', companyData.id)

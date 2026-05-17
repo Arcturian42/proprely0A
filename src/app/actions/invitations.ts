@@ -33,6 +33,61 @@ function getOrigin(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 }
 
+const MAX_SEATS = 5
+
+export interface SeatUsage {
+  used: number
+  max: number
+  pending: number
+  active: number
+}
+
+/** Counts seats currently consumed by a company. Owner is excluded from the limit. */
+async function getSeatUsage(
+  admin: NonNullable<Awaited<ReturnType<typeof createServiceRoleClient>>>,
+  companyId: string,
+): Promise<SeatUsage> {
+  // Désactivés (is_active=false) ne consomment pas de siège : c'est ce qui
+  // permet de libérer une place sans supprimer le profil (et perdre l'historique).
+  const [{ count: active }, { count: pending }] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .neq('role', 'owner'),
+    admin
+      .from('invitations')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status', 'pending'),
+  ])
+  return {
+    used: (active ?? 0) + (pending ?? 0),
+    max: MAX_SEATS,
+    pending: pending ?? 0,
+    active: active ?? 0,
+  }
+}
+
+/** Public — returns seat usage for the current user's company. UI uses this for the X/5 badge. */
+export async function getCompanySeatUsage(): Promise<SeatUsage> {
+  const empty: SeatUsage = { used: 0, max: MAX_SEATS, pending: 0, active: 0 }
+  if (!isSupabaseConfigured()) return empty
+  const supabase = await createServerClient()
+  const admin = await createServiceRoleClient()
+  if (!supabase || !admin) return empty
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return empty
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile) return empty
+  return getSeatUsage(admin, profile.company_id)
+}
+
 /** Owner/admin creates an invitation. Sends a magic-link-style email via Supabase. */
 export async function createInvitation(formData: FormData): Promise<InvitationActionResult> {
   const parsed = InviteSchema.safeParse({
@@ -66,6 +121,16 @@ export async function createInvitation(formData: FormData): Promise<InvitationAc
     return { ok: false, error: "Seuls les propriétaires et administrateurs peuvent inviter." }
   }
 
+  // Limite de sièges : 1 owner + 5 collaborateurs max.
+  // Le trigger PostgreSQL est la source de vérité ; on check ici aussi pour un message FR clair.
+  const seats = await getSeatUsage(admin, inviter.company_id)
+  if (seats.used >= seats.max) {
+    return {
+      ok: false,
+      error: `Limite atteinte : ${seats.max} sièges utilisés (hors propriétaire). Révoque une invitation ou désactive un collaborateur pour libérer un siège.`,
+    }
+  }
+
   // Token clair (32 bytes hex = 64 chars) + hash sha256
   const clearToken = randomBytes(32).toString('hex')
   const tokenHash = hashToken(clearToken)
@@ -84,6 +149,10 @@ export async function createInvitation(formData: FormData): Promise<InvitationAc
     .select('id')
     .single()
   if (insertError || !invitation) {
+    // Le trigger DB renvoie SEAT_LIMIT_REACHED si la course-condition avec le check applicatif perd.
+    if (insertError?.message?.includes('SEAT_LIMIT_REACHED')) {
+      return { ok: false, error: `Limite atteinte : ${MAX_SEATS} sièges utilisés (hors propriétaire).` }
+    }
     return { ok: false, error: insertError?.message ?? "Création de l'invitation échouée" }
   }
 
@@ -153,10 +222,11 @@ export async function acceptInvitation(formData: FormData): Promise<InvitationAc
   const { error: profileError } = await admin.from('profiles').insert({
     id: user.id,
     company_id: invitation.company_id,
+    email: invitation.email,
     first_name: parsed.data.first_name,
     last_name: parsed.data.last_name,
     role: invitation.role,
-    status: 'active',
+    is_active: true,
   })
   if (profileError) {
     return { ok: false, error: `Création du profil échouée : ${profileError.message}` }

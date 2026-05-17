@@ -2,23 +2,18 @@
 
 ## Structure
 
-- `schema.sql` — snapshot canonique du schéma à jour (= état après application
-  de toutes les migrations). Utilisé pour bootstrap d'un nouvel environnement
-  (local dev, CI).
-- `migrations/` — migrations incrémentales horodatées. Ordre = ordre alphabétique
-  du nom de fichier (`YYYYMMDDHHMMSS_nom.sql`).
+- `migrations/` — **source de vérité**. Migrations incrémentales horodatées,
+  appliquées dans l'ordre alphabétique du nom de fichier
+  (`YYYYMMDDHHMMSS_nom.sql`). Inclut profiles, RLS, fonctions helper
+  `current_company_id()` / `current_user_role()`, et toutes les tables business.
+- `schema.sql` — snapshot historique du schéma initial. **Pas tenu à jour** —
+  pour bootstrap un nouvel env, applique les migrations dans l'ordre.
+- `seed.sql` — données de seed optionnelles (mock data) pour un env vide.
+- `audit_logs.sql` — design draft pour une table d'audit (pas encore migrée).
 
 ## Workflow
 
-### Nouvel environnement (clean install)
-
-```bash
-psql $DATABASE_URL -f supabase/schema.sql
-```
-
-### Environnement existant (incrémental)
-
-Appliquer dans l'ordre les migrations non encore exécutées :
+### Nouvel environnement (clean install + incrémental — même commande)
 
 ```bash
 for f in supabase/migrations/*.sql; do
@@ -32,13 +27,18 @@ Si tu utilises le Supabase CLI :
 supabase db push
 ```
 
+Toutes les migrations sont **idempotentes** (`CREATE … IF NOT EXISTS`,
+`DROP POLICY IF EXISTS` avant chaque `CREATE POLICY`, etc.) — safe à
+re-runner.
+
 ### Ajouter une nouvelle migration
 
-1. Créer un fichier `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
-2. Mettre à jour `supabase/schema.sql` pour refléter le nouvel état canonique
-3. Vérifier que les deux sont cohérents (un nouvel environnement bootstrappé
-   via `schema.sql` doit donner le même résultat qu'un ancien environnement
-   ayant appliqué la nouvelle migration)
+1. Créer `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
+2. La rendre **idempotente** (préfixer `DROP … IF EXISTS` les policies/triggers,
+   utiliser `IF NOT EXISTS` sur tables/index/colonnes)
+3. Mettre à jour `src/types/index.ts` si le schéma change
+4. Push — Supabase Preview rejouera toutes les migrations sur une DB fresh
+   pour valider
 
 ## Source de vérité TypeScript
 

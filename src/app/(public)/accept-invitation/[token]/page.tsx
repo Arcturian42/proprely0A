@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useTransition } from 'react'
+import { Suspense, use, useState, useTransition } from 'react'
 import { acceptInvitation } from '@/app/actions/invitations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,21 @@ import { Label } from '@/components/ui/label'
 import { CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+// React 19+ : params is a Promise. `use(params)` suspends — wrap in a parent
+// Suspense boundary so the route doesn't crash if the unwrap is in flight.
 export default function AcceptInvitationPage({ params }: { params: Promise<{ token: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center gap-2 text-sm text-slate-500">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement de l&apos;invitation…
+      </div>
+    }>
+      <AcceptInvitationForm params={params} />
+    </Suspense>
+  )
+}
+
+function AcceptInvitationForm({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const router = useRouter()
   const [pending, startTransition] = useTransition()

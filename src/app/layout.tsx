@@ -4,6 +4,8 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth'
 import type { CurrentUser, Role, TenantCompany } from '@/lib/auth/types'
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
+import { loadCompanyData } from '@/app/actions/data'
+import { SupabaseHydrator } from '@/components/auth/SupabaseHydrator'
 
 export const metadata: Metadata = {
   title: 'Proprely',
@@ -47,11 +49,15 @@ async function loadInitialAuth(): Promise<{ user?: CurrentUser; companies?: Tena
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { user, companies } = await loadInitialAuth()
+  // Pre-fetch tenant data on the server so the Zustand store can hydrate
+  // synchronously at mount, avoiding mock-data flash for authenticated users.
+  const snapshot = user ? await loadCompanyData() : null
 
   return (
     <html lang="fr" className="h-full">
       <body className="min-h-full bg-slate-50">
         <AuthProvider initialUser={user} initialCompanies={companies}>
+          <SupabaseHydrator snapshot={snapshot} />
           {children}
         </AuthProvider>
         <Toaster position="top-right" richColors />

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAuthenticatedProfile } from '@/lib/supabase/server'
 
 // Autocomplete-style company lookup against the public French SIRENE-based
 // API (recherche-entreprises.api.gouv.fr — no auth, ~7 req/s anonymous).
@@ -39,6 +40,9 @@ interface RawCompany {
 }
 
 export async function GET(req: Request) {
+  const gate = await requireAuthenticatedProfile()
+  if (gate instanceof NextResponse) return gate
+
   const url = new URL(req.url)
   const q = url.searchParams.get('q')?.trim()
   const siret = url.searchParams.get('siret')?.trim()

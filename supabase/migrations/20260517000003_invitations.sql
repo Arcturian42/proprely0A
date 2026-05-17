@@ -27,15 +27,18 @@ CREATE INDEX IF NOT EXISTS idx_invitations_token_hash ON invitations(token_hash)
 -- RLS — tenant scoping. Only owner/admin can write.
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS invitations_select ON invitations;
 CREATE POLICY invitations_select ON invitations
   FOR SELECT USING (company_id = current_company_id());
 
+DROP POLICY IF EXISTS invitations_write ON invitations;
 CREATE POLICY invitations_write ON invitations
   FOR ALL
   USING (company_id = current_company_id() AND current_user_role() IN ('owner', 'admin'))
   WITH CHECK (company_id = current_company_id() AND current_user_role() IN ('owner', 'admin'));
 
 -- Auto-update updated_at on row changes.
+DROP TRIGGER IF EXISTS trg_invitations_updated_at ON invitations;
 CREATE TRIGGER trg_invitations_updated_at
   BEFORE UPDATE ON invitations
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

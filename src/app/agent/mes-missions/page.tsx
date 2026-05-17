@@ -1,8 +1,13 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useAppStore } from '@/lib/store'
-import { useCurrentUser, useCurrentCompanyId } from '@/lib/auth'
+import {
+  useCompanyAgents,
+  useCompanyClients,
+  useCompanyMissions,
+  useCompanySites,
+} from '@/lib/store'
+import { useCurrentUser } from '@/lib/auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Briefcase } from 'lucide-react'
@@ -10,20 +15,21 @@ import { MISSION_STATUS_LABELS } from '@/lib/constants'
 
 export default function MesMissionsPage() {
   const user = useCurrentUser()
-  const companyId = useCurrentCompanyId()
-  const { missions, clients, sites, agents } = useAppStore()
+  const missions = useCompanyMissions()
+  const clients = useCompanyClients()
+  const sites = useCompanySites()
+  const agents = useCompanyAgents()
 
   const myAgent = useMemo(
-    () => agents.find(a => a.company_id === companyId && a.email === user.email),
-    [agents, companyId, user.email]
+    () => agents.find(a => a.email === user.email),
+    [agents, user.email]
   )
 
   const myMissions = useMemo(() => {
     return missions
-      .filter(m => m.company_id === companyId)
       .filter(m => !myAgent || (m as { agent_ids?: string[] }).agent_ids?.includes(myAgent.id))
       .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
-  }, [missions, myAgent, companyId])
+  }, [missions, myAgent])
 
   return (
     <div className="space-y-5">

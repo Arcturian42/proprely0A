@@ -1,5 +1,6 @@
 import { createServerClient as createSSRClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -41,4 +42,46 @@ export async function createServiceRoleClient() {
     },
     auth: { persistSession: false },
   })
+}
+
+export interface AuthedProfile {
+  userId: string
+  email: string | null
+  companyId: string
+  role: 'owner' | 'admin' | 'sales' | 'agent'
+}
+
+/**
+ * Gatekeeper for /api/* routes : requires an authenticated user with a profile
+ * scoped to a company. Returns the resolved profile OR a NextResponse error to
+ * return early. Always pair with `if ('userId' in gate) {...}` typeguard.
+ *
+ * Usage:
+ *   const gate = await requireAuthenticatedProfile()
+ *   if (gate instanceof NextResponse) return gate
+ *   // gate.companyId is safe to use
+ */
+export async function requireAuthenticatedProfile(): Promise<AuthedProfile | NextResponse> {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ error: 'Auth non configurée' }, { status: 503 })
+  }
+  const supabase = await createServerClient()
+  if (!supabase) return NextResponse.json({ error: 'Auth indisponible' }, { status: 503 })
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single()
+  if (!profile) return NextResponse.json({ error: 'Profil introuvable' }, { status: 403 })
+
+  return {
+    userId: user.id,
+    email: user.email ?? null,
+    companyId: profile.company_id,
+    role: profile.role,
+  }
 }

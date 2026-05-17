@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, useCompanyAgents, useCompanyTimeEntries } from '@/lib/store'
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -21,7 +21,9 @@ import { toast } from 'sonner'
 
 export default function HeuresPaiePage() {
   useEffect(() => { document.title = 'Heures & Paie — Proprely' }, [])
-  const { timeEntries: entries, updateTimeEntry, agents } = useAppStore()
+  const entries = useCompanyTimeEntries()
+  const agents = useCompanyAgents()
+  const updateTimeEntry = useAppStore(s => s.updateTimeEntry)
   const [filterAgent, setFilterAgent] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterMonth, setFilterMonth] = useState('')

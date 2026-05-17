@@ -560,11 +560,15 @@ function SwipeCard({
   const ref = useRef<HTMLDivElement | null>(null)
   const [dx, setDx] = useState(0)
   const [flying, setFlying] = useState<'left' | 'right' | null>(null)
+  // `isDragging` mirrors startX.current in state so the JSX can react to it
+  // without reading a ref during render (forbidden in concurrent React).
+  const [isDragging, setIsDragging] = useState(false)
   const startX = useRef<number | null>(null)
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!draggable) return
     startX.current = e.clientX
+    setIsDragging(true)
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent) => {
@@ -574,6 +578,7 @@ function SwipeCard({
   const onPointerUp = () => {
     if (startX.current === null) return
     startX.current = null
+    setIsDragging(false)
     if (dx > 120) {
       setFlying('right')
       setTimeout(onAccept, 220)
@@ -608,10 +613,9 @@ function SwipeCard({
         transform: flyingTransform,
         opacity,
         zIndex: 10 - depth,
-        transition:
-          startX.current !== null
-            ? 'none'
-            : 'transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1), opacity 280ms ease',
+        transition: isDragging
+          ? 'none'
+          : 'transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1), opacity 280ms ease',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

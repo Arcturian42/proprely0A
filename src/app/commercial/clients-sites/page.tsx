@@ -20,6 +20,7 @@ import { Client, Site } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import { Can } from '@/components/auth/Can'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
@@ -158,9 +159,11 @@ export default function ClientsSitesPage() {
 
           <TabsContent value="clients">
             <div className="flex justify-end mb-4">
-              <Button onClick={handleOpenCreateClient} className="gap-2">
-                <Plus className="w-4 h-4" /> Nouveau client
-              </Button>
+              <Can permission="client:write">
+                <Button onClick={handleOpenCreateClient} className="gap-2">
+                  <Plus className="w-4 h-4" /> Nouveau client
+                </Button>
+              </Can>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map(client => (
@@ -206,14 +209,18 @@ export default function ClientsSitesPage() {
                     <div className="text-xs text-slate-400">
                       {sites.filter(s => s.client_id === client.id).length} site(s)
                     </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
-                        <Edit className="w-3 h-3 mr-1" /> Modifier
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
-                        <Trash2 className="w-3 h-3 text-red-500" />
-                      </Button>
-                    </div>
+                    <Can permission="client:write">
+                      <div className="flex gap-2 pt-2">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
+                          <Edit className="w-3 h-3 mr-1" /> Modifier
+                        </Button>
+                        <Can permission="client:delete">
+                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
+                            <Trash2 className="w-3 h-3 text-red-500" />
+                          </Button>
+                        </Can>
+                      </div>
+                    </Can>
                   </CardContent>
                 </Card>
               ))}
@@ -225,9 +232,11 @@ export default function ClientsSitesPage() {
 
           <TabsContent value="sites">
             <div className="flex justify-end mb-4">
-              <Button onClick={handleOpenCreateSite} className="gap-2">
-                <Plus className="w-4 h-4" /> Nouveau site
-              </Button>
+              <Can permission="site:write">
+                <Button onClick={handleOpenCreateSite} className="gap-2">
+                  <Plus className="w-4 h-4" /> Nouveau site
+                </Button>
+              </Can>
             </div>
             <Card>
               <Table>
@@ -257,14 +266,16 @@ export default function ClientsSitesPage() {
                         <TableCell className="text-sm">{site.service_type || '—'}</TableCell>
                         <TableCell className="text-sm">{site.frequency || '—'}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
-                              <Trash2 className="w-3 h-3 text-red-500" />
-                            </Button>
-                          </div>
+                          <Can permission="site:write" fallback={<span className="text-xs text-slate-400">—</span>}>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </Button>
+                            </div>
+                          </Can>
                         </TableCell>
                       </TableRow>
                     )
