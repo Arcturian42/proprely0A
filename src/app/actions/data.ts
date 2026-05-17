@@ -2,6 +2,8 @@
 
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
+import { isResendConfigured, sendEmail } from '@/lib/email/resend'
+import { missionAssignedEmail } from '@/lib/email/templates'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Permission } from '@/lib/auth/types'
@@ -283,6 +285,15 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     return { ok: false, error: 'Mission introuvable' }
   }
 
+  // Figure out which agents are NEW assignments — we only email those, not
+  // the ones who were already on the mission (would spam them on every save).
+  const { data: existing } = await supabase
+    .from('mission_agents')
+    .select('agent_id')
+    .eq('mission_id', missionId)
+  const existingIds = new Set((existing ?? []).map(r => r.agent_id))
+  const newlyAssigned = agentIds.filter(id => !existingIds.has(id))
+
   // Wipe then insert — cheaper than diffing for small N.
   await supabase.from('mission_agents').delete().eq('mission_id', missionId)
   if (agentIds.length > 0) {
@@ -290,8 +301,45 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     const { error } = await supabase.from('mission_agents').insert(rows)
     if (error) return { ok: false, error: error.message }
   }
+
+  // Best-effort notification email to newly assigned agents.
+  if (newlyAssigned.length > 0 && isResendConfigured()) {
+    notifyNewlyAssigned(supabase, missionId, newlyAssigned).catch(() => undefined)
+  }
+
   revalidatePath('/operations/cockpit')
   return { ok: true }
+}
+
+async function notifyNewlyAssigned(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  missionId: string,
+  agentIds: string[],
+): Promise<void> {
+  const { data: mission } = await supabase
+    .from('missions')
+    .select('scheduled_date, start_time, planned_hours, clients(name), sites(name)')
+    .eq('id', missionId)
+    .single()
+  if (!mission) return
+  const { data: agentRows } = await supabase
+    .from('agents')
+    .select('id, email, first_name')
+    .in('id', agentIds)
+  for (const agent of (agentRows ?? []) as { email: string | null; first_name: string }[]) {
+    if (!agent.email) continue
+    const tpl = missionAssignedEmail({
+      agentFirstName: agent.first_name || 'agent',
+      clientName: mission.clients?.name ?? 'Client',
+      siteName: mission.sites?.name ?? null,
+      scheduledDate: mission.scheduled_date,
+      startTime: mission.start_time,
+      plannedHours: mission.planned_hours,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    })
+    await sendEmail({ to: agent.email, ...tpl }).catch(() => undefined)
+  }
 }
 
 export async function upsertTimeEntry(row: TimeEntry): Promise<WriteResult> {

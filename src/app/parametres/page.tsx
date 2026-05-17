@@ -19,10 +19,11 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAppStore } from '@/lib/store'
 import { InvitationsPanel } from '@/components/settings/InvitationsPanel'
 import { MembersPanel } from '@/components/settings/MembersPanel'
+import { AuditLogPanel } from '@/components/settings/AuditLogPanel'
 import { updateCompanyInfo } from '@/app/actions/data'
 import { isSupabaseClient } from '@/lib/supabase/client-config'
 
-const VALID_TABS = ['company', 'equipe', 'services', 'notifications'] as const
+const VALID_TABS = ['company', 'equipe', 'services', 'audit', 'notifications'] as const
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function ParametresPage() {
@@ -106,6 +107,7 @@ export default function ParametresPage() {
             <TabsTrigger value="company">Mon entreprise</TabsTrigger>
             <TabsTrigger value="equipe">Équipe</TabsTrigger>
             <TabsTrigger value="services">Types de services</TabsTrigger>
+            <TabsTrigger value="audit">Journal d&apos;audit</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
 
@@ -207,6 +209,10 @@ export default function ParametresPage() {
                 </TableBody>
               </Table>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <AuditLogPanel />
           </TabsContent>
 
           <TabsContent value="notifications">

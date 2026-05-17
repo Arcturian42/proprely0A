@@ -13,6 +13,7 @@ import {
   useCompanyAgents,
   useCompanyOperationalItems,
 } from '@/lib/store'
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import { formatDate } from '@/lib/utils'
 import {
   Sun,
@@ -68,6 +69,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <OnboardingChecklist
+          hasClient={clients.length > 0}
+          hasAgent={agents.length > 0}
+          hasMission={missions.length > 0}
+          hasInvitedMember={false /* TODO V1.6 : query profiles count via server action */}
+        />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

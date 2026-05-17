@@ -117,6 +117,70 @@ export function quoteSentEmail(args: {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* Quote signed — sent to the salesperson who created the quote                */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export function quoteSignedEmail(args: {
+  recipientName: string
+  clientName: string
+  quoteNumber: string
+  signedAt: string
+  appUrl: string
+}) {
+  const subject = `🎉 ${args.clientName} a signé le devis ${args.quoteNumber}`
+  const html = shell(
+    `Devis signé`,
+    [
+      paragraph(`Bonjour ${args.recipientName},`),
+      paragraph(
+        `Bonne nouvelle : <strong>${args.clientName}</strong> vient de signer le devis <strong>${args.quoteNumber}</strong>.`,
+      ),
+      paragraph(
+        `Le contrat est automatiquement remonté dans le cockpit opérationnel — tu peux maintenant organiser la mission.`,
+      ),
+      button('Aller au cockpit', `${args.appUrl}/operations/cockpit`),
+      paragraph(
+        `<span style="color:#9b9a97;font-size:12px;">Signé le ${new Date(args.signedAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}.</span>`,
+      ),
+    ].join(''),
+  )
+  const text = `${args.clientName} a signé le devis ${args.quoteNumber}. Le contrat est dans /operations/cockpit.`
+  return { subject, html, text }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Mission assigned — sent to the agent attached to a mission                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export function missionAssignedEmail(args: {
+  agentFirstName: string
+  clientName: string
+  siteName: string | null
+  scheduledDate: string
+  startTime: string | null
+  plannedHours: number
+  appUrl: string
+}) {
+  const dateStr = new Date(args.scheduledDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const subject = `Nouvelle mission assignée — ${dateStr}`
+  const html = shell(
+    `Mission à venir`,
+    [
+      paragraph(`Salut ${args.agentFirstName},`),
+      paragraph(
+        `Tu as été affecté(e) à une mission le <strong>${dateStr}</strong>${args.startTime ? ` à <strong>${args.startTime}</strong>` : ''} chez <strong>${args.clientName}</strong>${args.siteName ? ` (${args.siteName})` : ''} — durée prévue ${args.plannedHours}h.`,
+      ),
+      button('Voir mes missions', `${args.appUrl}/agent/mes-missions`),
+      paragraph(
+        `<span style="color:#9b9a97;font-size:12px;">Tu peux retrouver le détail (adresse, code d'accès, SOP) depuis l'app.</span>`,
+      ),
+    ].join(''),
+  )
+  const text = `Tu as une nouvelle mission le ${dateStr} chez ${args.clientName}. Détails sur ${args.appUrl}/agent/mes-missions`
+  return { subject, html, text }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* Generic "Hello from Proprely" — used by /api/dev/test-resend               */
 /* ────────────────────────────────────────────────────────────────────────── */
 
