@@ -21,36 +21,46 @@ interface AuthProviderProps {
 
 export function AuthProvider({
   children,
-  initialUser = DUMMY_USER,
-  initialCompanies = DUMMY_COMPANIES,
+  initialUser,
+  initialCompanies,
 }: AuthProviderProps) {
-  const [user, setUser] = useState<CurrentUser>(initialUser)
+  const isReal = Boolean(initialUser && initialCompanies && initialCompanies.length > 0)
+  const resolvedInitialUser = initialUser ?? DUMMY_USER
+  const resolvedInitialCompanies = initialCompanies && initialCompanies.length > 0
+    ? initialCompanies
+    : DUMMY_COMPANIES
+
+  const [user, setUser] = useState<CurrentUser>(resolvedInitialUser)
 
   const company = useMemo(
-    () => initialCompanies.find(c => c.id === user.company_id) ?? initialCompanies[0],
-    [initialCompanies, user.company_id]
+    () => resolvedInitialCompanies.find(c => c.id === user.company_id) ?? resolvedInitialCompanies[0],
+    [resolvedInitialCompanies, user.company_id]
   )
 
   const switchCompany = useCallback((companyId: string) => {
-    if (!initialCompanies.some(c => c.id === companyId)) return
+    // En mode réel, switcher de compagnie n'a pas de sens (1 user = 1 entreprise).
+    // Le CompanySwitcher dev-only se cache de toute façon en prod.
+    if (isReal) return
+    if (!resolvedInitialCompanies.some(c => c.id === companyId)) return
     setUser(u => ({ ...u, company_id: companyId }))
-  }, [initialCompanies])
+  }, [resolvedInitialCompanies, isReal])
 
   const setRole = useCallback((role: Role) => {
+    if (isReal) return
     setUser(u => ({ ...u, role }))
-  }, [])
+  }, [isReal])
 
   const can = useCallback((permission: Permission) => roleCan(user.role, permission), [user.role])
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
     company,
-    availableCompanies: initialCompanies,
-    isDummy: true,
+    availableCompanies: resolvedInitialCompanies,
+    isDummy: !isReal,
     can,
     switchCompany,
     setRole,
-  }), [user, company, initialCompanies, can, switchCompany, setRole])
+  }), [user, company, resolvedInitialCompanies, isReal, can, switchCompany, setRole])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

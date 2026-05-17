@@ -1,6 +1,7 @@
 'use client'
 
 import { Building2, ChevronsUpDown, Shield } from 'lucide-react'
+import { useContext } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,11 +20,16 @@ import {
   useCurrentRole,
   type Role,
 } from '@/lib/auth'
+import { AuthContext } from '@/lib/auth/context'
 
 const DEV_ROLES: Role[] = ['owner', 'admin', 'sales', 'ops_manager', 'accountant', 'agent', 'viewer']
 
 export function CompanySwitcher() {
+  // Hide when running on real Supabase auth — switching tenant or role
+  // doesn't apply once the session is real. Only useful for dummy dev mode.
+  const ctx = useContext(AuthContext)
   if (process.env.NODE_ENV === 'production') return null
+  if (!ctx || !ctx.isDummy) return null
 
   return <DevSwitcher />
 }
