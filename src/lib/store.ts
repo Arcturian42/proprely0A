@@ -151,9 +151,25 @@ export const useAppStore = create<AppStore>()(
       serviceTypes: defaultServiceTypes,
       quotes: [],
       companySettings: defaultCompanySettings,
-      agentSkills: [],
-      agentCertifications: [],
-      availabilityBlocks: [],
+      agentSkills: [
+        { id: 'sk-1', agent_id: 'agent-1', skill: 'bureaux', level: 'expert' },
+        { id: 'sk-2', agent_id: 'agent-1', skill: 'vitres', level: 'intermediaire' },
+        { id: 'sk-3', agent_id: 'agent-1', skill: 'desinfection', level: 'intermediaire' },
+        { id: 'sk-4', agent_id: 'agent-2', skill: 'vitres', level: 'expert' },
+        { id: 'sk-5', agent_id: 'agent-2', skill: 'sols_mecanises', level: 'intermediaire' },
+        { id: 'sk-6', agent_id: 'agent-2', skill: 'parking', level: 'intermediaire' },
+        { id: 'sk-7', agent_id: 'agent-3', skill: 'medical', level: 'expert' },
+        { id: 'sk-8', agent_id: 'agent-3', skill: 'desinfection', level: 'expert' },
+        { id: 'sk-9', agent_id: 'agent-3', skill: 'bureaux', level: 'debutant' },
+      ],
+      agentCertifications: [
+        { id: 'c-1', agent_id: 'agent-2', name: 'CACES R489', category: 'machine', issued_at: '2024-06-01', expires_at: '2029-06-01' },
+        { id: 'c-2', agent_id: 'agent-2', name: 'Permis B', category: 'permis', issued_at: '2018-03-15', expires_at: null },
+        { id: 'c-3', agent_id: 'agent-3', name: 'Manipulation produits chimiques', category: 'chimie', issued_at: '2025-01-10', expires_at: '2027-01-10' },
+      ],
+      availabilityBlocks: [
+        { id: 'ab-1', agent_id: 'agent-1', start_at: new Date(Date.now() + 14 * 86400000).toISOString(), end_at: new Date(Date.now() + 21 * 86400000).toISOString(), kind: 'vacances', notes: 'Congés annuels' },
+      ],
       fatigueScores: [],
       clientConstraints: [],
       schedulingProposals: [],
@@ -521,6 +537,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'proprely-store',
+      version: 2, // bump pour invalider les caches localStorage antérieurs à la refonte cockpit
     }
   )
 )

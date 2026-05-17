@@ -35,8 +35,17 @@ export default function CockpitPage() {
   const [draggedMissionId, setDraggedMissionId] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<OperationalMissionStatus | null>(null)
 
-  // Opportunités gagnées non encore signées — bouton de simulation
-  const winnableOpportunities = opportunities.filter(o => o.stage === 'gagnee')
+  // Opportunités gagnées non encore matérialisées en mission "à organiser"
+  const winnableOpportunities = opportunities.filter(o => {
+    if (o.stage !== 'gagnee') return false
+    // Cache une opp qui a déjà donné lieu à une mission "à organiser" via ce flux
+    const alreadyOrganizing = missions.some(m =>
+      m.client_id === o.client_id
+      && getOperationalStatus(m) === 'a_organiser'
+      && (m.contact_phone === o.phone || m.contact_name === o.contact_name),
+    )
+    return !alreadyOrganizing
+  })
 
   const filtered = useMemo(() => {
     return missions.filter(m => {
