@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { signInWithMagicLink } from '@/app/actions/auth'
+import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +12,12 @@ import Link from 'next/link'
 export default function LoginPage() {
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  // Safety net : si on atterrit ici via une redirection du proxy (session expirée)
+  // sans passer par le bouton "Se déconnecter", on purge quand même le cache local.
+  useEffect(() => {
+    useAppStore.persist?.clearStorage?.()
+  }, [])
 
   function handleSubmit(formData: FormData) {
     setResult(null)

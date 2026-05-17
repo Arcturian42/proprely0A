@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendForSignature } from '@/lib/signnow'
+import { requireAuthenticatedProfile } from '@/lib/supabase/server'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -193,6 +194,9 @@ function buildPDF(body: SendQuoteBody): Buffer {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireAuthenticatedProfile()
+  if (gate instanceof NextResponse) return gate
+
   try {
     const body: SendQuoteBody = await req.json()
     const { quote, signerEmail, signerFirstName, signerLastName } = body

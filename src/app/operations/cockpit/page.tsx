@@ -7,7 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useAppStore } from '@/lib/store'
+import {
+  useAppStore,
+  useCompanyAgents,
+  useCompanyMissions,
+  useCompanyOpportunities,
+} from '@/lib/store'
 import { Mission, OperationalMissionStatus } from '@/types'
 import { cn, getOperationalStatus } from '@/lib/utils'
 import {
@@ -26,7 +31,11 @@ import { toast } from 'sonner'
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
 
-  const { missions, agents, opportunities, signOpportunityContract, updateMissionOperationalStatus } = useAppStore()
+  const missions = useCompanyMissions()
+  const agents = useCompanyAgents()
+  const opportunities = useCompanyOpportunities()
+  const signOpportunityContract = useAppStore(s => s.signOpportunityContract)
+  const updateMissionOperationalStatus = useAppStore(s => s.updateMissionOperationalStatus)
 
   const [search, setSearch] = useState('')
   const [filterClient] = useState<string>('all')

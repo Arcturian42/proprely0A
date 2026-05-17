@@ -3,10 +3,12 @@
 import { useEffect, useState, useTransition } from 'react'
 import {
   createInvitation,
+  getCompanySeatUsage,
   listInvitations,
   resendInvitation,
   revokeInvitation,
   type InvitationRow,
+  type SeatUsage,
 } from '@/app/actions/invitations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,20 +46,25 @@ export function InvitationsPanel() {
   const canInvite = role === 'owner' || role === 'admin'
   const [pending, startTransition] = useTransition()
   const [invitations, setInvitations] = useState<InvitationRow[]>([])
+  const [seats, setSeats] = useState<SeatUsage>({ used: 0, max: 5, pending: 0, active: 0 })
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ email: '', role: 'admin', first_name: '', last_name: '' })
 
+  const seatsFull = seats.used >= seats.max
+
   async function refresh() {
-    const rows = await listInvitations()
+    const [rows, usage] = await Promise.all([listInvitations(), getCompanySeatUsage()])
     setInvitations(rows)
+    setSeats(usage)
     setLoading(false)
   }
 
   useEffect(() => {
     let cancelled = false
-    listInvitations().then(rows => {
+    Promise.all([listInvitations(), getCompanySeatUsage()]).then(([rows, usage]) => {
       if (cancelled) return
       setInvitations(rows)
+      setSeats(usage)
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -121,9 +128,27 @@ export function InvitationsPanel() {
     <div className="space-y-6 max-w-3xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Inviter un collaborateur</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Inviter un collaborateur</CardTitle>
+            <span
+              className={`text-xs px-2 py-1 rounded-full border ${
+                seatsFull
+                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                  : 'bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="1 propriétaire + 5 collaborateurs maximum"
+            >
+              {seats.used}/{seats.max} sièges utilisés
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
+          {seatsFull && (
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2 mb-3">
+              Tu as atteint la limite de {seats.max} sièges (hors propriétaire). Révoque une invitation en attente
+              ou désactive un collaborateur pour libérer une place.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -133,7 +158,7 @@ export function InvitationsPanel() {
                   value={form.first_name}
                   onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
                   placeholder="Marie"
-                  disabled={pending}
+                  disabled={pending || seatsFull}
                 />
               </div>
               <div>
@@ -143,7 +168,7 @@ export function InvitationsPanel() {
                   value={form.last_name}
                   onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
                   placeholder="Dupont"
-                  disabled={pending}
+                  disabled={pending || seatsFull}
                 />
               </div>
             </div>
@@ -157,7 +182,7 @@ export function InvitationsPanel() {
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="prenom@entreprise.fr"
-                  disabled={pending}
+                  disabled={pending || seatsFull}
                 />
               </div>
               <div className="w-40">
@@ -174,7 +199,7 @@ export function InvitationsPanel() {
                 </Select>
               </div>
             </div>
-            <Button type="submit" disabled={pending} className="gap-2">
+            <Button type="submit" disabled={pending || seatsFull} className="gap-2">
               {pending ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Envoi…</>
               ) : (

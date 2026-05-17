@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import { useCurrentUser, useCurrentCompany } from '@/lib/auth'
+import { useAppStore } from '@/lib/store'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -173,6 +174,12 @@ export function AppSidebar() {
             <form action={signOut} className="px-1 py-0.5">
               <button
                 type="submit"
+                onClick={() => {
+                  // Purge le cache Zustand persisté en localStorage pour qu'un user B
+                  // qui se connecte sur le même browser ne voie pas les données du user A.
+                  // Le form action signOut() s'exécute juste après côté serveur.
+                  useAppStore.persist?.clearStorage?.()
+                }}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 transition cursor-pointer outline-none"
               >
                 <LogOut className="w-4 h-4" />

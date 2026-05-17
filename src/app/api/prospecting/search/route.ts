@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAuthenticatedProfile } from '@/lib/supabase/server'
 
 // Maps the wizard "business category" to NAF activity codes used by the
 // recherche-entreprises.api.gouv.fr API (SIRENE-based public dataset).
@@ -42,6 +43,9 @@ interface SearchBody {
 }
 
 export async function POST(req: Request) {
+  const gate = await requireAuthenticatedProfile()
+  if (gate instanceof NextResponse) return gate
+
   let body: SearchBody = {}
   try { body = await req.json() } catch { /* ignore */ }
 
