@@ -241,7 +241,14 @@ export default function SopPage() {
       )}
 
       {/* Create/Edit form */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => {
+        if (!open) {
+          setNewChecklistItem('')
+          setNewMaterial('')
+          setNewProduct('')
+        }
+        setShowForm(open)
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingSop ? 'Modifier le protocole' : 'Nouveau protocole'}</DialogTitle>

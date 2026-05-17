@@ -11,12 +11,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { CheckCircle2, Download, Filter } from 'lucide-react'
+import { CheckCircle2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function HeuresPaiePage() {

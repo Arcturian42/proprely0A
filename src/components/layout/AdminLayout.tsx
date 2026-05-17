@@ -23,10 +23,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       )}
 
       {/* Sidebar */}
-      <div className={cn(
-        'fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
+      <div
+        id="app-sidebar"
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-200 will-change-transform lg:translate-x-0 lg:static lg:inset-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
         <AppSidebar />
       </div>
 
@@ -34,9 +37,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Mobile topbar with hamburger */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[rgba(0,0,0,0.08)] lg:hidden">
           <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-md hover:bg-slate-100"
-            aria-label="Menu"
+            aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={sidebarOpen}
+            aria-controls="app-sidebar"
           >
             <Menu className="w-5 h-5 text-slate-600" />
           </button>

@@ -12,13 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Lead, LeadStatus } from '@/types'
 import { LEAD_STATUS_LABELS } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
-import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit, Phone, Globe } from 'lucide-react'
+import { Plus, Search, ChevronRight, Sparkles, Trash2, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 
 const defaultForm = {

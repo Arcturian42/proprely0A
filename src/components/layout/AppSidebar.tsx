@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useRouter } from 'next/navigation'
 
 interface NavItem {
   label: string
@@ -84,6 +85,22 @@ const navSections: NavSection[] = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      const { createClient } = await import('@/lib/supabase/client')
+      await createClient().auth.signOut()
+    } catch {
+      // Supabase non configuré ou déjà déconnecté — on continue
+    }
+    try {
+      window.localStorage.removeItem('proprely-store')
+    } catch {
+      // sessionStorage indisponible — ignore
+    }
+    router.replace('/')
+  }
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
@@ -166,9 +183,7 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={() => {
-              window.location.href = '/'
-            }}>
+            <DropdownMenuItem className="text-red-600 flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Se déconnecter
             </DropdownMenuItem>

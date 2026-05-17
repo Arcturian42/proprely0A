@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/lib/store'
-import { Agent, Mission, OperationalItem, OperationalItemStatus, TimeEntry } from '@/types'
+import { Mission, OperationalItem, OperationalItemStatus, TimeEntry } from '@/types'
 import { cn } from '@/lib/utils'
 import {
   Calendar, Clock, Users, MapPin, ChevronLeft, ChevronRight,

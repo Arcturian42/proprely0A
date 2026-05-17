@@ -28,7 +28,6 @@ export default function DashboardPage() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
-  const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
 
   return (
     <AdminLayout>
