@@ -8,12 +8,10 @@ INSERT INTO companies (id, name, email, phone, address) VALUES
 
 -- One representative profile per role on company 1 (insert auth.users rows
 -- with matching UUIDs in Supabase Studio before running this in production).
+-- 4 rôles : owner, admin, sales, agent.
 INSERT INTO profiles (id, company_id, email, first_name, last_name, role) VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'owner@proprely.fr',    'Alice',  'Owner',    'owner'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'admin@proprely.fr',    'Bob',    'Admin',    'admin'),
   ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'sales@proprely.fr',    'Chloé',  'Sales',    'sales'),
-  ('aaaaaaaa-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'ops@proprely.fr',      'Diego',  'Ops',      'ops_manager'),
-  ('aaaaaaaa-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'compta@proprely.fr',   'Eva',    'Compta',   'accountant'),
-  ('aaaaaaaa-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'agent@proprely.fr',    'Farid',  'Agent',    'agent'),
-  ('aaaaaaaa-0000-0000-0000-000000000007', '11111111-1111-1111-1111-111111111111', 'viewer@proprely.fr',   'Gina',   'Viewer',   'viewer'),
+  ('aaaaaaaa-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'agent@proprely.fr',    'Farid',  'Agent',    'agent'),
   ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'owner@acme.example',   'Hugo',   'Owner',    'owner');

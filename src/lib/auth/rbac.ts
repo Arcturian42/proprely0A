@@ -15,8 +15,11 @@ const ALL_PERMISSIONS: Permission[] = [
 ]
 
 export const PERMISSIONS: Record<Role, ReadonlyArray<Permission>> = {
+  // Propriétaire : tout. Seul à pouvoir transférer la propriété + gérer billing (plus tard).
   owner: ALL_PERMISSIONS,
+  // Administrateur : tout sauf modifier l'entreprise au niveau racine (SIRET, nom, etc.).
   admin: ALL_PERMISSIONS.filter(p => p !== 'company:write'),
+  // Commercial : pipeline, devis, contrats, clients, sites. Pas de paie, pas de gestion agents.
   sales: [
     'company:read',
     'lead:read', 'lead:write',
@@ -29,39 +32,11 @@ export const PERMISSIONS: Record<Role, ReadonlyArray<Permission>> = {
     'analytics:read',
     'settings:read',
   ],
-  ops_manager: [
-    'company:read',
-    'client:read', 'client:write',
-    'site:read', 'site:write',
-    'agent:read', 'agent:write',
-    'mission:read', 'mission:write', 'mission:assign', 'mission:validate',
-    'sop:read', 'sop:write',
-    'time:read', 'time:write', 'time:validate',
-    'analytics:read',
-    'settings:read',
-  ],
-  accountant: [
-    'company:read',
-    'client:read',
-    'mission:read',
-    'time:read', 'time:validate', 'time:export',
-    'analytics:read',
-    'settings:read',
-  ],
+  // Agent d'entretien : uniquement ses propres missions + ses heures.
   agent: [
     'mission:read',
     'sop:read',
     'time:read', 'time:write',
-  ],
-  viewer: [
-    'company:read',
-    'lead:read', 'opportunity:read',
-    'client:read', 'site:read',
-    'agent:read',
-    'mission:read', 'sop:read',
-    'time:read',
-    'analytics:read',
-    'settings:read',
   ],
 }
 
@@ -73,8 +48,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Propriétaire',
   admin: 'Administrateur',
   sales: 'Commercial',
-  ops_manager: 'Responsable opérations',
-  accountant: 'Comptable',
   agent: "Agent d'entretien",
-  viewer: 'Lecteur',
 }

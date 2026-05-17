@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS invitations (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   email         TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('admin', 'agent', 'sales', 'ops_manager', 'accountant', 'viewer')),
+  role          TEXT NOT NULL CHECK (role IN ('admin', 'sales', 'agent')),
   first_name    TEXT,
   last_name     TEXT,
   token_hash    TEXT NOT NULL UNIQUE,

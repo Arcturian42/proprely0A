@@ -4,9 +4,9 @@ import { createHash, randomBytes } from 'crypto'
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import type { Role } from '@/lib/auth/types'
 
-const INVITE_ROLES = ['admin', 'agent', 'sales', 'ops_manager', 'accountant', 'viewer'] as const
+// Owner ne fait PAS partie des rôles invitables (créé uniquement au signup, 1 par entreprise).
+const INVITE_ROLES = ['admin', 'sales', 'agent'] as const
 
 const InviteSchema = z.object({
   email: z.string().email("Email invalide"),

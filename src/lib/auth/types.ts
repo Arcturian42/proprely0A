@@ -1,4 +1,4 @@
-export type Role = 'owner' | 'admin' | 'sales' | 'ops_manager' | 'accountant' | 'agent' | 'viewer'
+export type Role = 'owner' | 'admin' | 'sales' | 'agent'
 
 export type Permission =
   | 'company:read'

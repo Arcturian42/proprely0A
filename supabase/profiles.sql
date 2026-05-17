@@ -4,9 +4,7 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-    CREATE TYPE user_role AS ENUM (
-      'owner', 'admin', 'sales', 'ops_manager', 'accountant', 'agent', 'viewer'
-    );
+    CREATE TYPE user_role AS ENUM ('owner', 'admin', 'sales', 'agent');
   END IF;
 END $$;
 
@@ -16,7 +14,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   email TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  role user_role NOT NULL DEFAULT 'viewer',
+  role user_role NOT NULL DEFAULT 'agent',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

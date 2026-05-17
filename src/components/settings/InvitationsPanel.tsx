@@ -21,11 +21,8 @@ import { useCurrentRole } from '@/lib/auth'
 
 const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'admin', label: ROLE_LABELS.admin },
-  { value: 'agent', label: ROLE_LABELS.agent },
-  { value: 'ops_manager', label: ROLE_LABELS.ops_manager },
   { value: 'sales', label: ROLE_LABELS.sales },
-  { value: 'accountant', label: ROLE_LABELS.accountant },
-  { value: 'viewer', label: ROLE_LABELS.viewer },
+  { value: 'agent', label: ROLE_LABELS.agent },
 ]
 
 const STATUS_LABELS: Record<InvitationRow['status'], string> = {

@@ -22,7 +22,7 @@ import {
 } from '@/lib/auth'
 import { AuthContext } from '@/lib/auth/context'
 
-const DEV_ROLES: Role[] = ['owner', 'admin', 'sales', 'ops_manager', 'accountant', 'agent', 'viewer']
+const DEV_ROLES: Role[] = ['owner', 'admin', 'sales', 'agent']
 
 export function CompanySwitcher() {
   // Hide when running on real Supabase auth — switching tenant or role
