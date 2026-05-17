@@ -13,7 +13,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -26,10 +26,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import {
-  Plus, MapPin, Euro, CheckCircle2, Calendar, ChevronDown,
-  Sparkles, FileText, ArrowRight, MoreHorizontal
-} from 'lucide-react'
+import { Plus, MapPin, Euro, CheckCircle2, Calendar, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { CardDetailPanel } from '@/components/commercial/CardDetailPanel'
 
@@ -169,16 +166,14 @@ function KanbanColumn({
             : 'bg-transparent'
         }`}
       >
-        <AnimatePresence mode="popLayout">
-          {opportunities.map((opp) => (
-            <KanbanCard
-              key={opp.id}
-              opportunity={opp}
-              stage={stage}
-              onClick={() => onCardClick(opp)}
-            />
-          ))}
-        </AnimatePresence>
+        {opportunities.map((opp) => (
+          <KanbanCard
+            key={opp.id}
+            opportunity={opp}
+            stage={stage}
+            onClick={() => onCardClick(opp)}
+          />
+        ))}
 
         {opportunities.length === 0 && !isDraggingOver && (
           <div className={`${config.emptyBg} rounded-xl p-5 text-center border-2 border-dashed border-slate-200/70`}>
@@ -190,7 +185,7 @@ function KanbanColumn({
   )
 }
 
-// Draggable card
+// Draggable card — listeners on root element so pointer events reach @dnd-kit
 function KanbanCard({
   opportunity,
   stage,
@@ -208,37 +203,44 @@ function KanbanCard({
   })
   const config = STAGE_CONFIG[stage]
 
-  const style = transform && !isDragOverlay ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined
+  // Apply dnd-kit transform directly — no framer-motion layout (they conflict)
+  const style: React.CSSProperties = transform && !isDragOverlay
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, position: 'relative' }
+    : {}
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
       style={style}
-      layout
-      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-      animate={{ opacity: isDragging ? 0.3 : 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      className={`group relative bg-white rounded-xl border shadow-sm ${config.cardBorder} ${config.cardHover} hover:shadow-md transition-all cursor-grab active:cursor-grabbing ${isDragOverlay ? 'rotate-2 shadow-2xl scale-105' : ''}`}
+      {...listeners}
+      {...attributes}
+      className={[
+        'group relative bg-white rounded-xl border shadow-sm select-none',
+        'transition-shadow duration-150',
+        config.cardBorder,
+        isDragging ? 'opacity-30 shadow-none' : `hover:shadow-md ${config.cardHover}`,
+        isDragOverlay ? 'rotate-2 shadow-2xl scale-105 cursor-grabbing' : 'cursor-grab active:cursor-grabbing',
+      ].join(' ')}
     >
-      {/* Drag handle — whole card is draggable */}
-      <div {...attributes} {...listeners} className="absolute inset-0 z-0 rounded-xl cursor-grab active:cursor-grabbing" />
+      <div className="p-3.5">
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-1 mb-1">
+          <p className="text-sm font-semibold text-slate-900 leading-tight group-hover:text-slate-700 line-clamp-2 flex-1">
+            {opportunity.title}
+          </p>
+          {/* Open button — stops drag propagation so it's a click not a drag */}
+          <button
+            className="flex-shrink-0 w-5 h-5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-slate-400 hover:text-slate-600"
+            onPointerDown={e => e.stopPropagation()}
+            onClick={onClick}
+          >
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
 
-      {/* Click area */}
-      <div
-        className="relative z-10 p-3.5"
-        onClick={(e) => { e.stopPropagation(); onClick() }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        {/* Title */}
-        <p className="text-sm font-semibold text-slate-900 leading-tight mb-1 group-hover:text-slate-700 line-clamp-2">
-          {opportunity.title}
-        </p>
         <p className="text-xs text-slate-500 mb-2.5 truncate">{opportunity.prospect_name}</p>
 
-        {/* Tags row */}
+        {/* Tags */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {opportunity.estimated_amount && (
             <span className="inline-flex items-center gap-0.5 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium">
@@ -272,16 +274,7 @@ function KanbanCard({
           </div>
         )}
       </div>
-
-      {/* Click icon — separate from drag */}
-      <button
-        className="absolute top-2.5 right-2.5 z-20 w-5 h-5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-        onClick={(e) => { e.stopPropagation(); onClick() }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        <ArrowRight className="w-3 h-3" />
-      </button>
-    </motion.div>
+    </div>
   )
 }
 
