@@ -22,9 +22,10 @@ import {
 } from '@/lib/constants'
 import { MissionCard } from './_components/MissionCard'
 import { MissionDetailPanel } from './_components/MissionDetailPanel'
+import { EmptyState } from '@/components/shared/EmptyState'
 import {
   Search, Sparkles, AlertTriangle, Clock, TrendingUp,
-  ListChecks, Wand2,
+  ListChecks, Wand2, Gauge,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -196,7 +197,21 @@ export default function CockpitPage() {
           </div>
         </div>
 
-        {/* Kanban */}
+        {/* Kanban — ou empty state quand l'entreprise n'a aucune mission ni
+            opportunité gagnable. */}
+        {missions.length === 0 && winnableOpportunities.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={Gauge}
+              title="Le cockpit est encore vide"
+              description="Dès qu'une opportunité est gagnée ou qu'un client signe un devis, le contrat atterrit ici comme une mission à organiser."
+              actions={[
+                { label: 'Voir le pipeline', href: '/commercial/pipeline' },
+                { label: 'Créer un client', href: '/commercial/clients-sites', variant: 'outline' },
+              ]}
+            />
+          </div>
+        ) : (
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
           <div className="flex gap-3 h-full min-w-max">
             {OPERATIONAL_MISSION_STATUS_ORDER.map(status => {
@@ -247,6 +262,7 @@ export default function CockpitPage() {
             })}
           </div>
         </div>
+        )}
       </div>
 
       <MissionDetailPanel

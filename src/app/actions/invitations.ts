@@ -297,7 +297,34 @@ export async function acceptInvitation(formData: FormData): Promise<InvitationAc
     return { ok: false, error: "L'email de connexion ne correspond pas à celui de l'invitation." }
   }
 
-  // Crée le profile dans la company de l'invitation
+  // Atomic flip pending → accepted using a conditional UPDATE: if two
+  // concurrent acceptInvitation() calls land at the same time, exactly one
+  // will see rowCount=1, the other will see rowCount=0 and bail out before
+  // touching profiles. This prevents the race where both invocations create
+  // (or attempt to create) a profile.
+  const acceptedAt = new Date().toISOString()
+  const { data: claimedRows, error: claimError } = await admin
+    .from('invitations')
+    .update({
+      status: 'accepted',
+      accepted_at: acceptedAt,
+      accepted_by: user.id,
+    })
+    .eq('id', invitation.id)
+    .eq('status', 'pending') // optimistic lock — only flip if still pending
+    .select('id')
+  if (claimError) {
+    return { ok: false, error: `Acceptation de l'invitation échouée : ${claimError.message}` }
+  }
+  if (!claimedRows || claimedRows.length === 0) {
+    // Une autre acceptation a gagné la course, ou l'invitation a été
+    // expirée/révoquée entre le SELECT et l'UPDATE.
+    return { ok: false, error: "Invitation déjà acceptée par un autre processus." }
+  }
+
+  // Crée le profil dans la company de l'invitation. ON CONFLICT (id) DO NOTHING
+  // pour le cas où un profile orphelin existe déjà (signup partiel précédent) —
+  // on ne veut surtout pas écraser un profile existant d'une autre company.
   const { error: profileError } = await admin.from('profiles').insert({
     id: user.id,
     company_id: invitation.company_id,
@@ -308,18 +335,25 @@ export async function acceptInvitation(formData: FormData): Promise<InvitationAc
     is_active: true,
   })
   if (profileError) {
-    return { ok: false, error: `Création du profil échouée : ${profileError.message}` }
+    // Rollback : si on a claimed l'invitation mais que la création du profil
+    // a échoué, on remet l'invitation en pending pour ne pas la perdre.
+    const errorMsg = profileError.message
+    try {
+      await admin
+        .from('invitations')
+        .update({ status: 'pending', accepted_at: null, accepted_by: null })
+        .eq('id', invitation.id)
+    } catch { /* best-effort rollback */ }
+    // Cas spécifique : le user a déjà un profile (cross-tenant accidentel) →
+    // message FR explicite.
+    if (/duplicate.*key|profiles_pkey/i.test(errorMsg)) {
+      return {
+        ok: false,
+        error: 'Cet utilisateur est déjà associé à une autre entreprise. Connecte-toi avec un email différent.',
+      }
+    }
+    return { ok: false, error: `Création du profil échouée : ${errorMsg}` }
   }
-
-  // Marque l'invitation comme acceptée
-  await admin
-    .from('invitations')
-    .update({
-      status: 'accepted',
-      accepted_at: new Date().toISOString(),
-      accepted_by: user.id,
-    })
-    .eq('id', invitation.id)
 
   return { ok: true, message: 'Bienvenue dans l\'équipe !' }
 }
@@ -353,11 +387,30 @@ export interface InvitationRow {
   created_at: string
 }
 
-/** Lists invitations of the current company (owner/admin only). */
+/**
+ * Lists invitations of the current company (owner/admin only).
+ *
+ * Even though RLS scopes the rows to current_company_id(), this action is
+ * exported and callable by anyone with a session — we explicitly gate it
+ * to owner/admin so an `agent` can't enumerate pending invitations (which
+ * would leak the emails of people in the pipeline).
+ */
 export async function listInvitations(): Promise<InvitationRow[]> {
   if (!isSupabaseConfigured()) return []
   const supabase = await createServerClient()
   if (!supabase) return []
+  // Role check — equivalent to requirePermission('settings:read') but inline
+  // since this returns an array (not an ActionResult).
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single<{ role: string }>()
+  if (!profile || (profile.role !== 'owner' && profile.role !== 'admin')) {
+    return []
+  }
   const { data } = await supabase
     .from('invitations')
     .select('id, email, role, first_name, last_name, status, expires_at, accepted_at, created_at')

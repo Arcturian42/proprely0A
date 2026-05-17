@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
 /**
@@ -46,9 +47,48 @@ function extractSubmissionId(body: DocusealEvent): string | null {
   return id == null ? null : String(id)
 }
 
+/**
+ * Verify the HMAC-SHA256 signature Docuseal sends in the X-Docuseal-Signature
+ * header. Without this, anyone who can reach the public URL can POST a fake
+ * `submission.completed` event and mark any quote as signed (service role
+ * bypasses RLS). Use timingSafeEqual to avoid a side-channel.
+ *
+ * If DOCUSEAL_WEBHOOK_SECRET is unset (dev/staging), signature is skipped —
+ * production should always have it configured.
+ */
+function verifySignature(rawBody: string, headerSignature: string | null): boolean {
+  const secret = process.env.DOCUSEAL_WEBHOOK_SECRET
+  if (!secret) return true // dev mode — explicit opt-out
+  if (!headerSignature) return false
+  const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
+  const expectedBuf = Buffer.from(expected, 'hex')
+  // Header may be prefixed `sha256=…` or raw hex — strip the prefix defensively.
+  const provided = headerSignature.replace(/^sha256=/i, '').trim()
+  let providedBuf: Buffer
+  try {
+    providedBuf = Buffer.from(provided, 'hex')
+  } catch {
+    return false
+  }
+  if (providedBuf.length !== expectedBuf.length) return false
+  return timingSafeEqual(providedBuf, expectedBuf)
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body: DocusealEvent = await req.json()
+    // Read the raw body once for HMAC verification, then parse it ourselves.
+    const rawBody = await req.text()
+    const signature = req.headers.get('x-docuseal-signature')
+    if (!verifySignature(rawBody, signature)) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    let body: DocusealEvent
+    try {
+      body = JSON.parse(rawBody) as DocusealEvent
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
     const eventName = body.event_type ?? 'unknown'
     const submissionId = extractSubmissionId(body)
 

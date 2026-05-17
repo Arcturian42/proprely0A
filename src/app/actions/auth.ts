@@ -69,9 +69,31 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   const admin = await createServiceRoleClient()
   if (!admin) return { ok: false, error: 'Service role indisponible (SUPABASE_SERVICE_ROLE_KEY manquante).' }
 
+  const normalizedEmail = parsed.data.email.toLowerCase().trim()
+
+  // Pre-flight: réjete tout email déjà attaché à un profil existant. Sans ça,
+  // createUser ci-dessous échoue avec "User already registered" mais peut
+  // laisser un état partiel (auth.users orphelin si profile insert échoue
+  // ensuite). On veut un message FR clair à l'utilisateur en amont.
+  // listUsers accepte un filter `email.eq.` via une page paginée — ici on
+  // ne s'appuie pas dessus (pas exposé dans tous les SDK), donc on regarde
+  // côté profiles (notre source de vérité). Si un profil existe déjà avec
+  // cet email, le user a déjà un compte (et est associé à une company).
+  const { data: existingProfile } = await admin
+    .from('profiles')
+    .select('id')
+    .ilike('email', normalizedEmail)
+    .maybeSingle<{ id: string }>()
+  if (existingProfile) {
+    return {
+      ok: false,
+      error: 'Cette adresse est déjà associée à un compte Proprely. Connecte-toi avec le magic link via /login.',
+    }
+  }
+
   // 1. Crée le compte auth.users (sans email confirmé — magic link s'en charge)
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
-    email: parsed.data.email,
+    email: normalizedEmail,
     email_confirm: false,
     user_metadata: {
       first_name: parsed.data.owner_first_name,
@@ -80,43 +102,62 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     },
   })
   if (userError || !userData.user) {
-    return { ok: false, error: userError?.message ?? 'Création du compte échouée' }
+    // Cas typique : email présent dans auth.users mais pas dans profiles
+    // (un signup précédent a foiré au milieu). On signale clairement plutôt
+    // que de laisser l'erreur Supabase opaque atteindre l'utilisateur.
+    const msg = userError?.message ?? ''
+    if (/already.*(registered|exists)/i.test(msg)) {
+      return {
+        ok: false,
+        error: 'Cette adresse est déjà enregistrée auprès du fournisseur d\'auth. Contacte le support pour réconcilier ton compte.',
+      }
+    }
+    return { ok: false, error: msg || 'Création du compte échouée' }
   }
+  const userId = userData.user.id
 
-  // 2. Crée l'entreprise + le profil owner
+  // 2. Crée l'entreprise. Si ça plante, on nettoie le auth.user créé juste avant.
   const { data: companyData, error: companyError } = await admin
     .from('companies')
     .insert({ name: parsed.data.company_name })
     .select('id')
     .single()
   if (companyError || !companyData) {
-    await admin.auth.admin.deleteUser(userData.user.id)
+    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
     return { ok: false, error: companyError?.message ?? 'Création de l\'entreprise échouée' }
   }
 
+  // 3. Crée le profil owner. Si ça plante, on nettoie company + user.
   const { error: profileError } = await admin
     .from('profiles')
     .insert({
-      id: userData.user.id,
+      id: userId,
       company_id: companyData.id,
-      email: parsed.data.email,
+      email: normalizedEmail,
       first_name: parsed.data.owner_first_name,
       last_name: parsed.data.owner_last_name,
       role: 'owner',
       is_active: true,
     })
   if (profileError) {
-    await admin.from('companies').delete().eq('id', companyData.id)
-    await admin.auth.admin.deleteUser(userData.user.id)
+    try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
+    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
     return { ok: false, error: profileError.message }
   }
 
-  // 3. Envoie le magic link pour la première connexion
+  // 4. Envoie le magic link pour la première connexion. Si ça plante,
+  // l'utilisateur peut retry via /login — le compte est bien créé. On retourne
+  // OK pour ne pas inutilement detruire le compte qui marche.
   const { error: linkError } = await admin.auth.signInWithOtp({
-    email: parsed.data.email,
+    email: normalizedEmail,
     options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
   })
-  if (linkError) return { ok: false, error: linkError.message }
+  if (linkError) {
+    return {
+      ok: true,
+      message: `Compte créé, mais l'envoi du magic link a échoué (${linkError.message}). Connecte-toi via /login pour recevoir un nouveau lien.`,
+    }
+  }
 
   return { ok: true, message: 'Compte créé. Consulte ta boîte de réception pour le lien de connexion.' }
 }

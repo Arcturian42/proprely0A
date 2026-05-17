@@ -38,6 +38,7 @@ import {
   Brush,
   Grid2x2,
   HelpCircle,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -314,14 +315,20 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
   }, [aggregatedCosts, services, computedLines, visitNotes, opportunity, addQuote, goTo])
 
   // ─── Send quote ────────────────────────────────────────────────────────────
+  // `sendingQuoteId` is non-null while a Docuseal call is in flight — used to
+  // disable the Envoyer button against double-click (else the user can fire
+  // 2-3 Docuseal submissions per devis).
+  const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null)
 
   const handleSendQuote = async (quoteId: string) => {
+    if (sendingQuoteId) return // already in flight
     const quote = quotes.find(q => q.id === quoteId)
     if (!quote) return
     if (!quote.client_email) {
       toast.error('Email client requis pour envoyer le devis')
       return
     }
+    setSendingQuoteId(quoteId)
     const toastId = toast.loading('Envoi via Docuseal...')
     try {
       const res = await fetch('/api/quotes/send', {
@@ -350,6 +357,8 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     } catch (err) {
       toast.dismiss(toastId)
       toast.error(`Erreur : ${err instanceof Error ? err.message : 'Inconnu'}`)
+    } finally {
+      setSendingQuoteId(null)
     }
   }
 
@@ -388,6 +397,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
               onSend={handleSendQuote}
               onDelete={handleDeleteQuote}
               onPreview={(id) => { setCurrentDraftId(id); goTo(5) }}
+              sendingQuoteId={sendingQuoteId}
             />
           </motion.div>
         )}
@@ -462,6 +472,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
               onRegenerate={() => { goTo(1) }}
               onSend={(id) => handleSendQuote(id)}
               onBackToList={() => { goTo(0); setCurrentDraftId(null) }}
+              sendingQuoteId={sendingQuoteId}
             />
           </motion.div>
         )}
@@ -478,12 +489,14 @@ function StepList({
   onSend,
   onDelete,
   onPreview,
+  sendingQuoteId,
 }: {
   oppQuotes: Quote[]
   onNew: () => void
   onSend: (id: string) => void
   onDelete: (id: string) => void
   onPreview: (id: string) => void
+  sendingQuoteId: string | null
 }) {
   return (
     <div className="space-y-4">
@@ -538,8 +551,17 @@ function StepList({
                     <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onPreview(q.id)}>
                       <Eye className="w-3 h-3" /> Aperçu
                     </Button>
-                    <Button size="sm" className="h-7 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onSend(q.id)}>
-                      <Send className="w-3 h-3" /> Envoyer
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => onSend(q.id)}
+                      disabled={sendingQuoteId !== null}
+                    >
+                      {sendingQuoteId === q.id ? (
+                        <><Loader2 className="w-3 h-3 animate-spin" /> Envoi...</>
+                      ) : (
+                        <><Send className="w-3 h-3" /> Envoyer</>
+                      )}
                     </Button>
                   </>
                 )}
@@ -1009,6 +1031,7 @@ function StepPreview({
   onRegenerate,
   onSend,
   onBackToList,
+  sendingQuoteId,
 }: {
   quote: Quote | null
   companySettings: { name: string; address?: string; email?: string; phone?: string }
@@ -1016,6 +1039,7 @@ function StepPreview({
   onRegenerate: () => void
   onSend: (id: string) => void
   onBackToList: () => void
+  sendingQuoteId: string | null
 }) {
   if (!quote) {
     return (
@@ -1111,8 +1135,17 @@ function StepPreview({
           <RefreshCw className="w-3.5 h-3.5" /> Régénérer
         </Button>
         {quote.status === 'brouillon' && (
-          <Button size="sm" className="gap-1.5 flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onSend(quote.id)}>
-            <Send className="w-3.5 h-3.5" /> Envoyer via SignNow →
+          <Button
+            size="sm"
+            className="gap-1.5 flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => onSend(quote.id)}
+            disabled={sendingQuoteId !== null}
+          >
+            {sendingQuoteId === quote.id ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi via Docuseal...</>
+            ) : (
+              <><Send className="w-3.5 h-3.5" /> Envoyer via Docuseal →</>
+            )}
           </Button>
         )}
         {quote.status === 'envoye' && (

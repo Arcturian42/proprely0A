@@ -21,6 +21,7 @@ import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Can } from '@/components/auth/Can'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
@@ -165,6 +166,17 @@ export default function ClientsSitesPage() {
                 </Button>
               </Can>
             </div>
+            {clients.length === 0 ? (
+              <EmptyState
+                icon={Building2}
+                title="Aucun client pour l'instant"
+                description="Crée ton premier client pour démarrer un site et planifier des missions. Tu peux aussi en gagner un depuis le pipeline commercial."
+                actions={[
+                  { label: 'Créer un client', href: '#' },
+                  { label: 'Voir le pipeline', href: '/commercial/pipeline', variant: 'outline' },
+                ]}
+              />
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map(client => (
                 <Card key={client.id} className="hover:shadow-md transition-shadow">
@@ -228,6 +240,7 @@ export default function ClientsSitesPage() {
                 <div className="col-span-3 text-center py-12 text-slate-500">Aucun client trouvé</div>
               )}
             </div>
+            )}
           </TabsContent>
 
           <TabsContent value="sites">
