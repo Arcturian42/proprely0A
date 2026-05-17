@@ -37,7 +37,7 @@ export default function CockpitPage() {
 
   // Opportunités gagnées non encore matérialisées en mission "à organiser"
   const winnableOpportunities = opportunities.filter(o => {
-    if (o.stage !== 'gagnee') return false
+    if (o.stage !== 'gagne') return false
     // Cache une opp qui a déjà donné lieu à une mission "à organiser" via ce flux
     const alreadyOrganizing = missions.some(m =>
       m.client_id === o.client_id

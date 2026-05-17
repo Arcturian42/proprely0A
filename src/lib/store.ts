@@ -399,7 +399,7 @@ export const useAppStore = create<AppStore>()(
 
         set(s => ({
           opportunities: s.opportunities.map(o => o.id === opportunityId
-            ? { ...o, stage: 'gagnee', converted_to_client: true, converted_at: now, client_id: clientId!, site_id: siteId! }
+            ? { ...o, stage: 'gagne', converted_to_client: true, converted_at: now, client_id: clientId!, site_id: siteId! }
             : o
           ),
           clients: s.clients.find(c => c.id === clientId) ? s.clients : [...s.clients, client!],
