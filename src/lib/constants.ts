@@ -77,6 +77,39 @@ export const TASK_PRIORITY_LABELS: Record<string, string> = {
   haute: 'Haute',
 }
 
+export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  dmc: 'DMC (Document Médico-légal)',
+  deap: 'DEAP (Déchets)',
+  prev: 'PREV (Prévoyance)',
+  prev2: 'PREV2 (Prévoyance complémentaire)',
+  rib: 'RIB',
+  contrat: 'Contrat',
+  assurance: 'Attestation assurance',
+  autre: 'Autre',
+}
+
+export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  valide: 'Valide',
+  expire: 'Expiré',
+  en_attente: 'En attente',
+  manquant: 'Manquant',
+}
+
+export const CONTRAT_STATUS_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  envoye: 'Envoyé',
+  signe: 'Signé',
+  resilie: 'Résilié',
+  expire: 'Expiré',
+}
+
+export const CONTRAT_TYPE_LABELS: Record<string, string> = {
+  prestation: 'Prestation de service',
+  maintenance: 'Maintenance',
+  ponctuel: 'Ponctuel',
+  abonnement: 'Abonnement',
+}
+
 export const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 export const DAYS_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']

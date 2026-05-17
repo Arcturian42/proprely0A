@@ -3,8 +3,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
-  Agent, Client, Devis, Facture, Lead, Mission, MissionStatus, Opportunity,
-  OperationalItem, Site, Sop, Task, TimeEntry, ServiceType
+  Agent, Client, ClientDocument, Contrat, Devis, Facture, Lead, Mission,
+  MissionStatus, Opportunity, OperationalItem, Site, Sop, Task, TimeEntry, ServiceType
 } from '@/types'
 import {
   mockAgents, mockClients, mockLeads, mockMissions, mockOpportunities,
@@ -49,6 +49,8 @@ interface AppStore {
   devis: Devis[]
   factures: Facture[]
   tasks: Task[]
+  documents: ClientDocument[]
+  contrats: Contrat[]
   companySettings: CompanySettings
 
   // Agents
@@ -118,6 +120,16 @@ interface AppStore {
   updateTask: (id: string, data: Partial<Task>) => void
   deleteTask: (id: string) => void
 
+  // Documents
+  addDocument: (doc: ClientDocument) => void
+  updateDocument: (id: string, data: Partial<ClientDocument>) => void
+  deleteDocument: (id: string) => void
+
+  // Contrats
+  addContrat: (contrat: Contrat) => void
+  updateContrat: (id: string, data: Partial<Contrat>) => void
+  deleteContrat: (id: string) => void
+
   // Company settings
   updateCompanySettings: (settings: Partial<CompanySettings>) => void
 
@@ -154,6 +166,8 @@ export const useAppStore = create<AppStore>()(
       devis: [],
       factures: [],
       tasks: [],
+      documents: [],
+      contrats: [],
       companySettings: defaultCompanySettings,
 
       // Agents
@@ -206,6 +220,7 @@ export const useAppStore = create<AppStore>()(
           email: opp.email, phone: opp.phone,
           billing_address: opp.site_address, city: opp.city,
           client_type: opp.client_type, status: 'actif', notes: opp.notes,
+          iban: null, bic: null, titulaire_compte: null,
           created_from_opportunity_id: opp.id,
           created_at: now, updated_at: now,
         }
@@ -331,6 +346,16 @@ export const useAppStore = create<AppStore>()(
       updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
       deleteTask: (id) => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
 
+      // Documents
+      addDocument: (doc) => set(s => ({ documents: [...s.documents, doc] })),
+      updateDocument: (id, data) => set(s => ({ documents: s.documents.map(d => d.id === id ? { ...d, ...data } : d) })),
+      deleteDocument: (id) => set(s => ({ documents: s.documents.filter(d => d.id !== id) })),
+
+      // Contrats
+      addContrat: (contrat) => set(s => ({ contrats: [...s.contrats, contrat] })),
+      updateContrat: (id, data) => set(s => ({ contrats: s.contrats.map(c => c.id === id ? { ...c, ...data } : c) })),
+      deleteContrat: (id) => set(s => ({ contrats: s.contrats.filter(c => c.id !== id) })),
+
       // Company settings
       updateCompanySettings: (settings) => set(s => ({ companySettings: { ...s.companySettings, ...settings } })),
 
@@ -339,7 +364,7 @@ export const useAppStore = create<AppStore>()(
         missions: mockMissions, opportunities: mockOpportunities,
         operationalItems: mockOperationalItems, sites: mockSites,
         sops: mockSops, timeEntries: mockTimeEntries,
-        devis: [], factures: [], tasks: [],
+        devis: [], factures: [], tasks: [], documents: [], contrats: [],
       }),
     }),
     { name: 'proprely-store' }

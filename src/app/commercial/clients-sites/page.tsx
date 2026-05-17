@@ -35,6 +35,7 @@ export default function ClientsSitesPage() {
   const [clientForm, setClientForm] = useState({
     name: '', contact_name: '', email: '', phone: '', billing_address: '',
     city: '', client_type: '', status: 'actif', notes: '',
+    iban: '', bic: '', titulaire_compte: '',
   })
 
   const [siteForm, setSiteForm] = useState({
@@ -44,7 +45,7 @@ export default function ClientsSitesPage() {
 
   const handleOpenCreateClient = () => {
     setEditingClient(null)
-    setClientForm({ name: '', contact_name: '', email: '', phone: '', billing_address: '', city: '', client_type: '', status: 'actif', notes: '' })
+    setClientForm({ name: '', contact_name: '', email: '', phone: '', billing_address: '', city: '', client_type: '', status: 'actif', notes: '', iban: '', bic: '', titulaire_compte: '' })
     setShowClientForm(true)
   }
 
@@ -54,6 +55,7 @@ export default function ClientsSitesPage() {
       name: client.name, contact_name: client.contact_name || '', email: client.email || '',
       phone: client.phone || '', billing_address: client.billing_address || '',
       city: client.city || '', client_type: client.client_type || '', status: client.status, notes: client.notes || '',
+      iban: client.iban || '', bic: client.bic || '', titulaire_compte: client.titulaire_compte || '',
     })
     setShowClientForm(true)
   }
@@ -70,6 +72,7 @@ export default function ClientsSitesPage() {
     } else {
       const newClient: Client = {
         id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
+        iban: clientForm.iban || null, bic: clientForm.bic || null, titulaire_compte: clientForm.titulaire_compte || null,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addClient(newClient)
@@ -203,8 +206,15 @@ export default function ClientsSitesPage() {
                         {client.city}
                       </div>
                     )}
-                    <div className="text-xs text-slate-400">
-                      {sites.filter(s => s.client_id === client.id).length} site(s)
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400">
+                        {sites.filter(s => s.client_id === client.id).length} site(s)
+                      </span>
+                      {client.iban ? (
+                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">RIB ✓</span>
+                      ) : (
+                        <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">RIB manquant</span>
+                      )}
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenEditClient(client)}>
@@ -337,6 +347,22 @@ export default function ClientsSitesPage() {
             <div className="col-span-2">
               <Label>Notes</Label>
               <Textarea value={clientForm.notes} onChange={e => setClientForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+            </div>
+            {/* RIB section */}
+            <div className="col-span-2 pt-2 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Coordonnées bancaires (RIB)</p>
+            </div>
+            <div className="col-span-2">
+              <Label>Titulaire du compte</Label>
+              <Input value={clientForm.titulaire_compte} onChange={e => setClientForm(f => ({ ...f, titulaire_compte: e.target.value }))} placeholder="Nom du titulaire" />
+            </div>
+            <div>
+              <Label>IBAN</Label>
+              <Input value={clientForm.iban} onChange={e => setClientForm(f => ({ ...f, iban: e.target.value }))} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" className="font-mono text-xs" />
+            </div>
+            <div>
+              <Label>BIC / SWIFT</Label>
+              <Input value={clientForm.bic} onChange={e => setClientForm(f => ({ ...f, bic: e.target.value }))} placeholder="BNPAFRPP" className="font-mono text-xs" />
             </div>
           </div>
           <DialogFooter>

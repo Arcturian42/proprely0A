@@ -8,6 +8,10 @@ export type OperationalItemStatus = 'a_organiser' | 'en_cours' | 'planifie' | 'a
 export type DevisStatus = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expire'
 export type FactureStatus = 'brouillon' | 'envoyee' | 'payee' | 'retard' | 'annulee'
 export type TaskPriority = 'basse' | 'normale' | 'haute'
+export type DocumentType = 'dmc' | 'deap' | 'prev' | 'prev2' | 'rib' | 'contrat' | 'assurance' | 'autre'
+export type DocumentStatus = 'valide' | 'expire' | 'en_attente' | 'manquant'
+export type ContratStatus = 'brouillon' | 'envoye' | 'signe' | 'resilie' | 'expire'
+export type ContratType = 'prestation' | 'maintenance' | 'ponctuel' | 'abonnement'
 
 export interface Company {
   id: string
@@ -78,6 +82,10 @@ export interface Client {
   status: string
   notes: string | null
   created_from_opportunity_id: string | null
+  // RIB
+  iban: string | null
+  bic: string | null
+  titulaire_compte: string | null
   created_at: string
   updated_at: string
   sites?: Site[]
@@ -300,4 +308,49 @@ export interface Task {
   priority: TaskPriority
   created_at: string
   updated_at: string
+}
+
+export interface ClientDocument {
+  id: string
+  company_id: string
+  client_id: string
+  opportunity_id: string | null
+  type: DocumentType
+  name: string
+  status: DocumentStatus
+  expiry_date: string | null
+  notes: string | null
+  file_url: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Contrat {
+  id: string
+  company_id: string
+  client_id: string
+  opportunity_id: string | null
+  number: string
+  title: string
+  type: ContratType
+  status: ContratStatus
+  start_date: string | null
+  end_date: string | null
+  monthly_amount: number | null
+  total_amount: number | null
+  signed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AppNotification {
+  id: string
+  type: 'facture_retard' | 'validation_requise' | 'document_expire' | 'devis_sans_reponse' | 'a_organiser' | 'contrat_expire'
+  title: string
+  message: string
+  severity: 'info' | 'warning' | 'error'
+  link: string
+  created_at: string
+  read: boolean
 }

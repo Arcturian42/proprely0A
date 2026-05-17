@@ -22,6 +22,8 @@ import {
   LogOut,
   FileText,
   Receipt,
+  FolderOpen,
+  ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -52,6 +54,8 @@ const navSections: NavSection[] = [
       { label: 'Prospection IA', href: '/commercial/prospection', icon: Search },
       { label: 'Clients & Sites', href: '/commercial/clients-sites', icon: Users },
       { label: 'Devis', href: '/commercial/devis', icon: FileText },
+      { label: 'Contrats', href: '/commercial/contrats', icon: ScrollText },
+      { label: 'Documents', href: '/commercial/documents', icon: FolderOpen },
     ],
   },
   {
