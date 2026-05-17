@@ -141,7 +141,6 @@ src/
 
 supabase/
 ├── migrations/                # source de vérité du schéma (idempotent)
-├── schema.sql                 # snapshot historique du schéma initial
 └── seed.sql                   # données dev (safe sur preview vide)
 
 .github/workflows/ci.yml       # lint · typecheck · test · build sur PR
