@@ -402,8 +402,11 @@ export const mockSops: Sop[] = [
   },
 ]
 
-const today = new Date().toISOString().split('T')[0]
-const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+const _now = new Date()
+const _pad = (n: number) => String(n).padStart(2, '0')
+const _fmtLocal = (d: Date) => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`
+const today = _fmtLocal(_now)
+const tomorrow = _fmtLocal(new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() + 1))
 const inThreeDays = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
 const inFiveDays = new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0]
 const inOneWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
