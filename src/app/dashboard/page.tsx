@@ -29,6 +29,10 @@ export default function DashboardPage() {
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
   const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
 
+  const isEmpty =
+    missions.length === 0 && clients.length === 0 &&
+    agents.length === 0 && operationalItems.length === 0
+
   return (
     <AdminLayout>
       <div className="p-8 animate-fade-up">
@@ -36,6 +40,26 @@ export default function DashboardPage() {
           title="Tableau de bord"
           description={`Bonjour ! Voici un résumé de votre activité du ${formatDate(new Date())}`}
         />
+
+        {isEmpty && (
+          <Card className="mb-8 border-dashed bg-slate-50/50">
+            <CardContent className="p-8 text-center">
+              <Sun className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+              <h3 className="text-lg font-semibold mb-1">Bienvenue sur Proprely</h3>
+              <p className="text-sm text-slate-500 mb-4">
+                Aucune donnée pour l&apos;instant. Commencez par ajouter votre premier client ou inviter votre équipe.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button asChild size="sm">
+                  <Link href="/commercial/clients-sites">Ajouter un client</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/parametres?tab=equipe">Inviter mon équipe</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

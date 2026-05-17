@@ -19,6 +19,7 @@ ALTER TABLE missions           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mission_agents     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE time_entries       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_types      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quotes             ENABLE ROW LEVEL SECURITY;
 
 -- ─── companies: you can read your own row, owner can update it ───────────────
 CREATE POLICY companies_select ON companies
@@ -44,6 +45,7 @@ CREATE POLICY operational_items_tenant  ON operational_items FOR ALL USING (comp
 CREATE POLICY missions_tenant           ON missions          FOR ALL USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
 CREATE POLICY time_entries_tenant       ON time_entries      FOR ALL USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
 CREATE POLICY service_types_tenant      ON service_types     FOR ALL USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+CREATE POLICY quotes_tenant             ON quotes            FOR ALL USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
 
 -- mission_agents is a join table — scope via the parent mission.
 CREATE POLICY mission_agents_tenant ON mission_agents

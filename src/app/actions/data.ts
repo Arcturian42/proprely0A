@@ -54,7 +54,12 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     supabase.from('sites').select('*').order('created_at', { ascending: false }),
     supabase.from('leads').select('*').order('created_at', { ascending: false }),
     supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
-    supabase.from('missions').select('*').order('scheduled_date', { ascending: false }),
+    // Join mission_agents so mission.agents survives a refresh — Zustand
+    // stores the array client-side after assignAgentsToMission, but it'd be
+    // dropped on next hydrate without this select expansion.
+    supabase.from('missions')
+      .select('*, mission_agents(agent_id)')
+      .order('scheduled_date', { ascending: false }),
     supabase.from('operational_items').select('*').order('created_at', { ascending: false }),
     supabase.from('sops').select('*').order('created_at', { ascending: false }),
     supabase.from('time_entries').select('*').order('date', { ascending: false }),
@@ -62,16 +67,39 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     supabase.from('quotes').select('*').order('created_at', { ascending: false }),
   ])
 
+  const agentsList = (agents.data ?? []) as Agent[]
+  const clientsList = (clients.data ?? []) as Client[]
+  const sitesList = (sites.data ?? []) as Site[]
+  const sopsList = (sops.data ?? []) as Sop[]
+  const agentsById = new Map(agentsList.map(a => [a.id, a]))
+  const clientsById = new Map(clientsList.map(c => [c.id, c]))
+  const sitesById = new Map(sitesList.map(s => [s.id, s]))
+  const sopsById = new Map(sopsList.map(s => [s.id, s]))
+
+  // Reconstitute denormalised joins (client/site/sop/agents) on missions —
+  // the UI reads them directly (mission.client.name, mission.agents[].first_name).
+  type MissionRow = Mission & { mission_agents?: { agent_id: string }[] }
+  const missionsEnriched: Mission[] = ((missions.data ?? []) as MissionRow[]).map(m => ({
+    ...m,
+    client: m.client_id ? clientsById.get(m.client_id) : undefined,
+    site: m.site_id ? sitesById.get(m.site_id) : undefined,
+    sop: m.sop_id ? sopsById.get(m.sop_id) : undefined,
+    agents: (m.mission_agents ?? [])
+      .map(ma => agentsById.get(ma.agent_id))
+      .filter((a): a is Agent => Boolean(a)),
+    mission_agents: undefined,
+  }))
+
   return {
     ...EMPTY,
-    agents: (agents.data ?? []) as Agent[],
-    clients: (clients.data ?? []) as Client[],
-    sites: (sites.data ?? []) as Site[],
+    agents: agentsList,
+    clients: clientsList,
+    sites: sitesList,
     leads: (leads.data ?? []) as Lead[],
     opportunities: (opportunities.data ?? []) as Opportunity[],
-    missions: (missions.data ?? []) as Mission[],
+    missions: missionsEnriched,
     operationalItems: (operationalItems.data ?? []) as OperationalItem[],
-    sops: (sops.data ?? []) as Sop[],
+    sops: sopsList,
     timeEntries: (timeEntries.data ?? []) as TimeEntry[],
     serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
     quotes: (quotes.data ?? []) as Quote[],
