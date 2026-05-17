@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendForSignature } from '@/lib/yousign'
+import { sendForSignature } from '@/lib/signnow'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -204,24 +204,21 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const pdfBuffer = buildPDF(body)
 
-    // Build webhook URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
-    const webhookUrl = `${appUrl}/api/yousign/webhook`
-
-    // Send via Yousign
+    // Send via SignNow
     const result = await sendForSignature(
       quote.title,
       pdfBuffer,
-      { firstName: signerFirstName, lastName: signerLastName, email: signerEmail },
-      webhookUrl
+      { firstName: signerFirstName, lastName: signerLastName, email: signerEmail }
     )
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
 
     return NextResponse.json({
       success: true,
-      signatureRequestId: result.signatureRequestId,
+      signatureRequestId: result.documentId,
       signerUrl: result.signerUrl,
       documentId: result.documentId,
-      webhookUrl,
+      webhookUrl: `${appUrl}/api/signnow/webhook`,
     })
   } catch (err) {
     console.error('[Send Quote]', err)
