@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "off",
       // Pattern shadcn/ui (interfaces vides étendant un type DOM natif).
       "@typescript-eslint/no-empty-object-type": "off",
+      // XSS guard — passer par src/lib/sanitize.ts si on a vraiment besoin de HTML brut.
+      "react/no-danger": "error",
     },
   },
   // Override default ignores of eslint-config-next.

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AppSidebar } from './AppSidebar'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CompanySwitcher } from '@/components/dev/CompanySwitcher'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -41,6 +42,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Menu className="w-5 h-5 text-slate-600" />
           </button>
           <span className="font-semibold text-slate-800">Proprely Admin</span>
+          <div className="ml-auto">
+            <CompanySwitcher />
+          </div>
+        </div>
+
+        {/* Desktop dev tools strip */}
+        <div className="hidden lg:flex items-center justify-end gap-2 px-6 py-1.5 border-b border-dashed border-amber-200 bg-amber-50/40 empty:hidden">
+          <CompanySwitcher />
         </div>
 
         <main className="flex-1 overflow-y-auto">
