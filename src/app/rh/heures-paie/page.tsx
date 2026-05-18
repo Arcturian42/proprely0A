@@ -86,7 +86,7 @@ export default function HeuresPaiePage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader
           title="Heures & Paie"
           description="Suivi et validation des heures travaillées"

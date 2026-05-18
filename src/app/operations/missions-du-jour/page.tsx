@@ -159,7 +159,7 @@ export default function MissionsDuJourPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader
           title="Missions du jour"
           description={`Interventions du ${formatDate(new Date())}`}

@@ -168,7 +168,7 @@ export default function ClientsSitesPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader title="Clients & Sites" description="Gestion de votre portefeuille clients et sites" />
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
