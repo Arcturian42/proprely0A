@@ -111,7 +111,7 @@ export default function PlanningPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader
           title="Planning des missions"
           description="Vue calendrier de vos interventions"
