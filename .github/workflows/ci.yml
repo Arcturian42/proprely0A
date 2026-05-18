@@ -51,20 +51,20 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true # downgrade to warning until we triage current findings
 
-  deps-review:
-    name: Dependency review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    # Non-blocking for now — we want visibility on what's introduced but we
-    # don't want a transitive bump to block the beta merge. Flip to
-    # `continue-on-error: false` once we triage the current advisories.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - name: Review dependency diff
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
+  # deps-review job removed for now — actions/dependency-review-action@v4
+  # requires the "Dependency graph" feature to be enabled on the repo
+  # (Settings → Code security and analysis). Re-enable once that's on:
+  #
+  # deps-review:
+  #   name: Dependency review
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   continue-on-error: true
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/dependency-review-action@v4
+  #       with:
+  #         fail-on-severity: high
 
   e2e:
     name: Playwright smoke tests
