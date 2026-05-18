@@ -98,7 +98,7 @@ export default function HeuresPaiePage() {
         />
 
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-slate-900">{totalPlanned.toFixed(1)}h</p>

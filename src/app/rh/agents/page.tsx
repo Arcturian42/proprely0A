@@ -231,7 +231,7 @@ export default function AgentsPage() {
         />
 
         {/* Stats globales */}
-        <div className="grid grid-cols-4 gap-3 mb-5 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 mt-4">
           <KpiCard icon={Users} label="Agents actifs" value={totalActive} tint="indigo" />
           <KpiCard
             icon={Activity}

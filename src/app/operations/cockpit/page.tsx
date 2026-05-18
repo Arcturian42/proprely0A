@@ -138,7 +138,7 @@ export default function CockpitPage() {
           />
 
           {/* KPIs */}
-          <div className="grid grid-cols-4 gap-3 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <KpiCard
               icon={ListChecks}
               label="À organiser"

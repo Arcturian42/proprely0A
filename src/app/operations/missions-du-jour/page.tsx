@@ -166,7 +166,7 @@ export default function MissionsDuJourPage() {
         />
 
         {/* Today stats */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
           {(['prevue', 'en_cours', 'a_valider', 'terminee', 'probleme_signale'] as MissionStatus[]).map(status => (
             <Card key={status}>
               <CardContent className="p-4 text-center">
