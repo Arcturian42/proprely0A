@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,8 @@ export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
   const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showClientForm, setShowClientForm] = useState(false)
   const [showCsvImport, setShowCsvImport] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
@@ -136,9 +138,24 @@ export default function ClientsSitesPage() {
     setConfirmDeleteSite(null)
   }
 
-  const filteredClientsAll = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) || (c.city || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const clientTypes = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of clients) if (c.client_type) set.add(c.client_type)
+    return Array.from(set).sort()
+  }, [clients])
+
+  const filteredClientsAll = clients.filter(c => {
+    const q = search.toLowerCase()
+    const matchSearch =
+      !q ||
+      c.name.toLowerCase().includes(q) ||
+      (c.city || '').toLowerCase().includes(q) ||
+      (c.contact_name || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
+    const matchType = filterType === 'all' || c.client_type === filterType
+    const matchStatus = filterStatus === 'all' || c.status === filterStatus
+    return matchSearch && matchType && matchStatus
+  })
 
   const filteredSitesAll = sites.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) || (s.city || '').toLowerCase().includes(search.toLowerCase())
@@ -154,11 +171,35 @@ export default function ClientsSitesPage() {
       <div className="p-8">
         <PageHeader title="Clients & Sites" description="Gestion de votre portefeuille clients et sites" />
 
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input className="pl-9" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Rechercher (nom, ville, contact, email)…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          {clientTypes.length > 0 && (
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les types</SelectItem>
+                {clientTypes.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="actif">Actif</SelectItem>
+              <SelectItem value="inactif">Inactif</SelectItem>
+              <SelectItem value="prospect">Prospect</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Tabs defaultValue="clients">
