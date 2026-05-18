@@ -1,4 +1,5 @@
-import { CheckCircle2, ChevronRight, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { CheckCircle2, ChevronRight, Settings2, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
@@ -65,6 +66,20 @@ export function StepCalculation({
           {computedLines.length > 1 && (
             <AggregatedTotalCard costs={aggregatedCosts} />
           )}
+
+          <Link
+            href="/parametres?tab=simulateur"
+            target="_blank"
+            className="flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-2.5 text-[12px] text-indigo-900 hover:bg-indigo-50 transition-colors"
+          >
+            <Settings2 className="w-3.5 h-3.5 text-indigo-600 mt-0.5 flex-shrink-0" />
+            <span className="flex-1">
+              Estimation basée sur les grilles standard. Configure tes propres règles dans
+              <span className="font-medium"> Paramètres &gt; Simulateur</span> pour des
+              prix calibrés à ta structure de coûts.
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 text-indigo-400 mt-0.5 flex-shrink-0" />
+          </Link>
 
           <Button
             onClick={onNext}
