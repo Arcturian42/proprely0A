@@ -9,6 +9,8 @@ const PUBLIC_PATHS = [
   '/cgu',
   '/confidentialite',
   '/api/auth/signup',
+  '/sentry-example-page', // Sentry verification — public, not linked from UI
+  '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
 ]
 
 function isPublicPath(pathname: string): boolean {
