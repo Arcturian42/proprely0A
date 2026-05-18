@@ -34,14 +34,16 @@ export default function SignupPage() {
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Créer ton entreprise</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Tu seras propriétaire de ton espace. Tu pourras ensuite inviter tes équipes (administrateurs et agents) gratuitement.
+          Configure ton espace Proprely en quelques minutes. Tu pourras ensuite inviter ton équipe et personnaliser ton moteur de devis.
         </p>
       </div>
 
       <form action={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="owner_first_name">Prénom</Label>
+            <Label htmlFor="owner_first_name">
+              Prénom <span className="text-rose-500">*</span>
+            </Label>
             <Input
               id="owner_first_name"
               name="owner_first_name"
@@ -65,7 +67,9 @@ export default function SignupPage() {
         </div>
 
         <div>
-          <Label htmlFor="company_name">Nom de l'entreprise</Label>
+          <Label htmlFor="company_name">
+            Nom de l&apos;entreprise <span className="text-rose-500">*</span>
+          </Label>
           <Input
             id="company_name"
             name="company_name"
@@ -76,7 +80,9 @@ export default function SignupPage() {
         </div>
 
         <div>
-          <Label htmlFor="email">Email professionnel</Label>
+          <Label htmlFor="email">
+            Email professionnel <span className="text-rose-500">*</span>
+          </Label>
           <Input
             id="email"
             name="email"
@@ -88,7 +94,11 @@ export default function SignupPage() {
           />
         </div>
 
-        <Button type="submit" className="w-full gap-2" disabled={pending}>
+        <p className="text-[11px] text-slate-500">
+          <span className="text-rose-500">*</span> Champs obligatoires
+        </p>
+
+        <Button type="submit" className="w-full gap-2" disabled={pending || result?.ok}>
           {pending ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" /> Création en cours…
@@ -113,7 +123,14 @@ export default function SignupPage() {
             ) : (
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             )}
-            <p>{result.message}</p>
+            <div className="flex-1">
+              <p>{result.message}</p>
+              {result.ok && (
+                <p className="text-[12px] text-emerald-800 mt-2">
+                  Consulte ta boîte mail (et les indésirables) pour cliquer sur le lien et continuer la configuration de ton espace.
+                </p>
+              )}
+            </div>
           </div>
         )}
 

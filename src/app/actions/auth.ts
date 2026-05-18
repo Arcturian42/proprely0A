@@ -158,12 +158,41 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: profileError.message }
   }
 
-  // 4. Envoie le magic link pour la première connexion. Si ça plante,
-  // l'utilisateur peut retry via /login — le compte est bien créé. On retourne
-  // OK pour ne pas inutilement detruire le compte qui marche.
+  // 4. Initialise les tables d'onboarding. Si l'une échoue, rollback complet
+  // (profile + company + auth.user) pour laisser l'environnement propre — un
+  // signup partiel sans onboarding_status bloquerait le wizard ensuite.
+  const onboardingCleanup = async () => {
+    try { await admin.from('profiles').delete().eq('id', userId) } catch { /* best-effort */ }
+    try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
+    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
+  }
+
+  const { error: onboardingError } = await admin
+    .from('onboarding_status')
+    .insert({
+      company_id: companyData.id,
+      step_1_completed_at: new Date().toISOString(),
+    })
+  if (onboardingError) {
+    await onboardingCleanup()
+    return { ok: false, error: onboardingError.message }
+  }
+
+  const { error: pricingSettingsError } = await admin
+    .from('company_pricing_settings')
+    .insert({ company_id: companyData.id })
+  if (pricingSettingsError) {
+    try { await admin.from('onboarding_status').delete().eq('company_id', companyData.id) } catch { /* best-effort */ }
+    await onboardingCleanup()
+    return { ok: false, error: pricingSettingsError.message }
+  }
+
+  // 5. Envoie le magic link pour la première connexion. Le ?next=/onboarding/2
+  // amène l'utilisateur directement sur l'étape 2 du wizard après confirmation
+  // de l'email. Si ça plante, on garde le compte (réessai possible via /login).
   const { error: linkError } = await admin.auth.signInWithOtp({
     email: normalizedEmail,
-    options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
+    options: { emailRedirectTo: `${getOrigin()}/auth/callback?next=/onboarding/2` },
   })
   if (linkError) {
     return {

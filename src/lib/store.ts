@@ -50,9 +50,9 @@ function syncToSupabase(label: string, action: () => Promise<WriteResult>): void
 }
 
 const defaultServiceTypes: ServiceType[] = [
-  { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'st-2', company_id: 'company-1', name: 'Nettoyage médical', estimated_duration_minutes: 90, indicative_price: 120, default_sop_id: 'sop-2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'st-3', company_id: 'company-1', name: 'Vitrerie', estimated_duration_minutes: 180, indicative_price: 200, default_sop_id: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'st-1', company_id: 'company-1', name: 'Nettoyage bureaux', description: null, estimated_duration_minutes: 120, indicative_price: 150, default_sop_id: 'sop-1', is_default: true, is_active: true, sort_order: 10, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'st-2', company_id: 'company-1', name: 'Nettoyage médical', description: null, estimated_duration_minutes: 90, indicative_price: 120, default_sop_id: 'sop-2', is_default: true, is_active: true, sort_order: 20, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'st-3', company_id: 'company-1', name: 'Vitrerie', description: null, estimated_duration_minutes: 180, indicative_price: 200, default_sop_id: null, is_default: true, is_active: true, sort_order: 30, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
 ]
 
 interface CompanySettings {

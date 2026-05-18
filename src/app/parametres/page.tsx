@@ -86,9 +86,13 @@ export default function ParametresPage() {
     } else {
       const newService: ServiceType = {
         id: `st-${Date.now()}`, company_id: 'company-1', ...serviceForm,
+        description: null,
         estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
         indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,
         default_sop_id: null,
+        is_default: false,
+        is_active: true,
+        sort_order: 0,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addServiceType(newService)
