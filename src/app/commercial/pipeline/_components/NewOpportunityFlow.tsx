@@ -11,6 +11,7 @@ import { useCurrentCompanyId } from '@/lib/auth'
 import { Opportunity } from '@/types'
 import { NEXT_ACTION_TYPE_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
+import { track } from '@/lib/analytics/posthog'
 import type { CompanyHit } from '@/app/api/sirene/search/route'
 import {
   ArrowLeft, ArrowRight, X, Search, Loader2, Check, Building2, User as UserIcon,
@@ -132,6 +133,7 @@ export function NewOpportunityFlow({ open, onOpenChange }: Props) {
       updated_at: now,
     }
     addOpportunity(opp)
+    track('opportunity_created', { source: opp.source ?? 'manual', has_siret: !!opp.siret })
     toast.success(`${company.name} ajouté dans "Ouvert"`)
     onOpenChange(false)
   }

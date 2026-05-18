@@ -42,6 +42,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { track } from '@/lib/analytics/posthog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -347,6 +348,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur envoi')
       sendQuote(quoteId)
+      track('quote_sent', { quote_id: quoteId, opportunity_id: opportunity.id })
       updateQuote(quoteId, {
         docuseal_submission_id: data.submissionId ?? data.signatureRequestId,
         docuseal_signature_url: data.signerUrl,

@@ -278,11 +278,32 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
   // is implicit. We still confirm the mission belongs to us.
   const { data: mission } = await supabase
     .from('missions')
-    .select('id, company_id')
+    .select('id, company_id, scheduled_date, start_time, planned_hours')
     .eq('id', missionId)
-    .single()
+    .single<{
+      id: string
+      company_id: string
+      scheduled_date: string | null
+      start_time: string | null
+      planned_hours: number | null
+    }>()
   if (!mission || mission.company_id !== guard.caller.companyId) {
     return { ok: false, error: 'Mission introuvable' }
+  }
+
+  // Conflict detection : block hard if any agent is already booked on an
+  // overlapping mission the same day. RLS guarantees we only see same-tenant
+  // missions, so no cross-company leak here.
+  if (agentIds.length > 0 && mission.scheduled_date && mission.start_time && mission.planned_hours) {
+    const conflict = await detectAgentConflicts(
+      supabase,
+      missionId,
+      mission.scheduled_date,
+      mission.start_time,
+      mission.planned_hours,
+      agentIds,
+    )
+    if (conflict) return { ok: false, error: conflict }
   }
 
   // Figure out which agents are NEW assignments — we only email those, not
@@ -309,6 +330,67 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
 
   revalidatePath('/operations/cockpit')
   return { ok: true }
+}
+
+/**
+ * Returns a French error message describing any overlap, or null when the
+ * assignment is safe. We do this in one round-trip: fetch all same-day
+ * missions for the candidate agents (excluding the target mission), then
+ * compute overlap in JS.
+ */
+async function detectAgentConflicts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  targetMissionId: string,
+  targetDate: string,
+  targetStartTime: string,
+  targetPlannedHours: number,
+  agentIds: string[],
+): Promise<string | null> {
+  const { data: rows } = await supabase
+    .from('mission_agents')
+    .select(
+      'agent_id, mission:missions!inner(id, scheduled_date, start_time, planned_hours), agent:agents(first_name, last_name)',
+    )
+    .in('agent_id', agentIds)
+    .neq('mission_id', targetMissionId)
+    .eq('mission.scheduled_date', targetDate)
+
+  if (!rows || rows.length === 0) return null
+
+  const targetStart = toMinutes(targetStartTime)
+  const targetEnd = targetStart + Math.round(targetPlannedHours * 60)
+
+  type Row = {
+    agent_id: string
+    mission: { id: string; scheduled_date: string; start_time: string | null; planned_hours: number | null } | null
+    agent: { first_name: string | null; last_name: string | null } | null
+  }
+  for (const row of rows as Row[]) {
+    if (!row.mission?.start_time || !row.mission.planned_hours) continue
+    const otherStart = toMinutes(row.mission.start_time)
+    const otherEnd = otherStart + Math.round(row.mission.planned_hours * 60)
+    if (targetStart < otherEnd && otherStart < targetEnd) {
+      const name =
+        [row.agent?.first_name, row.agent?.last_name].filter(Boolean).join(' ') ||
+        'Un agent'
+      const fmtStart = row.mission.start_time.slice(0, 5)
+      const fmtEnd = formatMinutes(otherEnd)
+      return `${name} est déjà sur une mission le ${targetDate} de ${fmtStart} à ${fmtEnd}. Décale l'une des deux missions ou choisis un autre agent.`
+    }
+  }
+  return null
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map((s) => Number(s))
+  return (h ?? 0) * 60 + (m ?? 0)
+}
+
+function formatMinutes(total: number): string {
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
 async function notifyNewlyAssigned(

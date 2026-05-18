@@ -8,6 +8,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { track } from '@/lib/analytics/posthog'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { StepCard } from './StepCard'
@@ -92,6 +93,7 @@ export function Step3Services() {
         toast.error(res.error)
         return
       }
+      track('onboarding_step_completed', { step: 3, action: 'set_services', count: services.length })
       toast.success(res.message ?? 'Prestations enregistrées.')
       router.push('/onboarding/4')
     })
@@ -105,6 +107,7 @@ export function Step3Services() {
         return
       }
       // skipServices skipa aussi l'étape 4 automatiquement
+      track('onboarding_step_skipped', { step: 3, auto_skipped_step: 4 })
       router.push('/onboarding/5')
     })
   }

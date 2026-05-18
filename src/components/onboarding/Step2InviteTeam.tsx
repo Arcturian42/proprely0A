@@ -8,6 +8,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { track } from '@/lib/analytics/posthog'
 import {
   Select,
   SelectContent,
@@ -82,6 +83,7 @@ export function Step2InviteTeam() {
         toast.error(res.error)
         return
       }
+      track('onboarding_step_completed', { step: 2, action: 'invite_team', count: cleaned.length })
       toast.success(res.message ?? 'Invitations envoyées.')
       router.push('/onboarding/3')
     })
@@ -94,6 +96,7 @@ export function Step2InviteTeam() {
         toast.error(res.error)
         return
       }
+      track('onboarding_step_skipped', { step: 2 })
       router.push('/onboarding/3')
     })
   }
