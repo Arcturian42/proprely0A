@@ -29,6 +29,8 @@ export default function MissionsDuJourPage() {
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')
   const [filterAgent, setFilterAgent] = useState('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | MissionStatus>('all')
+  const [search, setSearch] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
   const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -39,8 +41,24 @@ export default function MissionsDuJourPage() {
   const filterByAgent = (ms: Mission[]) =>
     filterAgent === 'all' ? ms : ms.filter(m => m.agents?.some(a => a.id === filterAgent))
 
-  const todayMissions = filterByAgent(missions.filter(m => m.scheduled_date === today))
-  const weekMissions = filterByAgent(missions.filter(m => weekDates.includes(m.scheduled_date)))
+  const filterByStatus = (ms: Mission[]) =>
+    filterStatus === 'all' ? ms : ms.filter(m => m.status === filterStatus)
+
+  const filterBySearch = (ms: Mission[]) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return ms
+    return ms.filter(m =>
+      m.client?.name.toLowerCase().includes(q) ||
+      m.site?.name.toLowerCase().includes(q) ||
+      m.service_type?.toLowerCase().includes(q),
+    )
+  }
+
+  const applyFilters = (ms: Mission[]) =>
+    filterBySearch(filterByStatus(filterByAgent(ms)))
+
+  const todayMissions = applyFilters(missions.filter(m => m.scheduled_date === today))
+  const weekMissions = applyFilters(missions.filter(m => weekDates.includes(m.scheduled_date)))
 
   const handleUpdateStatus = (mission: Mission, status: MissionStatus) => {
     if (status === 'terminee') {
@@ -161,16 +179,33 @@ export default function MissionsDuJourPage() {
           ))}
         </div>
 
-        {/* Agent filter */}
-        <div className="mb-4">
+        {/* Filters */}
+        <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Recherche client / site / prestation…"
+            className="text-[13px]"
+          />
           <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger>
               <SelectValue placeholder="Filtrer par agent" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les agents</SelectItem>
               {agents.map(a => (
                 <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as 'all' | MissionStatus)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrer par statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              {(Object.keys(MISSION_STATUS_LABELS) as MissionStatus[]).map(s => (
+                <SelectItem key={s} value={s}>{MISSION_STATUS_LABELS[s]}</SelectItem>
               ))}
             </SelectContent>
           </Select>

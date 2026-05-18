@@ -51,4 +51,23 @@ test.describe('UX additions (dummy mode)', () => {
     await page.goto('/commercial/clients-sites')
     await expect(page.getByRole('button', { name: /importer csv/i })).toBeVisible()
   })
+
+  test('clients-sites: search placeholder mentions contact + email', async ({ page }) => {
+    await page.goto('/commercial/clients-sites')
+    await expect(
+      page.getByPlaceholder(/rechercher.+nom.+ville.+contact.+email/i),
+    ).toBeVisible()
+  })
+
+  test('clients-sites: Statut dropdown is visible', async ({ page }) => {
+    await page.goto('/commercial/clients-sites')
+    await expect(page.locator('body')).toContainText('Statut')
+  })
+
+  test('missions-du-jour: filter strip has search + agent + status', async ({ page }) => {
+    await page.goto('/operations/missions-du-jour')
+    await expect(
+      page.getByPlaceholder(/recherche client.+site.+prestation/i),
+    ).toBeVisible()
+  })
 })

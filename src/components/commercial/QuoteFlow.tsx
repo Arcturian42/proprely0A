@@ -10,8 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import { useCurrentCompanyId } from '@/lib/auth'
-import { Quote, Opportunity, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
-import { calculateQuotePrice, estimateFromSurface, PricingInput } from '@/lib/pricing-engine'
+import { Quote, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
+import { calculateQuotePrice, estimateFromSurface } from '@/lib/pricing-engine'
+import type {
+  ComputedServiceLine,
+  FlowStep,
+  QuoteFlowProps,
+  ServiceLine,
+} from './QuoteFlow.types'
+import {
+  COMPLEXITY_LABELS,
+  FREQUENCY_OPTIONS,
+  SERVICE_ICONS,
+  SERVICE_PILL_ORDER,
+  STEP_TITLES,
+  slideVariants,
+} from './QuoteFlow.constants'
 import { SERVICE_CATEGORY_LABELS, QUOTE_STATUS_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
@@ -32,102 +46,15 @@ import {
   Upload,
   ImageIcon,
   VideoIcon,
-  Building2,
-  Glasses,
-  Leaf,
-  Cog,
-  Brush,
-  Grid2x2,
-  HelpCircle,
   Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { track } from '@/lib/analytics/posthog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ServiceLine {
-  id: string
-  category: ServiceCategory
-  surface: string
-  complexity: 'faible' | 'moyen' | 'élevé'
-  frequency: string
-  notes: string
-}
-
-interface ComputedServiceLine {
-  line: ServiceLine
-  pricingInput: PricingInput
-  costs: QuoteCostBreakdown
-}
-
-type FlowStep = 0 | 1 | 2 | 3 | 4 | 5
-
-interface Props {
-  opportunity: Opportunity
-  onQuoteSent?: () => void
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STEP_TITLES: Record<FlowStep, string> = {
-  0: 'Devis',
-  1: 'Services',
-  2: 'Notes de visite',
-  3: 'Médias',
-  4: 'Calcul IA',
-  5: 'Aperçu & envoi',
-}
-
-const SERVICE_ICONS: Record<ServiceCategory, React.ReactNode> = {
-  bureaux_recurrent: <Building2 className="w-4 h-4" />,
-  vitres: <Glasses className="w-4 h-4" />,
-  terrasse: <Leaf className="w-4 h-4" />,
-  sols_mecanises: <Cog className="w-4 h-4" />,
-  fin_chantier: <Brush className="w-4 h-4" />,
-  moquette: <Grid2x2 className="w-4 h-4" />,
-  autre: <HelpCircle className="w-4 h-4" />,
-}
-
-const SERVICE_PILL_ORDER: ServiceCategory[] = [
-  'bureaux_recurrent',
-  'vitres',
-  'terrasse',
-  'sols_mecanises',
-  'fin_chantier',
-  'moquette',
-  'autre',
-]
-
-const FREQUENCY_OPTIONS = [
-  'Ponctuel',
-  'Quotidien',
-  'Hebdomadaire',
-  'Bimensuel',
-  'Mensuel',
-  'Trimestriel',
-]
-
-const COMPLEXITY_LABELS: Record<'faible' | 'moyen' | 'élevé', string> = {
-  faible: 'Faible',
-  moyen: 'Moyen',
-  élevé: 'Élevé',
-}
-
-// ─── Slide animation variants ─────────────────────────────────────────────────
-
-function slideVariants(direction: 'left' | 'right') {
-  return {
-    initial: { opacity: 0, x: direction === 'right' ? 40 : -40 },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: direction === 'right' ? -40 : 40 },
-  }
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
+export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   const companyId = useCurrentCompanyId()
   const { quotes, addQuote, updateQuote, deleteQuote, sendQuote, companySettings } = useAppStore()
   const oppQuotes = quotes.filter(q => q.opportunity_id === opportunity.id)
