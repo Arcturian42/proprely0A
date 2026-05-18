@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { devTestEmail, invitationEmail, quoteSentEmail } from './templates'
+import {
+  devTestEmail,
+  invitationEmail,
+  quoteSentEmail,
+  missionReminderEmail,
+  missionLateAlertEmail,
+} from './templates'
 
 describe('email templates', () => {
   describe('invitationEmail', () => {
@@ -69,6 +75,67 @@ describe('email templates', () => {
       const tpl = devTestEmail({ to: 'clement@pershingsolution.com' })
       expect(tpl.html).toContain('clement@pershingsolution.com')
       expect(tpl.text).toContain('clement@pershingsolution.com')
+    })
+  })
+
+  describe('missionReminderEmail', () => {
+    const tpl = missionReminderEmail({
+      agentFirstName: 'Marie',
+      clientName: 'Bureaux Lyon',
+      siteName: 'Tour A',
+      scheduledDate: '2026-05-20',
+      startTime: '08:30',
+      plannedHours: 4,
+      appUrl: 'https://app.proprely.fr',
+    })
+
+    it('mentions agent name in subject and body', () => {
+      expect(tpl.subject).toMatch(/rappel/i)
+      expect(tpl.html).toContain('Marie')
+    })
+
+    it('embeds the agent agenda link', () => {
+      expect(tpl.html).toContain('https://app.proprely.fr/agent/mon-agenda')
+      expect(tpl.text).toContain('https://app.proprely.fr/agent/mon-agenda')
+    })
+
+    it('mentions client + site + start time', () => {
+      expect(tpl.html).toContain('Bureaux Lyon')
+      expect(tpl.html).toContain('Tour A')
+      expect(tpl.html).toContain('08:30')
+    })
+  })
+
+  describe('missionLateAlertEmail', () => {
+    const tpl = missionLateAlertEmail({
+      managerFirstName: 'Paul',
+      clientName: 'Hôpital Sud',
+      siteName: null,
+      scheduledDate: '2026-05-18',
+      startTime: '09:00',
+      agentNames: ['Marie Dupont', 'Léo Bernard'],
+      delayMinutes: 22,
+      appUrl: 'https://app.proprely.fr',
+    })
+
+    it('uses "en retard" in subject', () => {
+      expect(tpl.subject).toMatch(/retard/i)
+      expect(tpl.subject).toContain('Hôpital Sud')
+    })
+
+    it('lists assigned agents and delay', () => {
+      expect(tpl.html).toContain('Marie Dupont')
+      expect(tpl.html).toContain('Léo Bernard')
+      expect(tpl.html).toContain('22')
+    })
+
+    it('links to the cockpit', () => {
+      expect(tpl.html).toContain('https://app.proprely.fr/operations/cockpit')
+    })
+
+    it('handles missing site name gracefully', () => {
+      expect(tpl.html).not.toContain('null')
+      expect(tpl.html).not.toContain('undefined')
     })
   })
 })
