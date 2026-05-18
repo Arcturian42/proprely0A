@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 
 import {
   createServerClient,
@@ -113,18 +112,6 @@ export default async function OnboardingLayout({
         <div className="mb-6 sm:mb-10">
           <OnboardingProgressBar currentStep={currentStep} completedSteps={completedSteps} />
         </div>
-
-        {currentStep > 2 && (
-          <div className="mb-4 sm:mb-5">
-            <Link
-              href={`/onboarding/${currentStep - 1}`}
-              className="inline-flex items-center gap-1.5 text-[12px] sm:text-[13px] text-slate-500 hover:text-slate-700"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-              Retour à l'étape précédente
-            </Link>
-          </div>
-        )}
 
         {children}
       </div>
