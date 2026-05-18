@@ -146,6 +146,26 @@ type StepField =
   | 'step_5_settings_completed_at'
   | 'step_5_settings_skipped_at'
 
+// Returns true if the step is already resolved (completed or skipped). Used
+// to make every setX action idempotent — once an owner has validated step
+// 3, hitting "Retour" and resubmitting must not duplicate rows.
+async function isStepResolved(
+  companyId: string,
+  completedField: StepField,
+  skippedField: StepField,
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false
+  const admin = await createServiceRoleClient()
+  if (!admin) return false
+  const { data } = await admin
+    .from('onboarding_status')
+    .select(`${completedField}, ${skippedField}`)
+    .eq('company_id', companyId)
+    .maybeSingle<Record<StepField, string | null>>()
+  if (!data) return false
+  return Boolean(data[completedField] || data[skippedField])
+}
+
 async function markOnboardingStep(
   companyId: string,
   field: StepField,
@@ -188,6 +208,10 @@ export async function inviteTeam(formData: FormData): Promise<OnboardingActionRe
       ok: false,
       error: parsed.error.issues[0]?.message ?? 'Liste d\'invitations invalide.',
     }
+  }
+
+  if (await isStepResolved(ownerGate.companyId, 'step_2_team_completed_at', 'step_2_team_skipped_at')) {
+    return { ok: false, error: 'Étape déjà complétée. Tu peux inviter de nouveaux collaborateurs depuis les paramètres.' }
   }
 
   if (!isSupabaseConfigured()) {
@@ -337,6 +361,9 @@ async function deliverInvitationEmail(
 export async function skipTeam(): Promise<OnboardingActionResult> {
   const ownerGate = await requireOwner()
   if (!ownerGate.ok) return ownerGate
+  if (await isStepResolved(ownerGate.companyId, 'step_2_team_completed_at', 'step_2_team_skipped_at')) {
+    return { ok: true }
+  }
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_2_team_skipped_at')
   if (!mark.ok) return mark
   revalidatePath('/onboarding')
@@ -356,6 +383,10 @@ export async function setServices(formData: FormData): Promise<OnboardingActionR
   const parsed = ServicesSchema.safeParse(payload)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Liste de prestations invalide.' }
+  }
+
+  if (await isStepResolved(ownerGate.companyId, 'step_3_services_completed_at', 'step_3_services_skipped_at')) {
+    return { ok: false, error: 'Étape déjà complétée. Tu peux gérer tes prestations depuis les paramètres.' }
   }
 
   if (!isSupabaseConfigured()) {
@@ -390,6 +421,9 @@ export async function setServices(formData: FormData): Promise<OnboardingActionR
 export async function skipServices(): Promise<OnboardingActionResult> {
   const ownerGate = await requireOwner()
   if (!ownerGate.ok) return ownerGate
+  if (await isStepResolved(ownerGate.companyId, 'step_3_services_completed_at', 'step_3_services_skipped_at')) {
+    return { ok: true }
+  }
   // Skip de l'étape 3 ⇒ skip auto de l'étape 4 (rien à pricer)
   if (isSupabaseConfigured()) {
     const admin = await createServiceRoleClient()
@@ -418,6 +452,10 @@ export async function setPricingRules(formData: FormData): Promise<OnboardingAct
   const parsed = PricingRulesSchema.safeParse(payload)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Règles de tarification invalides.' }
+  }
+
+  if (await isStepResolved(ownerGate.companyId, 'step_4_pricing_completed_at', 'step_4_pricing_skipped_at')) {
+    return { ok: false, error: 'Étape déjà complétée. Tu peux modifier la tarification depuis les paramètres.' }
   }
 
   if (!isSupabaseConfigured()) {
@@ -486,6 +524,9 @@ export async function setPricingRules(formData: FormData): Promise<OnboardingAct
 export async function skipPricing(): Promise<OnboardingActionResult> {
   const ownerGate = await requireOwner()
   if (!ownerGate.ok) return ownerGate
+  if (await isStepResolved(ownerGate.companyId, 'step_4_pricing_completed_at', 'step_4_pricing_skipped_at')) {
+    return { ok: true }
+  }
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_4_pricing_skipped_at')
   if (!mark.ok) return mark
   revalidatePath('/onboarding')
@@ -502,6 +543,10 @@ export async function setPricingSettings(formData: FormData): Promise<Onboarding
   const parsed = PricingSettingsSchema.safeParse(payload ?? {})
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Paramètres invalides.' }
+  }
+
+  if (await isStepResolved(ownerGate.companyId, 'step_5_settings_completed_at', 'step_5_settings_skipped_at')) {
+    return { ok: false, error: 'Étape déjà complétée. Tu peux modifier ces paramètres depuis les paramètres.' }
   }
 
   if (!isSupabaseConfigured()) {
@@ -543,6 +588,9 @@ export async function setPricingSettings(formData: FormData): Promise<Onboarding
 export async function skipSettings(): Promise<OnboardingActionResult> {
   const ownerGate = await requireOwner()
   if (!ownerGate.ok) return ownerGate
+  if (await isStepResolved(ownerGate.companyId, 'step_5_settings_completed_at', 'step_5_settings_skipped_at')) {
+    return { ok: true }
+  }
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_5_settings_skipped_at')
   if (!mark.ok) return mark
   revalidatePath('/onboarding')

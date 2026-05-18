@@ -60,10 +60,10 @@ export default async function OnboardingStepPage({
   const { status, services } = await loadStatusAndServices()
   const expected = String(computeNextIncompleteStep(status))
 
-  // Si l'utilisateur saute à une étape future qu'il n'a pas le droit de
-  // visiter encore (parce qu'il n'a pas complété la précédente), on le
-  // ramène à l'étape attendue. Le pas-à-pas reste strict.
-  if (step !== expected && Number(step) > Number(expected)) {
+  // Le pas-à-pas est strict : impossible de revenir modifier une étape déjà
+  // résolue, et impossible de sauter à une étape future. Toute URL hors de
+  // l'étape courante ramène à l'étape attendue.
+  if (step !== expected) {
     redirect(`/onboarding/${expected}`)
   }
 
