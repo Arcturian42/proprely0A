@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppStore } from '@/lib/store'
 import { Opportunity, OpportunityStage } from '@/types'
@@ -15,8 +13,8 @@ import { OPPORTUNITY_STAGE_LABELS, NEXT_ACTION_TYPE_LABELS } from '@/lib/constan
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   X, Phone, Mail, MapPin, Euro, Building2, Tag, Calendar, FileText,
-  CheckCircle2, Clock, Edit3, Save, Trash2, Activity, LayoutGrid,
-  ChevronRight, User, StickyNote, Files, History
+  CheckCircle2, Edit3, Save, Trash2, Activity, LayoutGrid,
+  User, StickyNote, History
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { QuoteFlow } from './QuoteFlow'
@@ -57,7 +55,6 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
 
   const oppQuotes = quotes.filter(q => q.opportunity_id === opportunity.id)
   const hasSignedQuote = oppQuotes.some(q => q.status === 'signe')
-  const hasSentQuote = oppQuotes.some(q => q.status === 'envoye')
 
   const handleSave = () => {
     updateOpportunity(opportunity.id, {

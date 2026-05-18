@@ -90,6 +90,19 @@ export default function LoginPage() {
           Créer un compte
         </Link>
       </p>
+
+      <details className="mt-6 text-xs text-slate-500">
+        <summary className="cursor-pointer hover:text-slate-700">
+          Tu n&apos;as pas reçu l&apos;email ?
+        </summary>
+        <ul className="mt-2 ml-5 list-disc space-y-1">
+          <li>Vérifie ta boîte spam / indésirables (l&apos;expéditeur est <code>noreply@proprely.fr</code> ou <code>onboarding@resend.dev</code>).</li>
+          <li>Attends 30 à 60 secondes — l&apos;envoi peut être différé.</li>
+          <li>Vérifie l&apos;orthographe de ton email — un seul caractère faux et il n&apos;arrive jamais.</li>
+          <li>Trop de tentatives en peu de temps ? Le système te bloque 10 minutes — c&apos;est une protection anti-spam.</li>
+          <li>Compte désactivé par ton admin ? Contacte-le pour qu&apos;il te réactive depuis Paramètres → Équipe.</li>
+        </ul>
+      </details>
     </div>
   )
 }

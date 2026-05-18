@@ -2,6 +2,8 @@
 
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
+import { isResendConfigured, sendEmail } from '@/lib/email/resend'
+import { missionAssignedEmail } from '@/lib/email/templates'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Permission } from '@/lib/auth/types'
@@ -47,6 +49,17 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // Pagination defaults — keep the initial hydrate snapshot under a few MB
+  // even for power users. UI can fetch more on demand later (V1).
+  // - Missions/time-entries: only the recent window matters for cockpit/planning.
+  // - Leads/opportunities: filter out closed ones (gagne/perdu are archives).
+  // - Quotes: same — terminal states stay accessible via the opportunity card.
+  const MISSIONS_LIMIT = 200
+  const TIME_ENTRIES_DAYS = 90
+  const QUOTES_LIMIT = 200
+  const LEADS_LIMIT = 500
+  const sinceISO = new Date(Date.now() - TIME_ENTRIES_DAYS * 86400000).toISOString().slice(0, 10)
+
   const [
     agents, clients, sites, leads, opportunities,
     missions, operationalItems, sops, timeEntries,
@@ -55,19 +68,31 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     supabase.from('agents').select('*').order('created_at', { ascending: false }),
     supabase.from('clients').select('*').order('created_at', { ascending: false }),
     supabase.from('sites').select('*').order('created_at', { ascending: false }),
-    supabase.from('leads').select('*').order('created_at', { ascending: false }),
-    supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
+    supabase.from('leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(LEADS_LIMIT),
+    supabase.from('opportunities')
+      .select('*')
+      .order('created_at', { ascending: false }),
     // Join mission_agents so mission.agents survives a refresh — Zustand
     // stores the array client-side after assignAgentsToMission, but it'd be
     // dropped on next hydrate without this select expansion.
     supabase.from('missions')
       .select('*, mission_agents(agent_id)')
-      .order('scheduled_date', { ascending: false }),
+      .order('scheduled_date', { ascending: false })
+      .limit(MISSIONS_LIMIT),
     supabase.from('operational_items').select('*').order('created_at', { ascending: false }),
     supabase.from('sops').select('*').order('created_at', { ascending: false }),
-    supabase.from('time_entries').select('*').order('date', { ascending: false }),
+    supabase.from('time_entries')
+      .select('*')
+      .gte('date', sinceISO)
+      .order('date', { ascending: false }),
     supabase.from('service_types').select('*').order('created_at', { ascending: false }),
-    supabase.from('quotes').select('*').order('created_at', { ascending: false }),
+    supabase.from('quotes')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(QUOTES_LIMIT),
   ])
 
   const agentsList = (agents.data ?? []) as Agent[]
@@ -123,17 +148,17 @@ export type WriteResult = { ok: true } | { ok: false; error: string }
  *
  * Joined fields (client, site, agents…) prefixed `_` in the API are stripped.
  */
+// Explicit allow-list of joined object keys to strip before upsert. Adding
+// "remove any array of objects" was tempting but silently broke legitimate
+// payloads like SOP.checklist_items[]. If you add a new join, list it here.
+const JOIN_KEYS = new Set([
+  'client', 'site', 'agents', 'sop', 'agent', 'mission', 'sites',
+])
+
 function stripJoins<T extends Record<string, unknown>>(row: T): T {
   const out = { ...row }
   for (const k of Object.keys(out)) {
-    const v = (out as Record<string, unknown>)[k]
-    if (
-      k === 'client' || k === 'site' || k === 'agents' || k === 'sop' ||
-      k === 'agent' || k === 'mission' || k === 'sites'
-    ) {
-      delete (out as Record<string, unknown>)[k]
-    } else if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
-      // Nested arrays of objects (rare) are stripped to avoid PostgREST errors
+    if (JOIN_KEYS.has(k)) {
       delete (out as Record<string, unknown>)[k]
     }
   }
@@ -260,6 +285,15 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     return { ok: false, error: 'Mission introuvable' }
   }
 
+  // Figure out which agents are NEW assignments — we only email those, not
+  // the ones who were already on the mission (would spam them on every save).
+  const { data: existing } = await supabase
+    .from('mission_agents')
+    .select('agent_id')
+    .eq('mission_id', missionId)
+  const existingIds = new Set((existing ?? []).map(r => r.agent_id))
+  const newlyAssigned = agentIds.filter(id => !existingIds.has(id))
+
   // Wipe then insert — cheaper than diffing for small N.
   await supabase.from('mission_agents').delete().eq('mission_id', missionId)
   if (agentIds.length > 0) {
@@ -267,8 +301,45 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     const { error } = await supabase.from('mission_agents').insert(rows)
     if (error) return { ok: false, error: error.message }
   }
+
+  // Best-effort notification email to newly assigned agents.
+  if (newlyAssigned.length > 0 && isResendConfigured()) {
+    notifyNewlyAssigned(supabase, missionId, newlyAssigned).catch(() => undefined)
+  }
+
   revalidatePath('/operations/cockpit')
   return { ok: true }
+}
+
+async function notifyNewlyAssigned(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  missionId: string,
+  agentIds: string[],
+): Promise<void> {
+  const { data: mission } = await supabase
+    .from('missions')
+    .select('scheduled_date, start_time, planned_hours, clients(name), sites(name)')
+    .eq('id', missionId)
+    .single()
+  if (!mission) return
+  const { data: agentRows } = await supabase
+    .from('agents')
+    .select('id, email, first_name')
+    .in('id', agentIds)
+  for (const agent of (agentRows ?? []) as { email: string | null; first_name: string }[]) {
+    if (!agent.email) continue
+    const tpl = missionAssignedEmail({
+      agentFirstName: agent.first_name || 'agent',
+      clientName: mission.clients?.name ?? 'Client',
+      siteName: mission.sites?.name ?? null,
+      scheduledDate: mission.scheduled_date,
+      startTime: mission.start_time,
+      plannedHours: mission.planned_hours,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    })
+    await sendEmail({ to: agent.email, ...tpl }).catch(() => undefined)
+  }
 }
 
 export async function upsertTimeEntry(row: TimeEntry): Promise<WriteResult> {

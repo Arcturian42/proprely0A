@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { startOfWeek } from 'date-fns'
 import { AgentProfilePanel } from './_components/AgentProfilePanel'
 import { Can } from '@/components/auth/Can'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 const defaultForm = {
   first_name: '', last_name: '', phone: '', email: '', specialty: '',
@@ -210,6 +211,18 @@ export default function AgentsPage() {
           </Select>
         </div>
 
+        {/* Empty state pour les entreprises qui n'ont aucun agent encore */}
+        {agents.length === 0 && (
+          <EmptyState
+            icon={Users}
+            title="Aucun agent dans l'équipe"
+            description="Ajoute ton premier agent d'entretien pour pouvoir l'affecter à des missions et suivre ses heures."
+            actions={[
+              { label: 'Ajouter un agent', href: '#' },
+            ]}
+          />
+        )}
+
         {/* Cartes agents */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(({ agent, summary, fatigue, skills }) => {
@@ -315,16 +328,18 @@ export default function AgentsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Modifier ${agent.first_name} ${agent.last_name}`}
                       onClick={(e) => { e.stopPropagation(); handleOpenEdit(agent) }}
                     >
-                      <Edit className="w-3 h-3" />
+                      <Edit className="w-3 h-3" aria-hidden="true" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Supprimer ${agent.first_name} ${agent.last_name}`}
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete(agent.id) }}
                     >
-                      <Trash2 className="w-3 h-3 text-rose-500" />
+                      <Trash2 className="w-3 h-3 text-rose-500" aria-hidden="true" />
                     </Button>
                   </Can>
                 </div>

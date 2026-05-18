@@ -71,6 +71,13 @@ export async function sendForSignature(
   pdfBuffer: Buffer,
   signer: SignatureSigner,
 ): Promise<SignatureResult> {
+  // Quota note: Docuseal free tier caps templates/day. Creating a template
+  // per devis (the v1 approach) can hit the limit at ~20-30 devis/day. To
+  // mitigate, we always create an ad-hoc template here — the future
+  // optimization (V1.4 in the plan) is to publish a single shared template
+  // per service_type and reference it by template_id, attaching the PDF as
+  // an attachment instead. Tracked separately to avoid risking the beta flow.
+
   // Step 1 — create a template from the PDF with a signature field.
   const tplRes = await fetch(`${API_BASE}/templates/pdf`, {
     method: 'POST',

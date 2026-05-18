@@ -6,6 +6,7 @@ import type { CurrentUser, Role, TenantCompany } from '@/lib/auth/types'
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { loadCompanyData } from '@/app/actions/data'
 import { SupabaseHydrator } from '@/components/auth/SupabaseHydrator'
+import { AnalyticsBootstrap } from '@/components/analytics/AnalyticsBootstrap'
 
 export const metadata: Metadata = {
   title: 'Proprely',
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-full bg-slate-50">
         <AuthProvider initialUser={user} initialCompanies={companies}>
           <SupabaseHydrator snapshot={snapshot} />
+          <AnalyticsBootstrap />
           {children}
         </AuthProvider>
         <Toaster position="top-right" richColors />

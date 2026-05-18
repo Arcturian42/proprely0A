@@ -24,7 +24,13 @@ export async function proxy(request: NextRequest) {
 
   // Pass-through quand Supabase n'est pas configuré (dev local sans backend).
   // L'app tourne alors en mode dummy provider — voir src/lib/auth/context.tsx.
+  // En production cela ne doit JAMAIS se produire : assertSupabaseConfiguredInProduction()
+  // (dans @/lib/supabase/server) throw au boot si une var manque. Ici on a
+  // une seconde ligne de défense en cas d'init partielle / race.
   if (!isSupabaseConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      return new NextResponse('Supabase not configured — refusing to serve', { status: 503 })
+    }
     return NextResponse.next()
   }
 

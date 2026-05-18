@@ -13,14 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Client, Site } from '@/types'
-import { formatDate } from '@/lib/utils'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Can } from '@/components/auth/Can'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 export default function ClientsSitesPage() {
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
@@ -165,6 +164,17 @@ export default function ClientsSitesPage() {
                 </Button>
               </Can>
             </div>
+            {clients.length === 0 ? (
+              <EmptyState
+                icon={Building2}
+                title="Aucun client pour l'instant"
+                description="Crée ton premier client pour démarrer un site et planifier des missions. Tu peux aussi en gagner un depuis le pipeline commercial."
+                actions={[
+                  { label: 'Créer un client', href: '#' },
+                  { label: 'Voir le pipeline', href: '/commercial/pipeline', variant: 'outline' },
+                ]}
+              />
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map(client => (
                 <Card key={client.id} className="hover:shadow-md transition-shadow">
@@ -215,8 +225,13 @@ export default function ClientsSitesPage() {
                           <Edit className="w-3 h-3 mr-1" /> Modifier
                         </Button>
                         <Can permission="client:delete">
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteClient(client.id)}>
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Supprimer le client ${client.name}`}
+                            onClick={() => setConfirmDeleteClient(client.id)}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                           </Button>
                         </Can>
                       </div>
@@ -228,6 +243,7 @@ export default function ClientsSitesPage() {
                 <div className="col-span-3 text-center py-12 text-slate-500">Aucun client trouvé</div>
               )}
             </div>
+            )}
           </TabsContent>
 
           <TabsContent value="sites">
@@ -268,11 +284,23 @@ export default function ClientsSitesPage() {
                         <TableCell>
                           <Can permission="site:write" fallback={<span className="text-xs text-slate-400">—</span>}>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditSite(site)}>
-                                <Edit className="w-3 h-3" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Modifier le site ${site.name}`}
+                                onClick={() => handleOpenEditSite(site)}
+                              >
+                                <Edit className="w-3 h-3" aria-hidden="true" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setConfirmDeleteSite(site.id)}>
-                                <Trash2 className="w-3 h-3 text-red-500" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Supprimer le site ${site.name}`}
+                                onClick={() => setConfirmDeleteSite(site.id)}
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                               </Button>
                             </div>
                           </Can>

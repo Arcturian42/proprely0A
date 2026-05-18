@@ -7,7 +7,13 @@ import { StatCard } from '@/components/shared/StatCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/lib/store'
+import {
+  useCompanyMissions,
+  useCompanyClients,
+  useCompanyAgents,
+  useCompanyOperationalItems,
+} from '@/lib/store'
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import { formatDate } from '@/lib/utils'
 import {
   Sun,
@@ -23,11 +29,14 @@ import Link from 'next/link'
 
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
-  const { missions, clients, agents, operationalItems } = useAppStore()
+  // Scoped + memoized — only re-renders when the relevant slice changes.
+  const missions = useCompanyMissions()
+  const clients = useCompanyClients()
+  const agents = useCompanyAgents()
+  const operationalItems = useCompanyOperationalItems()
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
-  const issuesMissions = missions.filter(m => m.status === 'probleme_signale')
 
   const isEmpty =
     missions.length === 0 && clients.length === 0 &&
@@ -60,6 +69,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <OnboardingChecklist
+          hasClient={clients.length > 0}
+          hasAgent={agents.length > 0}
+          hasMission={missions.length > 0}
+          hasInvitedMember={false /* TODO V1.6 : query profiles count via server action */}
+        />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
