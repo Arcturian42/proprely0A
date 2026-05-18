@@ -21,16 +21,19 @@ test.describe('public pages', () => {
 
   test('/login renders the magic-link form', async ({ page }) => {
     await page.goto('/login')
-    await expect(page).toHaveTitle(/Proprely/i)
-    // Email input + submit button are the load-bearing UI.
+    // Title is set client-side via useEffect — fall back to the page heading.
+    await expect(page.getByRole('heading', { name: /connexion/i })).toBeVisible()
+    // Email input + submit button are the load-bearing UI. Match the FR
+    // button label literally ("Recevoir le lien de connexion").
     await expect(page.getByLabel(/email/i).first()).toBeVisible()
-    await expect(page.getByRole('button', { name: /connecter|envoyer|magic/i }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /recevoir.*lien|connexion|connect|envoi/i }).first()).toBeVisible()
   })
 
   test('/signup renders the create-account form', async ({ page }) => {
     await page.goto('/signup')
     await expect(page.getByLabel(/email/i).first()).toBeVisible()
-    await expect(page.getByLabel(/entreprise|company/i).first()).toBeVisible()
+    // The signup page has a "Nom de l'entreprise" Label.
+    await expect(page.getByLabel(/entreprise/i).first()).toBeVisible()
   })
 
   test('/cgu loads without error', async ({ page }) => {

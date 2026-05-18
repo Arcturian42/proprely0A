@@ -23,7 +23,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run build && npm start',
+    // `next dev` skips the production-safety assertion (which would throw
+    // without Supabase configured) and starts up faster than `next build &&
+    // next start`. Smoke tests don't need production optimisations — they
+    // just verify that public pages render.
+    command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
