@@ -36,13 +36,15 @@ export default function LoginPage() {
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Connexion</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Entre ton email — on t'envoie un lien magique pour te connecter sans mot de passe.
+          Entre ton email — on t&apos;envoie un lien magique pour te connecter sans mot de passe.
         </p>
       </div>
 
       <form action={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div>
-          <Label htmlFor="email">Email professionnel</Label>
+          <Label htmlFor="email">
+            Email professionnel <span className="text-rose-500">*</span>
+          </Label>
           <Input
             id="email"
             name="email"
@@ -61,7 +63,7 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              <Mail className="w-4 h-4" /> Recevoir le lien de connexion
+              <Mail className="w-4 h-4" /> Recevoir mon lien de connexion
             </>
           )}
         </Button>
@@ -87,7 +89,7 @@ export default function LoginPage() {
       <p className="mt-6 text-center text-sm text-slate-600">
         Pas encore de compte ?{' '}
         <Link href="/signup" className="font-medium text-slate-900 hover:underline">
-          Créer un compte
+          Créer mon entreprise
         </Link>
       </p>
 

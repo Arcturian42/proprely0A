@@ -332,9 +332,99 @@ export interface ServiceType {
   id: string
   company_id: string
   name: string
+  description: string | null
   estimated_duration_minutes: number | null
   indicative_price: number | null
   default_sop_id: string | null
+  is_default: boolean
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+// ─── Onboarding multi-step ──────────────────────────────────────────────────
+
+export type CalculationUnit =
+  | 'm2'
+  | 'linear_meter'
+  | 'hour'
+  | 'flat_rate'
+  | 'room_count'
+  | 'floor_count'
+  | 'workstation_count'
+  | 'weekly_passes'
+  | 'other'
+
+export type RecurrenceMode =
+  | 'per_pass'
+  | 'weekly'
+  | 'monthly'
+  | 'annual_contract'
+  | 'one_shot'
+
+export type EquipmentMode =
+  | 'included'
+  | 'separate_line'
+  | 'per_quote_decision'
+
+export type ConsumablesPolicy =
+  | 'always_include'
+  | 'never_include'
+  | 'per_quote_decision'
+
+export type TravelPolicy =
+  | 'always_include'
+  | 'never_include'
+  | 'per_quote_decision'
+
+export interface OnboardingStatus {
+  company_id: string
+  step_1_completed_at: string | null
+  step_2_team_completed_at: string | null
+  step_2_team_skipped_at: string | null
+  step_3_services_completed_at: string | null
+  step_3_services_skipped_at: string | null
+  step_4_pricing_completed_at: string | null
+  step_4_pricing_skipped_at: string | null
+  step_5_settings_completed_at: string | null
+  step_5_settings_skipped_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PricingRule {
+  id: string
+  company_id: string
+  service_type_id: string
+  calculation_unit: CalculationUnit
+  calculation_unit_other: string | null
+  base_price_ht: number | null
+  estimated_time_minutes: number | null
+  recommended_agents: number | null
+  consumables_cost: number | null
+  equipment_mode: EquipmentMode | null
+  target_margin_pct: number | null
+  default_vat_rate: number | null
+  recurrence_mode: RecurrenceMode | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyPricingSettings {
+  company_id: string
+  hourly_labor_cost: number | null
+  default_target_margin_pct: number | null
+  default_vat_rate: number | null
+  consumables_policy: ConsumablesPolicy
+  travel_policy: TravelPolicy
+  equipment_mode: EquipmentMode
+  default_recurrence_mode: RecurrenceMode
+  meal_allowance_threshold_hours: number | null
+  meal_allowance_amount: number | null
+  machine_rental_daily_cost: number | null
   created_at: string
   updated_at: string
 }

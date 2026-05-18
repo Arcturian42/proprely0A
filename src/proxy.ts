@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createProxyClient, isSupabaseConfigured } from '@/lib/supabase/proxy-client'
+import { computeNextIncompleteStep, isOnboardingComplete } from '@/lib/onboarding/status'
 
 const PUBLIC_PATHS = [
   '/login',
@@ -20,6 +21,10 @@ function isPublicPath(pathname: string): boolean {
 
 function isAgentPath(pathname: string): boolean {
   return pathname === '/agent' || pathname.startsWith('/agent/')
+}
+
+function isOnboardingPath(pathname: string): boolean {
+  return pathname === '/onboarding' || pathname.startsWith('/onboarding/')
 }
 
 export async function proxy(request: NextRequest) {
@@ -51,40 +56,75 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Session + sur /login ou /signup → on charge le rôle pour landing par défaut
-  if (user && (pathname === '/login' || pathname === '/signup')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  if (!user) {
+    return response
+  }
+
+  // Une seule query profile pour toute la suite (role + company_id).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single<{ role: 'owner' | 'admin' | 'sales' | 'agent'; company_id: string }>()
+
+  // Session + sur /login ou /signup → redirige vers le landing par défaut
+  if (pathname === '/login' || pathname === '/signup') {
     const url = request.nextUrl.clone()
     url.pathname = profile?.role === 'agent' ? '/agent/mon-agenda' : '/dashboard'
     url.search = ''
     return NextResponse.redirect(url)
   }
 
-  // Role gating : agent ne voit que /agent/* (+ public + auth callback)
-  if (user && !isPublicPath(pathname)) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profile) {
-      if (profile.role === 'agent' && !isAgentPath(pathname)) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/agent/mon-agenda'
-        url.search = ''
-        return NextResponse.redirect(url)
-      }
-      if (profile.role !== 'agent' && isAgentPath(pathname)) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/dashboard'
-        url.search = ''
-        return NextResponse.redirect(url)
-      }
+  if (!profile) return response
+
+  // Onboarding gating : un owner avec onboarding non terminé doit y revenir
+  // avant d'accéder à toute autre route protégée. Les non-owners n'ont rien
+  // à voir avec le wizard (acceptInvitation gère leur premier login).
+  if (profile.role === 'owner') {
+    const onOnboarding = isOnboardingPath(pathname)
+    const { data: status } = await supabase
+      .from('onboarding_status')
+      .select(
+        'company_id, step_1_completed_at, step_2_team_completed_at, step_2_team_skipped_at, step_3_services_completed_at, step_3_services_skipped_at, step_4_pricing_completed_at, step_4_pricing_skipped_at, step_5_settings_completed_at, step_5_settings_skipped_at, completed_at, created_at, updated_at',
+      )
+      .eq('company_id', profile.company_id)
+      .maybeSingle()
+    const done = isOnboardingComplete(status)
+
+    if (!done && !onOnboarding && !isPublicPath(pathname)) {
+      const next = computeNextIncompleteStep(status)
+      const url = request.nextUrl.clone()
+      url.pathname = `/onboarding/${next}`
+      url.search = ''
+      return NextResponse.redirect(url)
     }
+
+    if (done && onOnboarding) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.search = ''
+      return NextResponse.redirect(url)
+    }
+  } else if (isOnboardingPath(pathname)) {
+    // Non-owners n'ont pas accès au wizard
+    const url = request.nextUrl.clone()
+    url.pathname = profile.role === 'agent' ? '/agent/mon-agenda' : '/dashboard'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+
+  // Role gating : agent ne voit que /agent/* (+ public + auth callback)
+  if (profile.role === 'agent' && !isAgentPath(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/agent/mon-agenda'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+  if (profile.role !== 'agent' && isAgentPath(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    url.search = ''
+    return NextResponse.redirect(url)
   }
 
   return response
