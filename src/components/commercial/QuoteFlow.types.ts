@@ -20,6 +20,9 @@ export interface ComputedServiceLine {
   line: ServiceLine
   pricingInput: PricingInput
   costs: QuoteCostBreakdown
+  /** 'db' when the breakdown comes from the user's pricing_rules,
+   *  'legacy' when it comes from the hardcoded Excel-derived grids. */
+  source: 'db' | 'legacy'
 }
 
 export type FlowStep = 0 | 1 | 2 | 3 | 4 | 5

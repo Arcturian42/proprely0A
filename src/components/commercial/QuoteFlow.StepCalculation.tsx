@@ -54,12 +54,13 @@ export function StepCalculation({
             Services analysés
           </p>
 
-          {computedLines.map(({ line, pricingInput, costs }) => (
+          {computedLines.map(({ line, pricingInput, costs, source }) => (
             <ServiceBreakdown
               key={line.id}
               line={line}
               pricingInput={pricingInput}
               costs={costs}
+              source={source}
             />
           ))}
 
@@ -97,10 +98,12 @@ function ServiceBreakdown({
   line,
   pricingInput,
   costs,
+  source,
 }: {
   line: ComputedServiceLine['line']
   pricingInput: PricingInput
   costs: QuoteCostBreakdown
+  source: ComputedServiceLine['source']
 }) {
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -109,6 +112,22 @@ function ServiceBreakdown({
         <span className="text-sm font-semibold text-slate-900 flex-1">
           {SERVICE_CATEGORY_LABELS[line.category]} {line.surface}m²
         </span>
+        {source === 'db' ? (
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700"
+            title="Calculé avec tes règles de tarification"
+          >
+            <Settings2 className="w-3 h-3" />
+            Tes règles
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"
+            title="Grilles standard — configure /parametres > Tarification pour calibrer"
+          >
+            Standard
+          </span>
+        )}
         <CheckCircle2 className="w-4 h-4 text-green-500" />
       </div>
       <div className="px-4 py-3 grid grid-cols-2 gap-2 text-xs">

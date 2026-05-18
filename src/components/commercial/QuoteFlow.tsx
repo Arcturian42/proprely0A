@@ -8,6 +8,7 @@ import { useAppStore } from '@/lib/store'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { Quote, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
 import { calculateQuotePrice, estimateFromSurface } from '@/lib/pricing-engine'
+import { computeBatchFromDb } from '@/lib/pricing/server'
 import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
 import { track } from '@/lib/analytics/posthog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -123,13 +124,40 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   const runCalculation = useCallback(async () => {
     setIsCalculating(true)
     await new Promise(r => setTimeout(r, 2000))
-    const results: ComputedServiceLine[] = services.map(line => {
+
+    // Always compute the legacy estimate — it's our fallback when no
+    // pricing_rule matches.
+    const legacy: ComputedServiceLine[] = services.map(line => {
       const surfaceNum = parseFloat(line.surface) || 0
       const pricingInput = estimateFromSurface(line.category, surfaceNum, line.complexity)
       const costs = calculateQuotePrice(pricingInput)
-      return { line, pricingInput, costs }
+      return { line, pricingInput, costs, source: 'legacy' as const }
     })
-    setComputedLines(results)
+
+    // Try the DB engine in parallel — for each service that resolves to
+    // a user-defined pricing_rule, swap in the DB-derived breakdown.
+    try {
+      const dbRes = await computeBatchFromDb(
+        services.map((line, i) => ({
+          category: line.category,
+          surface_m2: parseFloat(line.surface) || 0,
+          duration_hours: legacy[i].pricingInput.workers * legacy[i].pricingInput.hoursPerWorker,
+          agents: legacy[i].pricingInput.workers,
+        })),
+      )
+      if (dbRes.ok) {
+        for (let i = 0; i < legacy.length; i++) {
+          const dbCosts = dbRes.data[i]?.costs
+          if (dbCosts) {
+            legacy[i] = { ...legacy[i], costs: dbCosts, source: 'db' }
+          }
+        }
+      }
+    } catch {
+      // Silent fallback — legacy estimate already in place
+    }
+
+    setComputedLines(legacy)
     setIsCalculating(false)
   }, [services])
 
