@@ -2,40 +2,29 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+
 import { useAppStore } from '@/lib/store'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { Quote, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
 import { calculateQuotePrice, estimateFromSurface } from '@/lib/pricing-engine'
+import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
+import { track } from '@/lib/analytics/posthog'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+
 import type {
   ComputedServiceLine,
   FlowStep,
   QuoteFlowProps,
   ServiceLine,
 } from './QuoteFlow.types'
-import {
-  SERVICE_ICONS,
-  STEP_TITLES,
-  slideVariants,
-} from './QuoteFlow.constants'
-import { CostRow, QuoteStatusBadge, StepHeader } from './QuoteFlow.shared'
+import { slideVariants } from './QuoteFlow.constants'
 import { StepList } from './QuoteFlow.StepList'
 import { StepServices } from './QuoteFlow.StepServices'
 import { StepNotes } from './QuoteFlow.StepNotes'
 import { StepMedia } from './QuoteFlow.StepMedia'
-import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import {
-  Sparkles,
-  ChevronRight,
-  CheckCircle2,
-  Send,
-  RefreshCw,
-  Loader2,
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { track } from '@/lib/analytics/posthog'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { StepCalculation } from './QuoteFlow.StepCalculation'
+import { StepPreview } from './QuoteFlow.StepPreview'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -413,246 +402,4 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
     </div>
   )
 }
-
-// ─── Step 4: AI Calculation ───────────────────────────────────────────────────
-
-function StepCalculation({
-  isCalculating,
-  computedLines,
-  aggregatedCosts,
-  onBack,
-  onNext,
-}: {
-  isCalculating: boolean
-  computedLines: ComputedServiceLine[]
-  aggregatedCosts: QuoteCostBreakdown
-  onBack: () => void
-  onNext: () => void
-}) {
-  return (
-    <div className="space-y-5">
-      <StepHeader title={STEP_TITLES[4]} step={4} total={5} onBack={onBack} />
-
-      {isCalculating ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-5">
-          {/* Pulsing gradient orb */}
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 opacity-20 animate-ping absolute inset-0" />
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center relative">
-              <Sparkles className="w-8 h-8 text-white animate-pulse" />
-            </div>
-          </div>
-          <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-slate-800">Calcul IA en cours...</p>
-            <p className="text-xs text-slate-500">Analyse des services et estimation des coûts</p>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Services analysés</p>
-
-          {/* Per-service breakdowns */}
-          {computedLines.map(({ line, pricingInput, costs }) => (
-            <div key={line.id} className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                <span className="text-slate-600">{SERVICE_ICONS[line.category]}</span>
-                <span className="text-sm font-semibold text-slate-900 flex-1">
-                  {SERVICE_CATEGORY_LABELS[line.category]} {line.surface}m²
-                </span>
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-              </div>
-              <div className="px-4 py-3 grid grid-cols-2 gap-2 text-xs">
-                <CostRow label="Main d'œuvre" value={formatCurrency(costs.labor_cost)} />
-                <CostRow label="Machines" value={formatCurrency(costs.machines_cost)} />
-                <CostRow label="Consommables" value={formatCurrency(costs.consumables_cost)} />
-                <CostRow label="Transport" value={formatCurrency(costs.transport_cost)} />
-                <div className="col-span-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
-                  <span className="font-semibold text-slate-800">Prix HT</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(costs.price_ht)}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-slate-500">Marge</span>
-                  <span className={`font-semibold ${costs.margin_rate >= 0.35 ? 'text-green-600' : 'text-red-500'}`}>
-                    {Math.round(costs.margin_rate * 100)}% {costs.margin_rate >= 0.35 ? '✅' : '⚠️'}
-                  </span>
-                </div>
-                <div className="col-span-2 text-slate-400 text-[10px]">
-                  {pricingInput.workers} agent{pricingInput.workers > 1 ? 's' : ''} × {pricingInput.hoursPerWorker}h @ {pricingInput.hourlyLaborRate}€/h
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Aggregated total */}
-          {computedLines.length > 1 && (
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 text-white space-y-2">
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Total combiné</p>
-              <div className="flex justify-between text-sm text-slate-300">
-                <span>TOTAL HT</span>
-                <span className="font-semibold text-white">{formatCurrency(aggregatedCosts.price_ht)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-slate-400">
-                <span>TVA 20%</span>
-                <span>{formatCurrency(aggregatedCosts.price_ttc - aggregatedCosts.price_ht)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-lg border-t border-slate-700 pt-2 mt-1">
-                <span>TOTAL TTC</span>
-                <span>{formatCurrency(aggregatedCosts.price_ttc)}</span>
-              </div>
-              <p className={`text-xs ${aggregatedCosts.margin_rate >= 0.35 ? 'text-green-400' : 'text-red-400'}`}>
-                Marge globale : {Math.round(aggregatedCosts.margin_rate * 100)}% {aggregatedCosts.margin_rate >= 0.35 ? '✅' : '⚠️'}
-              </p>
-            </div>
-          )}
-
-          <Button onClick={onNext} className="w-full gap-2 h-10 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white">
-            Générer le devis <ChevronRight className="w-4 h-4 ml-auto" />
-          </Button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Step 5: Preview & Send ───────────────────────────────────────────────────
-
-function StepPreview({
-  quote,
-  companySettings,
-  onBack,
-  onRegenerate,
-  onSend,
-  onBackToList,
-  sendingQuoteId,
-}: {
-  quote: Quote | null
-  companySettings: { name: string; address?: string; email?: string; phone?: string }
-  onBack: () => void
-  onRegenerate: () => void
-  onSend: (id: string) => void
-  onBackToList: () => void
-  sendingQuoteId: string | null
-}) {
-  if (!quote) {
-    return (
-      <div className="space-y-4">
-        <StepHeader title={STEP_TITLES[5]} step={5} total={5} onBack={onBack} />
-        <p className="text-sm text-slate-500 text-center py-8">Devis introuvable</p>
-        <button onClick={onBackToList} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1">
-          ← Retour à la liste
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-5">
-      <StepHeader title={STEP_TITLES[5]} step={5} total={5} onBack={onBack} />
-
-      {/* PDF-style preview */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-700 p-5 text-white">
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <p className="font-bold text-base">{companySettings.name}</p>
-              {companySettings.address && <p className="text-slate-300 text-xs mt-0.5">{companySettings.address}</p>}
-              {companySettings.email && <p className="text-slate-300 text-xs">{companySettings.email}{companySettings.phone ? ` — ${companySettings.phone}` : ''}</p>}
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-xs text-slate-400">Devis n°</p>
-              <p className="font-mono font-bold text-base">{quote.quote_number}</p>
-              <p className="text-xs text-slate-400 mt-1">{formatDate(quote.created_at)}</p>
-              <QuoteStatusBadge status={quote.status} />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Client */}
-          <div className="bg-slate-50 rounded-lg p-3">
-            <p className="text-xs text-slate-500 mb-0.5 uppercase tracking-wide font-medium">Client</p>
-            <p className="font-semibold text-slate-900">{quote.client_name}</p>
-            {quote.client_email && <p className="text-xs text-slate-500">{quote.client_email}</p>}
-          </div>
-
-          {/* Object */}
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Objet</p>
-            <p className="font-semibold text-slate-900 text-sm">{quote.title}</p>
-            {quote.surface_m2 && <p className="text-xs text-slate-500 mt-0.5">Surface totale : {quote.surface_m2} m²</p>}
-          </div>
-
-          {/* Line items */}
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Détail des prestations</p>
-            <div className="space-y-0.5">
-              {quote.line_items.map(li => (
-                <div key={li.id} className="flex justify-between text-sm py-1.5 border-b border-slate-100 last:border-0 gap-2">
-                  <span className="text-slate-700 flex-1 pr-2 text-xs">{li.description}</span>
-                  <span className="text-slate-400 text-xs whitespace-nowrap">{li.quantity} {li.unit}</span>
-                  <span className="font-medium text-slate-900 text-xs text-right w-16 flex-shrink-0">{formatCurrency(li.total)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-200">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>Total HT</span><span>{formatCurrency(quote.costs.price_ht)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-slate-400">
-              <span>TVA (20%)</span><span>{formatCurrency(quote.costs.price_ttc - quote.costs.price_ht)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base text-slate-900 pt-1.5 border-t border-slate-200">
-              <span>Total TTC</span><span>{formatCurrency(quote.costs.price_ttc)}</span>
-            </div>
-            <p className={`text-xs ${quote.costs.margin_rate >= 0.35 ? 'text-green-600' : 'text-amber-600'}`}>
-              Marge : {Math.round(quote.costs.margin_rate * 100)}%
-            </p>
-          </div>
-
-          {/* Signature zone */}
-          <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center mt-2">
-            <p className="text-xs text-slate-400">Zone de signature électronique</p>
-            <p className="text-xs text-slate-300 mt-0.5">Envoyé via SignNow</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={onRegenerate}>
-          <RefreshCw className="w-3.5 h-3.5" /> Régénérer
-        </Button>
-        {quote.status === 'brouillon' && (
-          <Button
-            size="sm"
-            className="gap-1.5 flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => onSend(quote.id)}
-            disabled={sendingQuoteId !== null}
-          >
-            {sendingQuoteId === quote.id ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi via Docuseal...</>
-            ) : (
-              <><Send className="w-3.5 h-3.5" /> Envoyer via Docuseal →</>
-            )}
-          </Button>
-        )}
-        {quote.status === 'envoye' && (
-          <Button size="sm" className="gap-1.5 flex-1 bg-green-600 hover:bg-green-700 text-white" disabled>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Envoyé
-          </Button>
-        )}
-      </div>
-
-      <button onClick={onBackToList} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 transition-colors py-1">
-        ← Retour à la liste des devis
-      </button>
-    </div>
-  )
-}
-
-// ─── Shared sub-components ────────────────────────────────────────────────────
 
