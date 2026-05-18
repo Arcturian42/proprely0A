@@ -187,6 +187,61 @@ export async function createRecurrence(formData: FormData): Promise<RecurrenceAc
   return { ok: true, createdCount, message: `Récurrence créée. ${createdCount} mission(s) générée(s).` }
 }
 
+export interface RecurrenceListRow {
+  id: string
+  site_id: string
+  site_name: string | null
+  service_type: string | null
+  planned_hours: number | null
+  start_time: string | null
+  frequency: 'weekly' | 'biweekly' | 'monthly'
+  weekday: number | null
+  day_of_month: number | null
+  starts_on: string
+  ends_on: string | null
+  last_generated_date: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export async function loadRecurrences(): Promise<RecurrenceListRow[]> {
+  if (!isSupabaseConfigured()) return []
+  const gate = await requirePermission('mission:read')
+  if (!gate.ok) return []
+  const admin = await createServiceRoleClient()
+  if (!admin) return []
+  const { data } = await admin
+    .from('mission_recurrences')
+    .select(
+      'id, site_id, service_type, planned_hours, start_time, frequency, weekday, day_of_month, starts_on, ends_on, last_generated_date, is_active, created_at, site:sites(name)',
+    )
+    .eq('company_id', gate.caller.companyId)
+    .order('created_at', { ascending: false })
+  return (data ?? []).map((r) => {
+    // Supabase joins may return site as object or array depending on FK shape
+    const row = r as Omit<RecurrenceListRow, 'site_name'> & {
+      site: { name: string } | { name: string }[] | null
+    }
+    const siteEntry = Array.isArray(row.site) ? row.site[0] : row.site
+    return {
+      id: row.id,
+      site_id: row.site_id,
+      site_name: siteEntry?.name ?? null,
+      service_type: row.service_type,
+      planned_hours: row.planned_hours,
+      start_time: row.start_time,
+      frequency: row.frequency,
+      weekday: row.weekday,
+      day_of_month: row.day_of_month,
+      starts_on: row.starts_on,
+      ends_on: row.ends_on,
+      last_generated_date: row.last_generated_date,
+      is_active: row.is_active,
+      created_at: row.created_at,
+    }
+  })
+}
+
 export async function deactivateRecurrence(id: string): Promise<RecurrenceActionResult> {
   const gate = await requirePermission('mission:write')
   if (!gate.ok) return { ok: false, error: gate.error }
