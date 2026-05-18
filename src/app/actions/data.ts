@@ -4,6 +4,7 @@ import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
 import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { missionAssignedEmail } from '@/lib/email/templates'
+import { hasTimeOverlap, minutesToTime, timeToMinutes } from '@/lib/scheduling/overlap'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Permission } from '@/lib/auth/types'
@@ -336,7 +337,7 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
  * Returns a French error message describing any overlap, or null when the
  * assignment is safe. We do this in one round-trip: fetch all same-day
  * missions for the candidate agents (excluding the target mission), then
- * compute overlap in JS.
+ * compute overlap in JS via the pure hasTimeOverlap helper.
  */
 async function detectAgentConflicts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -358,39 +359,31 @@ async function detectAgentConflicts(
 
   if (!rows || rows.length === 0) return null
 
-  const targetStart = toMinutes(targetStartTime)
-  const targetEnd = targetStart + Math.round(targetPlannedHours * 60)
-
   type Row = {
     agent_id: string
     mission: { id: string; scheduled_date: string; start_time: string | null; planned_hours: number | null } | null
     agent: { first_name: string | null; last_name: string | null } | null
   }
+  const target = { start_time: targetStartTime, planned_hours: targetPlannedHours }
   for (const row of rows as Row[]) {
     if (!row.mission?.start_time || !row.mission.planned_hours) continue
-    const otherStart = toMinutes(row.mission.start_time)
-    const otherEnd = otherStart + Math.round(row.mission.planned_hours * 60)
-    if (targetStart < otherEnd && otherStart < targetEnd) {
+    const other = {
+      start_time: row.mission.start_time,
+      planned_hours: row.mission.planned_hours,
+    }
+    if (hasTimeOverlap(target, other)) {
       const name =
         [row.agent?.first_name, row.agent?.last_name].filter(Boolean).join(' ') ||
         'Un agent'
       const fmtStart = row.mission.start_time.slice(0, 5)
-      const fmtEnd = formatMinutes(otherEnd)
+      const otherEnd =
+        timeToMinutes(row.mission.start_time) +
+        Math.round(row.mission.planned_hours * 60)
+      const fmtEnd = minutesToTime(otherEnd)
       return `${name} est déjà sur une mission le ${targetDate} de ${fmtStart} à ${fmtEnd}. Décale l'une des deux missions ou choisis un autre agent.`
     }
   }
   return null
-}
-
-function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map((s) => Number(s))
-  return (h ?? 0) * 60 + (m ?? 0)
-}
-
-function formatMinutes(total: number): string {
-  const h = Math.floor(total / 60)
-  const m = total % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
 async function notifyNewlyAssigned(
