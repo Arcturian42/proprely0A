@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useCompanySites } from '@/lib/store'
+import { track } from '@/lib/analytics/posthog'
 import {
   createRecurrence,
   deactivateRecurrence,
@@ -135,6 +136,11 @@ export function RecurrencesPanel() {
         toast.error(res.error)
         return
       }
+      track('recurrence_created', {
+        frequency: payload.frequency,
+        has_end_date: !!payload.ends_on,
+        generated_count: res.createdCount ?? 0,
+      })
       toast.success(res.message ?? 'Récurrence créée.')
       setShowForm(false)
       setForm(emptyForm())
@@ -151,6 +157,7 @@ export function RecurrencesPanel() {
         toast.error(res.error)
         return
       }
+      track('recurrence_deactivated', { recurrence_id: id })
       toast.success('Récurrence désactivée.')
       setConfirmDeactivateId(null)
       refresh()
