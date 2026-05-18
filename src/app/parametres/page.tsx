@@ -170,7 +170,7 @@ export default function ParametresPage() {
                 <Plus className="w-4 h-4" /> Nouveau type
               </Button>
             </div>
-            <Card>
+            <Card className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
