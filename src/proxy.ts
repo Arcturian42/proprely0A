@@ -11,7 +11,6 @@ const PUBLIC_PATHS = [
   '/api/auth/signup',
   '/api/health',           // Public liveness probe — for uptime monitors
   '/sentry-example-page',  // Sentry verification — public, not linked from UI
-  '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
 ]
 
 function isPublicPath(pathname: string): boolean {
