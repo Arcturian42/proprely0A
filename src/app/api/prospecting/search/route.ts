@@ -1,5 +1,23 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { requireAuthenticatedProfile } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rate-limit'
+
+const SearchBodySchema = z.object({
+  category: z.string().max(50).optional(),
+  size: z.string().max(20).optional(),
+  surface: z.string().max(20).optional(),
+  location: z
+    .object({
+      type: z.enum(['city', 'postcode', 'departement', 'region']).optional(),
+      value: z.string().max(100).optional(),
+    })
+    .optional(),
+  quality: z.string().max(50).optional(),
+  page: z.number().int().min(1).max(100).optional(),
+  exclude: z.array(z.string().max(20)).max(200).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+})
 
 // Maps the wizard "business category" to NAF activity codes used by the
 // recherche-entreprises.api.gouv.fr API (SIRENE-based public dataset).
@@ -31,25 +49,27 @@ const TRANCHE_MIDPOINT: Record<string, number> = {
   '42': 1500, '51': 3500, '52': 7500, '53': 12000,
 }
 
-interface SearchBody {
-  category?: string
-  size?: string
-  surface?: string
-  location?: { type?: 'city' | 'postcode' | 'departement' | 'region'; value?: string }
-  quality?: string
-  page?: number
-  exclude?: string[]
-  limit?: number
-}
-
 export async function POST(req: Request) {
   const gate = await requireAuthenticatedProfile()
   if (gate instanceof NextResponse) return gate
 
-  let body: SearchBody = {}
-  try { body = await req.json() } catch { /* ignore */ }
+  // 20 recherches / min / user — la recherche est exploratoire mais bornée.
+  const rl = rateLimit(`prospecting:${gate.userId}`, 20, 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { leads: [], total: 0, error: 'Trop de recherches. Réessaie dans une minute.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+    )
+  }
 
-  const { category, size, location, quality, page = 1, exclude = [], limit = 5 } = body
+  let rawBody: unknown = {}
+  try { rawBody = await req.json() } catch { /* ignore */ }
+  const parsed = SearchBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ leads: [], total: 0, error: 'Paramètres invalides.' }, { status: 400 })
+  }
+
+  const { category, size, location, quality, page = 1, exclude = [], limit = 5 } = parsed.data
 
   const params = new URLSearchParams()
   params.set('page', String(page))

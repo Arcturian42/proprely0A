@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { requireAuthenticatedProfile } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Autocomplete-style company lookup against the public French SIRENE-based
 // API (recherche-entreprises.api.gouv.fr — no auth, ~7 req/s anonymous).
 // Used by the "New Opportunity" wizard, step 1.
+
+const QuerySchema = z
+  .object({
+    q: z.string().trim().min(2).max(100).optional(),
+    siret: z.string().trim().regex(/^\d{9,14}$/).optional(),
+  })
+  .refine((d) => d.q || d.siret, { message: 'q ou siret requis' })
 
 export interface CompanyHit {
   siren: string
@@ -44,16 +53,27 @@ export async function GET(req: Request) {
   if (gate instanceof NextResponse) return gate
 
   const url = new URL(req.url)
-  const q = url.searchParams.get('q')?.trim()
-  const siret = url.searchParams.get('siret')?.trim()
+  const parsed = QuerySchema.safeParse({
+    q: url.searchParams.get('q') ?? undefined,
+    siret: url.searchParams.get('siret') ?? undefined,
+  })
+  if (!parsed.success) {
+    return NextResponse.json({ results: [] })
+  }
 
-  if (!q && !siret) return NextResponse.json({ results: [] })
-  if (q && q.length < 2 && !siret) return NextResponse.json({ results: [] })
+  // 30 lookups / min / user — autocomplete triggers fast, but bounded.
+  const rl = rateLimit(`sirene:${gate.userId}`, 30, 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { results: [], error: 'Trop de recherches. Réessaie dans une minute.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+    )
+  }
 
   const params = new URLSearchParams()
   params.set('per_page', '8')
   params.set('etat_administratif', 'A')
-  params.set('q', siret || q || '')
+  params.set('q', parsed.data.siret || parsed.data.q || '')
 
   const endpoint = `https://recherche-entreprises.api.gouv.fr/search?${params.toString()}`
 
