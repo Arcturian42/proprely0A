@@ -5,6 +5,7 @@ import { AppSidebar } from './AppSidebar'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CompanySwitcher } from '@/components/dev/CompanySwitcher'
+import { GlobalSearch } from '@/components/shared/GlobalSearch'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -56,6 +57,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {children}
         </main>
       </div>
+
+      <GlobalSearch />
     </div>
   )
 }

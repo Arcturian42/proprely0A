@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { track } from '@/lib/analytics/posthog'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -366,9 +367,15 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     }
   }
 
+  const [confirmDeleteQuoteId, setConfirmDeleteQuoteId] = useState<string | null>(null)
   const handleDeleteQuote = (quoteId: string) => {
-    deleteQuote(quoteId)
+    setConfirmDeleteQuoteId(quoteId)
+  }
+  const confirmQuoteDeletion = () => {
+    if (!confirmDeleteQuoteId) return
+    deleteQuote(confirmDeleteQuoteId)
     toast.success('Devis supprimé')
+    setConfirmDeleteQuoteId(null)
   }
 
   // ─── Reset / start flow ────────────────────────────────────────────────────
@@ -481,6 +488,16 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmDeleteQuoteId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteQuoteId(null) }}
+        title="Supprimer ce devis ?"
+        description="Cette action est irréversible. Le devis et tous ses détails seront définitivement perdus."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={confirmQuoteDeletion}
+      />
     </div>
   )
 }
