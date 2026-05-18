@@ -78,15 +78,28 @@ export function RecurrencesPanel() {
   const [deactivating, startDeactivate] = useTransition()
   const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null)
 
-  function refresh() {
-    setLoading(true)
-    loadRecurrences()
-      .then((data) => setRows(data))
-      .catch(() => toast.error('Impossible de charger les récurrences.'))
-      .finally(() => setLoading(false))
-  }
+  // Bumping this counter from anywhere in the component triggers a refetch.
+  // We keep the actual fetch inside the effect so React 19's strict
+  // set-state-in-effect rule doesn't fire — refresh just nudges the deps.
+  const [refreshTick, setRefreshTick] = useState(0)
+  const refresh = () => setRefreshTick((t) => t + 1)
 
-  useEffect(refresh, [])
+  useEffect(() => {
+    let cancelled = false
+    loadRecurrences()
+      .then((data) => {
+        if (!cancelled) setRows(data)
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Impossible de charger les récurrences.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshTick])
 
   function update(patch: Partial<FormState>) {
     setForm((f) => ({ ...f, ...patch }))
