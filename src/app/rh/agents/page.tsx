@@ -16,6 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
+import { Pager, paginate } from '@/components/shared/Pager'
+import { usePagination } from '@/lib/hooks/usePagination'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import {
   AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR,
@@ -73,6 +75,9 @@ export default function AgentsPage() {
     const matchExp = filterExpertise === 'all' || allSkills.has(filterExpertise)
     return matchSearch && matchStatus && matchContract && matchExp
   }), [enriched, search, filterStatus, filterContract, filterExpertise])
+
+  const { page, setPage, pageSize } = usePagination({ total: filtered.length, pageSize: 12 })
+  const paginated = paginate(filtered, page, pageSize)
 
   // Stats
   const totalActive = agents.filter(a => a.status === 'disponible' || a.status === 'occupe').length
@@ -282,7 +287,7 @@ export default function AgentsPage() {
 
         {/* Cartes agents */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map(({ agent, summary, fatigue, skills }) => {
+          {paginated.map(({ agent, summary, fatigue, skills }) => {
             const loadPct = Math.min(100, summary.loadRatio * 100)
             const overloadedAgent = summary.loadRatio > 1
             return (
@@ -410,6 +415,13 @@ export default function AgentsPage() {
             </div>
           )}
         </div>
+        <Pager
+          page={page}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          label="agents"
+        />
       </div>
 
       {/* Form dialog (édition rapide infos de base) */}

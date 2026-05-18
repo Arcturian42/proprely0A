@@ -17,6 +17,8 @@ import { useAppStore } from '@/lib/store'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
+import { Pager, paginate } from '@/components/shared/Pager'
+import { usePagination } from '@/lib/hooks/usePagination'
 import { Client, Site } from '@/types'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -134,13 +136,18 @@ export default function ClientsSitesPage() {
     setConfirmDeleteSite(null)
   }
 
-  const filteredClients = clients.filter(c =>
+  const filteredClientsAll = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) || (c.city || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const filteredSites = sites.filter(s =>
+  const filteredSitesAll = sites.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) || (s.city || '').toLowerCase().includes(search.toLowerCase())
   )
+
+  const clientsPager = usePagination({ total: filteredClientsAll.length, pageSize: 20 })
+  const sitesPager = usePagination({ total: filteredSitesAll.length, pageSize: 20 })
+  const filteredClients = paginate(filteredClientsAll, clientsPager.page, clientsPager.pageSize)
+  const filteredSites = paginate(filteredSitesAll, sitesPager.page, sitesPager.pageSize)
 
   return (
     <AdminLayout>
@@ -186,6 +193,7 @@ export default function ClientsSitesPage() {
                 ]}
               />
             ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map(client => (
                 <Card key={client.id} className="hover:shadow-md transition-shadow">
@@ -250,10 +258,18 @@ export default function ClientsSitesPage() {
                   </CardContent>
                 </Card>
               ))}
-              {filteredClients.length === 0 && (
+              {filteredClientsAll.length === 0 && (
                 <div className="col-span-3 text-center py-12 text-slate-500">Aucun client trouvé</div>
               )}
             </div>
+            <Pager
+              page={clientsPager.page}
+              pageSize={clientsPager.pageSize}
+              total={filteredClientsAll.length}
+              onPageChange={clientsPager.setPage}
+              label="clients"
+            />
+            </>
             )}
           </TabsContent>
 
@@ -319,13 +335,20 @@ export default function ClientsSitesPage() {
                       </TableRow>
                     )
                   })}
-                  {filteredSites.length === 0 && (
+                  {filteredSitesAll.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-slate-500">Aucun site trouvé</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+              <Pager
+                page={sitesPager.page}
+                pageSize={sitesPager.pageSize}
+                total={filteredSitesAll.length}
+                onPageChange={sitesPager.setPage}
+                label="sites"
+              />
             </Card>
           </TabsContent>
         </Tabs>

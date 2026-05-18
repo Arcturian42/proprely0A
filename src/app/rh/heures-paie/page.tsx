@@ -152,7 +152,7 @@ export default function HeuresPaiePage() {
         </div>
 
         {/* Table */}
-        <Card>
+        <Card className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
