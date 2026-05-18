@@ -7,13 +7,25 @@ import { withSentryConfig } from '@sentry/nextjs'
 // 'self' (Next.js inline les hydration scripts au même origin).
 //
 // connect-src autorise Supabase + Sentry + Resend + Docuseal + l'origin courant.
+//
+// NB CSP wildcards : `*.sentry.io` ne couvre QU'UN seul niveau de sous-domaine.
+// Sentry sert les events sur `o<orgid>.ingest.<region>.sentry.io` (3 niveaux),
+// donc il faut lister explicitement chaque pattern.
+const SENTRY_HOSTS = [
+  'https://*.sentry.io',
+  'https://*.ingest.sentry.io',
+  'https://*.ingest.us.sentry.io',
+  'https://*.ingest.de.sentry.io',
+  'https://browser.sentry-cdn.com',
+].join(' ')
+
 const cspParts = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.sentry.io https://browser.sentry-cdn.com",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SENTRY_HOSTS} https://eu.i.posthog.com https://us.i.posthog.com`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://api.resend.com https://api.docuseal.com https://recherche-entreprises.api.gouv.fr",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${SENTRY_HOSTS} https://eu.i.posthog.com https://us.i.posthog.com https://eu-assets.i.posthog.com https://us-assets.i.posthog.com https://api.resend.com https://api.docuseal.com https://recherche-entreprises.api.gouv.fr`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -51,7 +63,6 @@ export default sentryEnabled
       silent: !process.env.CI,
       widenClientFileUpload: true,
       tunnelRoute: '/monitoring/tunnel',
-      disableLogger: true,
     })
   : nextConfig
 
