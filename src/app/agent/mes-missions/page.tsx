@@ -48,7 +48,7 @@ export default function MesMissionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

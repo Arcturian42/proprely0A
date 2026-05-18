@@ -24,9 +24,10 @@ CREATE INDEX IF NOT EXISTS idx_missions_operational_status
   ON missions(operational_status)
   WHERE operational_status IS NOT NULL;
 
--- /rh/heures-paie groups time_entries by agent + week, exports by date range
+-- /rh/heures-paie groups time_entries by agent + date, exports by date range.
+-- Column is `date`, not `scheduled_date` — see initial.sql.
 CREATE INDEX IF NOT EXISTS idx_time_entries_company_agent_date
-  ON time_entries(company_id, agent_id, scheduled_date);
+  ON time_entries(company_id, agent_id, date);
 
 -- Quotes filtered by status (draft/sent/signe) in commercial overview
 CREATE INDEX IF NOT EXISTS idx_quotes_company_status
@@ -49,10 +50,10 @@ CREATE INDEX IF NOT EXISTS idx_mission_agents_agent
 
 -- ─── Numeric CHECK constraints (idempotent) ────────────────────────────────
 
--- All money / duration / hour fields should be non-negative. We add the
--- constraints inside a DO block so the migration is idempotent even when
--- the constraint name already exists. ALTER TABLE ... ADD CONSTRAINT IF NOT
--- EXISTS is not supported on Postgres, hence the catch.
+-- Non-negative numeric guards. Each wrapped in IF NOT EXISTS so the migration
+-- is replay-safe. Only references columns that actually exist in the schema —
+-- quotes.total_amount_ht doesn't exist (the total is in costs JSONB), so it's
+-- excluded; same for time_entries.hours_worked and agents.rate_per_hour.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -64,11 +65,19 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'time_entries_hours_worked_non_negative'
+    SELECT 1 FROM pg_constraint WHERE conname = 'time_entries_planned_hours_non_negative'
   ) THEN
     ALTER TABLE time_entries
-      ADD CONSTRAINT time_entries_hours_worked_non_negative
-      CHECK (hours_worked IS NULL OR hours_worked >= 0);
+      ADD CONSTRAINT time_entries_planned_hours_non_negative
+      CHECK (planned_hours IS NULL OR planned_hours >= 0);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'time_entries_validated_hours_non_negative'
+  ) THEN
+    ALTER TABLE time_entries
+      ADD CONSTRAINT time_entries_validated_hours_non_negative
+      CHECK (validated_hours IS NULL OR validated_hours >= 0);
   END IF;
 
   IF NOT EXISTS (
@@ -80,11 +89,11 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'agents_rate_per_hour_non_negative'
+    SELECT 1 FROM pg_constraint WHERE conname = 'agents_hourly_cost_non_negative'
   ) THEN
     ALTER TABLE agents
-      ADD CONSTRAINT agents_rate_per_hour_non_negative
-      CHECK (rate_per_hour IS NULL OR rate_per_hour >= 0);
+      ADD CONSTRAINT agents_hourly_cost_non_negative
+      CHECK (hourly_cost IS NULL OR hourly_cost >= 0);
   END IF;
 
   IF NOT EXISTS (
@@ -93,13 +102,5 @@ BEGIN
     ALTER TABLE sites
       ADD CONSTRAINT sites_surface_area_non_negative
       CHECK (surface_area IS NULL OR surface_area >= 0);
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'quotes_total_ht_non_negative'
-  ) THEN
-    ALTER TABLE quotes
-      ADD CONSTRAINT quotes_total_ht_non_negative
-      CHECK (total_amount_ht IS NULL OR total_amount_ht >= 0);
   END IF;
 END $$;

@@ -21,12 +21,13 @@ import { InvitationsPanel } from '@/components/settings/InvitationsPanel'
 import { MembersPanel } from '@/components/settings/MembersPanel'
 import { AuditLogPanel } from '@/components/settings/AuditLogPanel'
 import { PricingSettingsPanel } from '@/components/settings/PricingSettingsPanel'
+import { PriceCalculatorPanel } from '@/components/settings/PriceCalculatorPanel'
 import { RecurrencesPanel } from '@/components/settings/RecurrencesPanel'
 import { updateCompanyInfo } from '@/app/actions/data'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { isSupabaseClient } from '@/lib/supabase/client-config'
 
-const VALID_TABS = ['company', 'equipe', 'services', 'tarification', 'recurrences', 'audit', 'notifications'] as const
+const VALID_TABS = ['company', 'equipe', 'services', 'tarification', 'simulateur', 'recurrences', 'audit', 'notifications'] as const
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function ParametresPage() {
@@ -116,6 +117,7 @@ export default function ParametresPage() {
             <TabsTrigger value="equipe">Équipe</TabsTrigger>
             <TabsTrigger value="services">Types de services</TabsTrigger>
             <TabsTrigger value="tarification">Tarification</TabsTrigger>
+            <TabsTrigger value="simulateur">Simulateur</TabsTrigger>
             <TabsTrigger value="recurrences">Récurrences</TabsTrigger>
             <TabsTrigger value="audit">Journal d&apos;audit</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -168,7 +170,7 @@ export default function ParametresPage() {
                 <Plus className="w-4 h-4" /> Nouveau type
               </Button>
             </div>
-            <Card>
+            <Card className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -223,6 +225,10 @@ export default function ParametresPage() {
 
           <TabsContent value="tarification">
             <PricingSettingsPanel />
+          </TabsContent>
+
+          <TabsContent value="simulateur">
+            <PriceCalculatorPanel />
           </TabsContent>
 
           <TabsContent value="recurrences">

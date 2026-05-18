@@ -181,6 +181,83 @@ export function missionAssignedEmail(args: {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* Mission tomorrow reminder — sent by cron to assigned agents the day       */
+/* before a scheduled mission.                                                */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export function missionReminderEmail(args: {
+  agentFirstName: string
+  clientName: string
+  siteName: string | null
+  scheduledDate: string
+  startTime: string | null
+  plannedHours: number
+  appUrl: string
+}) {
+  const dateStr = new Date(args.scheduledDate).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  const subject = `Rappel mission — ${dateStr}`
+  const html = shell(
+    `Rappel mission`,
+    [
+      paragraph(`Salut ${args.agentFirstName},`),
+      paragraph(
+        `Petit rappel : tu es affecté(e) à une mission demain <strong>${dateStr}</strong>${args.startTime ? ` à <strong>${args.startTime}</strong>` : ''} chez <strong>${args.clientName}</strong>${args.siteName ? ` (${args.siteName})` : ''}.`,
+      ),
+      button('Voir le détail', `${args.appUrl}/agent/mon-agenda`),
+      paragraph(
+        `<span style="color:#9b9a97;font-size:12px;">Vérifie le matériel, l'adresse et le code d'accès depuis l'app la veille au soir.</span>`,
+      ),
+    ].join(''),
+  )
+  const text = `Rappel : tu as une mission demain ${dateStr} chez ${args.clientName}. Détails sur ${args.appUrl}/agent/mon-agenda`
+  return { subject, html, text }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Mission late alert — sent to manager when an assigned mission is past     */
+/* its start_time by 15+ minutes and still not in_progress.                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export function missionLateAlertEmail(args: {
+  managerFirstName: string
+  clientName: string
+  siteName: string | null
+  scheduledDate: string
+  startTime: string
+  agentNames: string[]
+  delayMinutes: number
+  appUrl: string
+}) {
+  const dateStr = new Date(args.scheduledDate).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  const agentsList = args.agentNames.join(', ') || 'Aucun agent assigné'
+  const subject = `Mission en retard — ${args.clientName}`
+  const html = shell(
+    `Mission en retard`,
+    [
+      paragraph(`Salut ${args.managerFirstName},`),
+      paragraph(
+        `La mission chez <strong>${args.clientName}</strong>${args.siteName ? ` (${args.siteName})` : ''} prévue <strong>${dateStr} à ${args.startTime}</strong> n'a pas démarré — retard de <strong>${args.delayMinutes} min</strong>.`,
+      ),
+      paragraph(`Agent(s) assigné(s) : ${agentsList}`),
+      button('Ouvrir le cockpit', `${args.appUrl}/operations/cockpit`),
+      paragraph(
+        `<span style="color:#9b9a97;font-size:12px;">Cette alerte est envoyée 15 min après l'heure prévue, une seule fois par mission.</span>`,
+      ),
+    ].join(''),
+  )
+  const text = `Mission en retard : ${args.clientName} le ${dateStr} à ${args.startTime} (${args.delayMinutes} min de retard). Cockpit : ${args.appUrl}/operations/cockpit`
+  return { subject, html, text }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* Generic "Hello from Proprely" — used by /api/dev/test-resend               */
 /* ────────────────────────────────────────────────────────────────────────── */
 
