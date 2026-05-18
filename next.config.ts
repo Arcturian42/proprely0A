@@ -19,13 +19,29 @@ const SENTRY_HOSTS = [
   'https://browser.sentry-cdn.com',
 ].join(' ')
 
+// PostHog : EU region. `eu.i.posthog.com` reçoit les events ; `eu-assets…`
+// sert le SDK (config.js, array.js, recorder.js). Les 2 hôtes doivent être
+// dans script-src + connect-src. CSP wildcards ne traversent qu'un niveau
+// donc on liste les patterns explicitement.
+const POSTHOG_HOSTS = [
+  'https://eu.i.posthog.com',
+  'https://eu-assets.i.posthog.com',
+  'https://us.i.posthog.com',
+  'https://us-assets.i.posthog.com',
+].join(' ')
+
 const cspParts = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SENTRY_HOSTS} https://eu.i.posthog.com https://us.i.posthog.com`,
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SENTRY_HOSTS} ${POSTHOG_HOSTS}`,
+  // style-src-elem must include fonts.googleapis.com explicitly because
+  // browsers use script-src/style-src as a fallback when -elem isn't set,
+  // and `Instrument Serif` is loaded via @import in globals.css.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${SENTRY_HOSTS} https://eu.i.posthog.com https://us.i.posthog.com https://eu-assets.i.posthog.com https://us-assets.i.posthog.com https://api.resend.com https://api.docuseal.com https://recherche-entreprises.api.gouv.fr`,
+  // Google Fonts serves the .woff2 files from fonts.gstatic.com.
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${SENTRY_HOSTS} ${POSTHOG_HOSTS} https://api.resend.com https://api.docuseal.com https://recherche-entreprises.api.gouv.fr`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
