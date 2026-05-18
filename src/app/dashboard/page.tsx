@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
@@ -13,6 +13,7 @@ import {
   useCompanyAgents,
   useCompanyOperationalItems,
 } from '@/lib/store'
+import { getCompanySeatUsage } from '@/app/actions/invitations'
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import { formatDate } from '@/lib/utils'
 import {
@@ -34,6 +35,21 @@ export default function DashboardPage() {
   const clients = useCompanyClients()
   const agents = useCompanyAgents()
   const operationalItems = useCompanyOperationalItems()
+
+  // hasInvitedMember dérive du compteur de sièges côté server (profiles actifs
+  // hors owner + invitations pending). Fetch one-shot au mount — la checklist
+  // disparaît dès que tous les items passent.
+  const [hasInvitedMember, setHasInvitedMember] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    getCompanySeatUsage()
+      .then((u) => {
+        if (!cancelled) setHasInvitedMember((u.active + u.pending) > 0)
+      })
+      .catch(() => { /* silent — dummy mode or offline */ })
+    return () => { cancelled = true }
+  }, [])
+
   const today = new Date().toISOString().split('T')[0]
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
@@ -74,7 +90,7 @@ export default function DashboardPage() {
           hasClient={clients.length > 0}
           hasAgent={agents.length > 0}
           hasMission={missions.length > 0}
-          hasInvitedMember={false /* TODO V1.6 : query profiles count via server action */}
+          hasInvitedMember={hasInvitedMember}
         />
 
         {/* KPI Cards */}

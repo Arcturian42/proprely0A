@@ -18,8 +18,6 @@ import {
   BookOpen,
   UserCog,
   Clock,
-  BarChart3,
-  PieChart,
   Settings,
   Sparkles,
   ChevronUp,
@@ -73,13 +71,9 @@ const navSections: NavSection[] = [
       { label: 'Heures & Paie', href: '/rh/heures-paie', icon: Clock, permission: 'time:read' },
     ],
   },
-  {
-    title: 'Pilotage rentabilité',
-    items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, badge: 'À venir', permission: 'analytics:read' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, badge: 'À venir', permission: 'analytics:read' },
-    ],
-  },
+  // Section "Pilotage rentabilité" masquée tant que les 2 pages ne sont pas
+  // implémentées — elles affichaient un stub "À venir" qui crée de la
+  // confusion. Sera ré-activée quand le module rentabilité sortira.
   {
     title: '',
     items: [
