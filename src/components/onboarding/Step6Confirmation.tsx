@@ -8,6 +8,7 @@ import { CheckCircle2, Loader2, Sparkles, Users, FileText, MapPin } from 'lucide
 import { Button } from '@/components/ui/button'
 import { StepCard } from './StepCard'
 import { completeOnboarding } from '@/app/actions/onboarding'
+import { track } from '@/lib/analytics/posthog'
 
 export function Step6Confirmation() {
   const router = useRouter()
@@ -20,6 +21,7 @@ export function Step6Confirmation() {
         toast.error(res.error)
         return
       }
+      track('onboarding_completed', { next_target: target })
       router.push(target)
     })
   }

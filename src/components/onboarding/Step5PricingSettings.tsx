@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { track } from '@/lib/analytics/posthog'
 import {
   Select,
   SelectContent,
@@ -95,6 +96,7 @@ export function Step5PricingSettings() {
         toast.error(res.error)
         return
       }
+      track('onboarding_step_completed', { step: 5, action: 'set_pricing_settings' })
       toast.success('Paramètres enregistrés.')
       router.push('/onboarding/6')
     })
@@ -107,6 +109,7 @@ export function Step5PricingSettings() {
         toast.error(res.error)
         return
       }
+      track('onboarding_step_skipped', { step: 5 })
       router.push('/onboarding/6')
     })
   }

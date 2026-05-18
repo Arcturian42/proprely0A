@@ -14,18 +14,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { Client, Site } from '@/types'
-import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Can } from '@/components/auth/Can'
 import { EmptyState } from '@/components/shared/EmptyState'
 
 export default function ClientsSitesPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
   const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
   const [showClientForm, setShowClientForm] = useState(false)
+  const [showCsvImport, setShowCsvImport] = useState(false)
   const [showSiteForm, setShowSiteForm] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
@@ -69,7 +73,7 @@ export default function ClientsSitesPage() {
       toast.success('Client mis à jour')
     } else {
       const newClient: Client = {
-        id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
+        id: `client-${Date.now()}`, company_id: companyId, ...clientForm,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addClient(newClient)
@@ -113,7 +117,7 @@ export default function ClientsSitesPage() {
     } else {
       const client = clients.find(c => c.id === siteForm.client_id)
       const newSite: Site = {
-        id: `site-${Date.now()}`, company_id: 'company-1', ...siteForm,
+        id: `site-${Date.now()}`, company_id: companyId, ...siteForm,
         surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
         sop_id: null, created_from_opportunity_id: null, client,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -157,8 +161,15 @@ export default function ClientsSitesPage() {
           </TabsList>
 
           <TabsContent value="clients">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end mb-4 gap-2">
               <Can permission="client:write">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCsvImport(true)}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" /> Importer CSV
+                </Button>
                 <Button onClick={handleOpenCreateClient} className="gap-2">
                   <Plus className="w-4 h-4" /> Nouveau client
                 </Button>
@@ -481,6 +492,47 @@ export default function ClientsSitesPage() {
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={() => confirmDeleteSite && handleDeleteSite(confirmDeleteSite)}
+      />
+
+      <CsvImportDialog
+        open={showCsvImport}
+        onOpenChange={setShowCsvImport}
+        title="Importer des clients"
+        description="Charge un fichier CSV avec une ligne d'en-tête. Le nom est obligatoire, les autres champs sont optionnels."
+        columns={[
+          { key: 'name', label: 'Nom', required: true },
+          { key: 'contact_name', label: 'Contact' },
+          { key: 'email', label: 'Email' },
+          { key: 'phone', label: 'Téléphone' },
+          { key: 'billing_address', label: 'Adresse facturation' },
+          { key: 'city', label: 'Ville' },
+          { key: 'client_type', label: 'Type' },
+        ]}
+        onImport={async (rows) => {
+          const now = new Date().toISOString()
+          let inserted = 0
+          for (const row of rows) {
+            const newClient: Client = {
+              id: `client-${Date.now()}-${inserted}`,
+              company_id: companyId,
+              name: row.data.name,
+              contact_name: row.data.contact_name || null,
+              email: row.data.email || null,
+              phone: row.data.phone || null,
+              billing_address: row.data.billing_address || null,
+              city: row.data.city || null,
+              client_type: row.data.client_type || null,
+              status: 'actif',
+              notes: null,
+              created_from_opportunity_id: null,
+              created_at: now,
+              updated_at: now,
+            }
+            addClient(newClient)
+            inserted += 1
+          }
+          return { inserted }
+        }}
       />
     </AdminLayout>
   )

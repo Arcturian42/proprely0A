@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
+import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import {
   AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR,
@@ -21,7 +23,7 @@ import {
 } from '@/lib/constants'
 import { computeFatigueScore, computeWeeklySummary } from '@/lib/workload'
 import { cn, initials } from '@/lib/utils'
-import { Plus, Search, Edit, Trash2, Phone, MapPin, Sparkles, Eye, Users, Activity, Clock, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, MapPin, Sparkles, Eye, Users, Activity, Clock, AlertTriangle, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { startOfWeek } from 'date-fns'
 import { AgentProfilePanel } from './_components/AgentProfilePanel'
@@ -37,6 +39,7 @@ const defaultForm = {
 }
 
 export default function AgentsPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
   const { agents, missions, agentSkills, addAgent, updateAgent, deleteAgent } = useAppStore()
 
@@ -45,6 +48,7 @@ export default function AgentsPage() {
   const [filterExpertise, setFilterExpertise] = useState<string>('all')
   const [filterContract, setFilterContract] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
+  const [showCsvImport, setShowCsvImport] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [form, setForm] = useState(defaultForm)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -130,7 +134,7 @@ export default function AgentsPage() {
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
-        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
+        id: crypto.randomUUID(), company_id: companyId, ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addAgent(newAgent)
@@ -161,11 +165,64 @@ export default function AgentsPage() {
           description="Workforce management — expertise, charge, fatigue et disponibilité"
           action={
             <Can permission="agent:write">
-              <Button onClick={handleOpenCreate} className="gap-2">
-                <Plus className="w-4 h-4" /> Nouvel agent
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCsvImport(true)}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" /> Importer CSV
+                </Button>
+                <Button onClick={handleOpenCreate} className="gap-2">
+                  <Plus className="w-4 h-4" /> Nouvel agent
+                </Button>
+              </div>
             </Can>
           }
+        />
+        <CsvImportDialog
+          open={showCsvImport}
+          onOpenChange={setShowCsvImport}
+          title="Importer des agents"
+          description="Charge un fichier CSV avec une ligne d'en-tête. Les colonnes prénom, nom et email sont obligatoires."
+          columns={[
+            { key: 'first_name', label: 'Prénom', required: true },
+            { key: 'last_name', label: 'Nom', required: true },
+            { key: 'email', label: 'Email', required: true },
+            { key: 'phone', label: 'Téléphone' },
+            { key: 'zone', label: 'Zone' },
+            { key: 'hourly_cost', label: 'Coût horaire' },
+            { key: 'weekly_availability_hours', label: 'Heures hebdo' },
+          ]}
+          onImport={async (rows) => {
+            const now = new Date().toISOString()
+            let inserted = 0
+            for (const row of rows) {
+              const newAgent: Agent = {
+                id: crypto.randomUUID(),
+                company_id: companyId,
+                first_name: row.data.first_name,
+                last_name: row.data.last_name,
+                email: row.data.email,
+                phone: row.data.phone || null,
+                zone: row.data.zone || null,
+                contract_type: 'cdi',
+                hourly_cost: Number(row.data.hourly_cost) || 0,
+                weekly_availability_hours: Number(row.data.weekly_availability_hours) || 35,
+                weekly_availability: { lundi: true, mardi: true, mercredi: true, jeudi: true, vendredi: true, samedi: false, dimanche: false },
+                skills: [],
+                specialty: null,
+                business_registration_number: null,
+                notes: null,
+                status: 'disponible',
+                created_at: now,
+                updated_at: now,
+              }
+              addAgent(newAgent)
+              inserted += 1
+            }
+            return { inserted }
+          }}
         />
 
         {/* Stats globales */}

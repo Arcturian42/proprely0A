@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Opportunity } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -95,6 +96,7 @@ type Phase = 'wizard' | 'searching' | 'deck' | 'done'
 
 export function ProspectingFlow() {
   const { opportunities, addOpportunity } = useAppStore()
+  const companyId = useCurrentCompanyId()
   const [open, setOpen] = useState(false)
   const [phase, setPhase] = useState<Phase>('wizard')
   const [step, setStep] = useState(0)
@@ -193,7 +195,7 @@ export function ProspectingFlow() {
 
   const consume = (lead: ProspectLead, action: 'accept' | 'reject') => {
     if (action === 'accept') {
-      addOpportunity(leadToOpportunity(lead))
+      addOpportunity(leadToOpportunity(lead, companyId))
       setAccepted((n) => n + 1)
       toast.success(`${lead.name} ajouté au pipeline`)
     }
@@ -764,11 +766,11 @@ function DoneView({
 }
 
 // Convert a swiped-right ProspectLead into a pipeline Opportunity.
-function leadToOpportunity(lead: ProspectLead): Opportunity {
+function leadToOpportunity(lead: ProspectLead, companyId: string): Opportunity {
   const now = new Date().toISOString()
   return {
     id: `opp-prospect-${lead.siren}-${Date.now()}`,
-    company_id: 'company-1',
+    company_id: companyId,
     lead_id: null,
     client_id: null,
     site_id: null,

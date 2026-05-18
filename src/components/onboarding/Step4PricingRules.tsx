@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { track } from '@/lib/analytics/posthog'
 import {
   Select,
   SelectContent,
@@ -101,6 +102,7 @@ export function Step4PricingRules({
         toast.error(res.error)
         return
       }
+      track('onboarding_step_completed', { step: 4, action: 'set_pricing_rules', count: rules.length })
       toast.success(res.message ?? 'Règles enregistrées.')
       router.push('/onboarding/5')
     })
@@ -113,6 +115,7 @@ export function Step4PricingRules({
         toast.error(res.error)
         return
       }
+      track('onboarding_step_skipped', { step: 4 })
       router.push('/onboarding/5')
     })
   }

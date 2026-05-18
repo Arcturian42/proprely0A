@@ -1,46 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { sendForSignature } from '@/lib/docuseal'
 import { requireAuthenticatedProfile } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rate-limit'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-interface SendQuoteBody {
-  quote: {
-    quote_number: string
-    title: string
-    surface_m2: number | null
-    client_name: string
-    client_email: string | null
-    costs: {
-      price_ht: number
-      price_ttc: number
-      vat_rate: number
-      total_cost_ht: number
-      margin_rate: number
-      labor_cost: number
-      machines_cost: number
-      consumables_cost: number
-      transport_cost: number
-    }
-    line_items: {
-      description: string
-      quantity: number
-      unit: string
-      unit_price: number
-      total: number
-    }[]
-  }
-  company: {
-    name: string
-    email: string
-    phone: string
-    address: string
-    siret: string
-  }
-  signerEmail: string
-  signerFirstName: string
-  signerLastName: string
-}
+// Hard cap so a malicious / accidental client can't generate a 50 MB PDF
+// that blocks the serverless thread. 500 line items is already 10x more than
+// any real quote.
+const MAX_LINE_ITEMS = 500
+
+const SendQuoteBodySchema = z.object({
+  quote: z.object({
+    quote_number: z.string().min(1).max(50),
+    title: z.string().min(1).max(200),
+    surface_m2: z.number().nonnegative().nullable(),
+    client_name: z.string().min(1).max(200),
+    client_email: z.string().email().nullable(),
+    costs: z.object({
+      price_ht: z.number().nonnegative(),
+      price_ttc: z.number().nonnegative(),
+      vat_rate: z.number().min(0).max(1),
+      total_cost_ht: z.number().nonnegative(),
+      margin_rate: z.number().min(-1).max(1),
+      labor_cost: z.number().nonnegative(),
+      machines_cost: z.number().nonnegative(),
+      consumables_cost: z.number().nonnegative(),
+      transport_cost: z.number().nonnegative(),
+    }),
+    line_items: z
+      .array(
+        z.object({
+          description: z.string().max(500),
+          quantity: z.number(),
+          unit: z.string().max(50),
+          unit_price: z.number(),
+          total: z.number(),
+        }),
+      )
+      .min(1)
+      .max(MAX_LINE_ITEMS),
+  }),
+  company: z.object({
+    name: z.string().min(1).max(200),
+    email: z.string().email(),
+    phone: z.string().max(50),
+    address: z.string().max(500),
+    siret: z.string().max(20),
+  }),
+  signerEmail: z.string().email(),
+  signerFirstName: z.string().min(1).max(100),
+  signerLastName: z.string().min(1).max(100),
+})
+
+type SendQuoteBody = z.infer<typeof SendQuoteBodySchema>
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
@@ -197,13 +211,33 @@ export async function POST(req: NextRequest) {
   const gate = await requireAuthenticatedProfile()
   if (gate instanceof NextResponse) return gate
 
-  try {
-    const body: SendQuoteBody = await req.json()
-    const { quote, signerEmail, signerFirstName, signerLastName } = body
+  // 5 envois / min / user — PDF gen + Resend dispatch, ressource-heavy.
+  const rl = rateLimit(`quotes-send:${gate.userId}`, 5, 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Trop d\'envois rapprochés. Réessaie dans une minute.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+    )
+  }
 
-    if (!signerEmail) {
-      return NextResponse.json({ error: 'Signer email required' }, { status: 400 })
-    }
+  let rawBody: unknown
+  try {
+    rawBody = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Body JSON invalide.' }, { status: 400 })
+  }
+
+  const parsed = SendQuoteBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Payload invalide.' },
+      { status: 400 },
+    )
+  }
+  const body = parsed.data
+
+  try {
+    const { quote, signerEmail, signerFirstName, signerLastName } = body
 
     // Generate PDF
     const pdfBuffer = buildPDF(body)

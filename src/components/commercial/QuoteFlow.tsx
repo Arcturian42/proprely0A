@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Quote, Opportunity, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
 import { calculateQuotePrice, estimateFromSurface, PricingInput } from '@/lib/pricing-engine'
 import { SERVICE_CATEGORY_LABELS, QUOTE_STATUS_LABELS } from '@/lib/constants'
@@ -41,6 +42,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { track } from '@/lib/analytics/posthog'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,6 +128,7 @@ function slideVariants(direction: 'left' | 'right') {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
+  const companyId = useCurrentCompanyId()
   const { quotes, addQuote, updateQuote, deleteQuote, sendQuote, companySettings } = useAppStore()
   const oppQuotes = quotes.filter(q => q.opportunity_id === opportunity.id)
 
@@ -290,7 +294,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
 
     const draft: Quote = {
       id: `quote-${Date.now()}`,
-      company_id: 'company-1',
+      company_id: companyId,
       opportunity_id: opportunity.id,
       quote_number: quoteNumber,
       title: `Devis ${serviceNames} — ${opportunity.prospect_name}`,
@@ -312,7 +316,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     addQuote(draft)
     setCurrentDraftId(draft.id)
     goTo(5)
-  }, [aggregatedCosts, services, computedLines, visitNotes, opportunity, addQuote, goTo])
+  }, [aggregatedCosts, services, computedLines, visitNotes, opportunity, addQuote, goTo, companyId])
 
   // ─── Send quote ────────────────────────────────────────────────────────────
   // `sendingQuoteId` is non-null while a Docuseal call is in flight — used to
@@ -345,6 +349,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur envoi')
       sendQuote(quoteId)
+      track('quote_sent', { quote_id: quoteId, opportunity_id: opportunity.id })
       updateQuote(quoteId, {
         docuseal_submission_id: data.submissionId ?? data.signatureRequestId,
         docuseal_signature_url: data.signerUrl,
@@ -362,9 +367,15 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     }
   }
 
+  const [confirmDeleteQuoteId, setConfirmDeleteQuoteId] = useState<string | null>(null)
   const handleDeleteQuote = (quoteId: string) => {
-    deleteQuote(quoteId)
+    setConfirmDeleteQuoteId(quoteId)
+  }
+  const confirmQuoteDeletion = () => {
+    if (!confirmDeleteQuoteId) return
+    deleteQuote(confirmDeleteQuoteId)
     toast.success('Devis supprimé')
+    setConfirmDeleteQuoteId(null)
   }
 
   // ─── Reset / start flow ────────────────────────────────────────────────────
@@ -477,6 +488,16 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmDeleteQuoteId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteQuoteId(null) }}
+        title="Supprimer ce devis ?"
+        description="Cette action est irréversible. Le devis et tous ses détails seront définitivement perdus."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={confirmQuoteDeletion}
+      />
     </div>
   )
 }

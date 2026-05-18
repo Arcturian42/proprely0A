@@ -13,12 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Sop } from '@/types'
 import { Plus, Trash2, Edit, BookOpen, Clock, CheckSquare, Plus as PlusIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SopPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'SOPs — Proprely' }, [])
   const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
   const [showForm, setShowForm] = useState(false)
@@ -77,7 +79,7 @@ export default function SopPage() {
       toast.success('Protocole mis à jour')
     } else {
       const newSop: Sop = {
-        id: `sop-${Date.now()}`, company_id: 'company-1', ...sopData,
+        id: `sop-${Date.now()}`, company_id: companyId, ...sopData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addSop(newSop)
