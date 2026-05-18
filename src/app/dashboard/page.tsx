@@ -54,6 +54,17 @@ export default function DashboardPage() {
   const todayMissions = missions.filter(m => m.scheduled_date === today)
   const pendingItems = operationalItems.filter(o => o.status === 'a_organiser')
 
+  // Late = scheduled today, start_time passed by 15+ min, still not in_progress.
+  // Mirrors the server-side cron logic from src/app/actions/mission-alerts.ts.
+  const now = new Date()
+  const cutoffMinutes = now.getHours() * 60 + now.getMinutes() - 15
+  const lateMissions = todayMissions.filter(m => {
+    if (!m.start_time) return false
+    const [h, mm] = m.start_time.split(':').map(Number)
+    const startMin = (h ?? 0) * 60 + (mm ?? 0)
+    return startMin <= cutoffMinutes && m.status !== 'en_cours' && m.status !== 'terminee'
+  })
+
   const isEmpty =
     missions.length === 0 && clients.length === 0 &&
     agents.length === 0 && operationalItems.length === 0
@@ -169,6 +180,44 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Late missions alert */}
+          {lateMissions.length > 0 && (
+            <Card className="card-hover border-rose-200 bg-rose-50/30">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2 text-rose-700">
+                  <AlertCircle className="w-4 h-4" />
+                  Missions en retard ({lateMissions.length})
+                </CardTitle>
+                <Link href="/operations/cockpit">
+                  <Button variant="ghost" size="sm" className="text-rose-700">
+                    Cockpit <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {lateMissions.slice(0, 5).map(m => (
+                    <li key={m.id} className="flex items-center justify-between py-1.5 border-b border-rose-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-slate-900 truncate">
+                          {m.client?.name ?? '—'} {m.site?.name && `· ${m.site.name}`}
+                        </p>
+                        <p className="text-[11px] text-rose-600">
+                          Prévue {m.start_time} · {m.planned_hours}h · statut {m.status ?? '—'}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {lateMissions.length > 5 && (
+                  <p className="text-[11px] text-slate-500 text-center pt-2">
+                    + {lateMissions.length - 5} autres
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Pending operations */}
           <Card className="card-hover">
