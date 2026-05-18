@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Client, Site } from '@/types'
 import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail } from 'lucide-react'
@@ -22,6 +23,7 @@ import { Can } from '@/components/auth/Can'
 import { EmptyState } from '@/components/shared/EmptyState'
 
 export default function ClientsSitesPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
   const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
@@ -69,7 +71,7 @@ export default function ClientsSitesPage() {
       toast.success('Client mis à jour')
     } else {
       const newClient: Client = {
-        id: `client-${Date.now()}`, company_id: 'company-1', ...clientForm,
+        id: `client-${Date.now()}`, company_id: companyId, ...clientForm,
         created_from_opportunity_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addClient(newClient)
@@ -113,7 +115,7 @@ export default function ClientsSitesPage() {
     } else {
       const client = clients.find(c => c.id === siteForm.client_id)
       const newSite: Site = {
-        id: `site-${Date.now()}`, company_id: 'company-1', ...siteForm,
+        id: `site-${Date.now()}`, company_id: companyId, ...siteForm,
         surface_area: siteForm.surface_area ? parseFloat(siteForm.surface_area) : null,
         sop_id: null, created_from_opportunity_id: null, client,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),

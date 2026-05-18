@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useCurrentCompanyId } from '@/lib/auth'
 import {
   useAppStore,
   useCompanyMissions,
@@ -29,6 +30,7 @@ import { addDays, startOfWeek, format, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 export default function PlanningPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Planning — Proprely' }, [])
   const missions = useCompanyMissions()
   const agents = useCompanyAgents()
@@ -70,7 +72,7 @@ export default function PlanningPage() {
     const now = new Date().toISOString()
 
     const newMission: Mission = {
-      id: missionId, company_id: 'company-1',
+      id: missionId, company_id: companyId,
       client_id: form.client_id, site_id: form.site_id, operational_item_id: null,
       service_type: form.service_type || null, sop_id: form.sop_id || null,
       status: 'prevue', scheduled_date: form.scheduled_date,
@@ -84,7 +86,7 @@ export default function PlanningPage() {
     for (const agent of missionAgents) {
       addTimeEntry({
         id: crypto.randomUUID(),
-        company_id: 'company-1',
+        company_id: companyId,
         mission_id: missionId,
         agent_id: agent.id,
         client_id: form.client_id,

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Opportunity } from '@/types'
 import { NEXT_ACTION_TYPE_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -64,6 +65,7 @@ const ACTION_TYPES: Array<{ value: string; icon: React.ElementType }> = [
 
 export function NewOpportunityFlow({ open, onOpenChange }: Props) {
   const { opportunities, addOpportunity } = useAppStore()
+  const companyId = useCurrentCompanyId()
   const [step, setStep] = useState(0)
   const [company, setCompany] = useState<CompanyDraft | null>(null)
   const [contact, setContact] = useState<ContactDraft>(EMPTY_CONTACT)
@@ -96,7 +98,7 @@ export function NewOpportunityFlow({ open, onOpenChange }: Props) {
     const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim()
     const opp: Opportunity = {
       id: `opp-${Date.now()}`,
-      company_id: 'company-1',
+      company_id: companyId,
       lead_id: null,
       client_id: null,
       site_id: null,

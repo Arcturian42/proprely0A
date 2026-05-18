@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Agent, AgentStatus, ContractType } from '@/types'
 import {
   AGENT_STATUS_LABELS, CONTRACT_TYPE_LABELS, DAYS_KEYS, DAYS_FR,
@@ -37,6 +38,7 @@ const defaultForm = {
 }
 
 export default function AgentsPage() {
+  const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Agents — Proprely' }, [])
   const { agents, missions, agentSkills, addAgent, updateAgent, deleteAgent } = useAppStore()
 
@@ -130,7 +132,7 @@ export default function AgentsPage() {
       toast.success('Agent mis à jour')
     } else {
       const newAgent: Agent = {
-        id: crypto.randomUUID(), company_id: 'company-1', ...agentData,
+        id: crypto.randomUUID(), company_id: companyId, ...agentData,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }
       addAgent(newAgent)

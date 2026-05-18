@@ -21,6 +21,7 @@ import { InvitationsPanel } from '@/components/settings/InvitationsPanel'
 import { MembersPanel } from '@/components/settings/MembersPanel'
 import { AuditLogPanel } from '@/components/settings/AuditLogPanel'
 import { updateCompanyInfo } from '@/app/actions/data'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { isSupabaseClient } from '@/lib/supabase/client-config'
 
 const VALID_TABS = ['company', 'equipe', 'services', 'audit', 'notifications'] as const
@@ -31,6 +32,7 @@ export default function ParametresPage() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab')
   const defaultTab: TabValue = VALID_TABS.includes(tabParam as TabValue) ? (tabParam as TabValue) : 'company'
+  const companyId = useCurrentCompanyId()
 
   const {
     serviceTypes, addServiceType, updateServiceType, deleteServiceType,
@@ -85,7 +87,7 @@ export default function ParametresPage() {
       toast.success('Service mis à jour')
     } else {
       const newService: ServiceType = {
-        id: `st-${Date.now()}`, company_id: 'company-1', ...serviceForm,
+        id: `st-${Date.now()}`, company_id: companyId, ...serviceForm,
         description: null,
         estimated_duration_minutes: serviceForm.estimated_duration_minutes ? parseInt(serviceForm.estimated_duration_minutes) : null,
         indicative_price: serviceForm.indicative_price ? parseFloat(serviceForm.indicative_price) : null,

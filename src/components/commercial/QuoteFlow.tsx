@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
+import { useCurrentCompanyId } from '@/lib/auth'
 import { Quote, Opportunity, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/types'
 import { calculateQuotePrice, estimateFromSurface, PricingInput } from '@/lib/pricing-engine'
 import { SERVICE_CATEGORY_LABELS, QUOTE_STATUS_LABELS } from '@/lib/constants'
@@ -125,6 +126,7 @@ function slideVariants(direction: 'left' | 'right') {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
+  const companyId = useCurrentCompanyId()
   const { quotes, addQuote, updateQuote, deleteQuote, sendQuote, companySettings } = useAppStore()
   const oppQuotes = quotes.filter(q => q.opportunity_id === opportunity.id)
 
@@ -290,7 +292,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
 
     const draft: Quote = {
       id: `quote-${Date.now()}`,
-      company_id: 'company-1',
+      company_id: companyId,
       opportunity_id: opportunity.id,
       quote_number: quoteNumber,
       title: `Devis ${serviceNames} — ${opportunity.prospect_name}`,
@@ -312,7 +314,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: Props) {
     addQuote(draft)
     setCurrentDraftId(draft.id)
     goTo(5)
-  }, [aggregatedCosts, services, computedLines, visitNotes, opportunity, addQuote, goTo])
+  }, [aggregatedCosts, services, computedLines, visitNotes, opportunity, addQuote, goTo, companyId])
 
   // ─── Send quote ────────────────────────────────────────────────────────────
   // `sendingQuoteId` is non-null while a Docuseal call is in flight — used to
