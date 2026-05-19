@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useState } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 
@@ -20,9 +21,22 @@ export function RouteError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
+  // Capture lazily during render via useState's initializer — it only fires
+  // once per component instance, which is exactly what we want for an error
+  // boundary. Using `useEffect` would trip react-hooks/set-state-in-effect.
+  // The Sentry event id is what support agents need to look up the failure;
+  // `digest` (server-side) is the fallback when Sentry is offline.
+  const [sentryEventId] = useState(() => {
     console.error('Route error boundary:', error)
-  }, [error])
+    return (
+      Sentry.captureException(error, {
+        tags: { boundary: 'route' },
+        extra: { digest: error.digest ?? null },
+      }) || null
+    )
+  })
+
+  const ref = sentryEventId ?? error.digest ?? null
 
   return (
     <div className="p-8">
@@ -37,8 +51,10 @@ export function RouteError({
           Une erreur inattendue est survenue côté serveur ou pendant le rendu.
           Tu peux réessayer — si le problème persiste, recharge l&apos;app.
         </p>
-        {error.digest && (
-          <p className="text-xs text-slate-400 font-mono mb-4">Ref : {error.digest}</p>
+        {ref && (
+          <p className="text-xs text-slate-400 font-mono mb-4 break-all">
+            Ref support : {ref}
+          </p>
         )}
         <div className="flex gap-2 justify-center">
           <Button onClick={reset} size="sm" className="gap-2">

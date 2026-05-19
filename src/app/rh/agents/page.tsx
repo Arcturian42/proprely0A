@@ -202,7 +202,28 @@ export default function AgentsPage() {
           onImport={async (rows) => {
             const now = new Date().toISOString()
             let inserted = 0
+            const skipped: string[] = []
             for (const row of rows) {
+              // Validate each row instead of silently coercing junk to 0/35.
+              // The operator sees a concrete count + reason rather than
+              // "imported X" hiding bad columns.
+              const hourlyRaw = row.data.hourly_cost
+              const hourly = hourlyRaw === '' || hourlyRaw == null ? 0 : Number(hourlyRaw)
+              const weeklyRaw = row.data.weekly_availability_hours
+              const weekly = weeklyRaw === '' || weeklyRaw == null ? 35 : Number(weeklyRaw)
+              const label = `${row.data.first_name ?? ''} ${row.data.last_name ?? ''}`.trim() || row.data.email || 'ligne sans nom'
+              if (!row.data.first_name || !row.data.last_name || !row.data.email) {
+                skipped.push(`${label} — prénom/nom/email manquant`)
+                continue
+              }
+              if (Number.isNaN(hourly) || hourly < 0) {
+                skipped.push(`${label} — coût horaire invalide (${hourlyRaw})`)
+                continue
+              }
+              if (Number.isNaN(weekly) || weekly < 0 || weekly > 80) {
+                skipped.push(`${label} — heures hebdo invalides (${weeklyRaw})`)
+                continue
+              }
               const newAgent: Agent = {
                 id: crypto.randomUUID(),
                 company_id: companyId,
@@ -212,8 +233,8 @@ export default function AgentsPage() {
                 phone: row.data.phone || null,
                 zone: row.data.zone || null,
                 contract_type: 'cdi',
-                hourly_cost: Number(row.data.hourly_cost) || 0,
-                weekly_availability_hours: Number(row.data.weekly_availability_hours) || 35,
+                hourly_cost: hourly,
+                weekly_availability_hours: weekly,
                 weekly_availability: { lundi: true, mardi: true, mercredi: true, jeudi: true, vendredi: true, samedi: false, dimanche: false },
                 skills: [],
                 specialty: null,
@@ -225,6 +246,11 @@ export default function AgentsPage() {
               }
               addAgent(newAgent)
               inserted += 1
+            }
+            if (skipped.length > 0) {
+              const preview = skipped.slice(0, 3).join(' ; ')
+              const suffix = skipped.length > 3 ? ` (+${skipped.length - 3} autres)` : ''
+              toast.warning(`${inserted} agent(s) importé(s), ${skipped.length} ignoré(s) : ${preview}${suffix}`, { duration: 8000 })
             }
             return { inserted }
           }}
