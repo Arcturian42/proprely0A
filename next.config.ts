@@ -53,6 +53,13 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   { key: 'Content-Security-Policy', value: cspParts.join('; ') },
+  // HSTS — force HTTPS pour 2 ans + sous-domaines + preload-ready. Émis
+  // uniquement en prod (en dev on tourne sur http://localhost et un
+  // navigateur qui aurait mémorisé HSTS depuis prod ne pourrait plus s'y
+  // connecter pendant 2 ans). Vercel sert toujours HTTPS donc safe.
+  ...(process.env.NODE_ENV === 'production'
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]
+    : []),
 ]
 
 const nextConfig: NextConfig = {

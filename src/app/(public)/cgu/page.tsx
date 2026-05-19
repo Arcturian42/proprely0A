@@ -2,6 +2,11 @@ export const metadata = {
   title: 'Conditions générales — Proprely',
 }
 
+// BUG-006 — page purement statique, on autorise un long cache CDN pour
+// réduire le cold-start Vercel. ISR 24h : Next régénère en arrière-plan,
+// le client reçoit immédiatement la version stale du CDN.
+export const revalidate = 86400
+
 export default function CGUPage() {
   return (
     <article className="max-w-3xl mx-auto prose prose-slate prose-sm py-8 bg-white border border-slate-200 rounded-xl p-8 shadow-sm">

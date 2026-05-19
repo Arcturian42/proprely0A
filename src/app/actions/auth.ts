@@ -19,7 +19,9 @@ const SignupSchema = z.object({
 
 export type ActionResult =
   | { ok: true; message?: string }
-  | { ok: false; error: string }
+  // BUG-013 — `retry_at` (UNIX ms) propage la fin du blocage rate-limit pour
+  // que l'UI affiche un compte à rebours visible côté client.
+  | { ok: false; error: string; retry_at?: number }
 
 // BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the magic-link
 // callback as "//auth/callback" — works but isn't clean. Strip it once here.
@@ -43,6 +45,7 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
     return {
       ok: false,
       error: 'Trop de tentatives. Réessaie dans quelques minutes.',
+      retry_at: rl.resetAt,
     }
   }
 

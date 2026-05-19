@@ -62,6 +62,27 @@ test.describe('signup form', () => {
       page.getByText(/non configurée|email envoyé|déjà|trop de tentatives/i),
     ).toBeVisible({ timeout: 10_000 })
   })
+
+  // BUG-010 — React 19 reset les inputs uncontrolled après une form action.
+  // Le fix passe en controlled : after the dummy-mode error, the values
+  // typed before submit must still be in the inputs (so the user doesn't
+  // have to retype everything).
+  test('preserves form values after a failed submission (BUG-010)', async ({ page }) => {
+    await page.goto('/signup')
+    await page.locator('#owner_first_name').fill('Alice')
+    await page.locator('#owner_last_name').fill('Martin')
+    await page.locator('#company_name').fill('ACME Cleaning')
+    await page.locator('#email').fill('owner@example.fr')
+    await page.getByRole('button', { name: /créer|signup|inscription/i }).first().click()
+    await expect(
+      page.getByText(/non configurée|trop de tentatives|déjà/i),
+    ).toBeVisible({ timeout: 10_000 })
+    // Values must still be there.
+    await expect(page.locator('#owner_first_name')).toHaveValue('Alice')
+    await expect(page.locator('#owner_last_name')).toHaveValue('Martin')
+    await expect(page.locator('#company_name')).toHaveValue('ACME Cleaning')
+    await expect(page.locator('#email')).toHaveValue('owner@example.fr')
+  })
 })
 
 test.describe('proxy / route protection', () => {

@@ -73,7 +73,8 @@ export default function ParametresPage() {
       if (res.ok) {
         toast.success('Paramètres entreprise sauvegardés')
       } else {
-        toast.error(`Sauvegarde échouée : ${res.error}`)
+        // res.error a déjà transité par toUserMessage côté serveur (data.ts)
+        toast.error(res.error)
       }
     })
   }

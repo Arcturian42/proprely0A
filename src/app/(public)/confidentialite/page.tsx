@@ -2,6 +2,9 @@ export const metadata = {
   title: 'Politique de confidentialité — Proprely',
 }
 
+// BUG-006 — pareil que /cgu : ISR 24h pour servir depuis le CDN.
+export const revalidate = 86400
+
 export default function ConfidentialitePage() {
   return (
     <article className="max-w-3xl mx-auto prose prose-slate prose-sm py-8 bg-white border border-slate-200 rounded-xl p-8 shadow-sm">

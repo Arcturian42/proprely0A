@@ -9,9 +9,17 @@ import { Label } from '@/components/ui/label'
 import { Sparkles, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
+// BUG-010 — React 19 réinitialise systématiquement les inputs uncontrolled
+// après l'exécution d'une form `action={fn}`, même quand l'action a échoué.
+// Pour préserver les valeurs après erreur on passe en controlled : le state
+// React reste source de vérité et survit au reset implicite. Reset manuel
+// uniquement sur succès (compte créé → on attend le magic link).
+const EMPTY_FORM = { owner_first_name: '', owner_last_name: '', company_name: '', email: '' }
+
 export default function SignupPage() {
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [form, setForm] = useState(EMPTY_FORM)
 
   function handleSubmit(formData: FormData) {
     setResult(null)
@@ -19,6 +27,7 @@ export default function SignupPage() {
       const res = await signUpCompany(formData)
       if (res.ok) {
         setResult({ ok: true, message: res.message ?? 'Compte créé.' })
+        setForm(EMPTY_FORM)
         track('signup_completed', {
           company_name: formData.get('company_name'),
         })
@@ -28,6 +37,9 @@ export default function SignupPage() {
       }
     })
   }
+
+  const setField = (k: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }))
 
   return (
     <div className="w-full max-w-md">
@@ -50,6 +62,8 @@ export default function SignupPage() {
               required
               autoComplete="given-name"
               placeholder="Marie"
+              value={form.owner_first_name}
+              onChange={setField('owner_first_name')}
               disabled={pending || result?.ok}
             />
           </div>
@@ -61,6 +75,8 @@ export default function SignupPage() {
               required
               autoComplete="family-name"
               placeholder="Dupont"
+              value={form.owner_last_name}
+              onChange={setField('owner_last_name')}
               disabled={pending || result?.ok}
             />
           </div>
@@ -75,6 +91,8 @@ export default function SignupPage() {
             name="company_name"
             required
             placeholder="Ex: Nettoyage Pro SARL"
+            value={form.company_name}
+            onChange={setField('company_name')}
             disabled={pending || result?.ok}
           />
         </div>
@@ -90,6 +108,8 @@ export default function SignupPage() {
             required
             autoComplete="email"
             placeholder="prenom@entreprise.fr"
+            value={form.email}
+            onChange={setField('email')}
             disabled={pending || result?.ok}
           />
         </div>
