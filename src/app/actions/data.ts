@@ -8,6 +8,7 @@ import { hasTimeOverlap, minutesToTime, timeToMinutes } from '@/lib/scheduling/o
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getEntitySchema } from '@/lib/schemas/entities'
+import { toUserMessage } from '@/lib/errors/user-message'
 import type { Permission } from '@/lib/auth/types'
 import type {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem,
@@ -195,7 +196,10 @@ async function upsert(
 
   const payload = { ...stripped, company_id: guard.caller.companyId }
   const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' })
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error(`[data] upsert ${table} failed:`, error)
+    return { ok: false, error: toUserMessage(error, 'Sauvegarde impossible. Réessaie.') }
+  }
   return { ok: true }
 }
 
@@ -220,14 +224,20 @@ async function remove(
     const { error } = await supabase
       .from(table).update({ archived_at: new Date().toISOString() })
       .eq('id', id).eq('company_id', guard.caller.companyId)
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      console.error(`[data] archive ${table} failed:`, error)
+      return { ok: false, error: toUserMessage(error, 'Suppression impossible.') }
+    }
     return { ok: true }
   }
 
   const { error } = await supabase
     .from(table).delete()
     .eq('id', id).eq('company_id', guard.caller.companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error(`[data] delete ${table} failed:`, error)
+    return { ok: false, error: toUserMessage(error, 'Suppression impossible.') }
+  }
   return { ok: true }
 }
 
@@ -526,7 +536,10 @@ export async function updateCompanyInfo(formData: FormData): Promise<WriteResult
       updated_at: new Date().toISOString(),
     })
     .eq('id', guard.caller.companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[data] companies update failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Sauvegarde des informations entreprise impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true }

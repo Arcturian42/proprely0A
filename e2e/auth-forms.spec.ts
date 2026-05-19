@@ -79,4 +79,14 @@ test.describe('proxy / route protection', () => {
     expect(response?.ok()).toBe(true)
     await expect(page).toHaveURL(/\/(login|commercial)/)
   })
+
+  // BUG-005 : avant le fix, /page-inexistante était silencieusement
+  // redirigée vers /login, ce qui masquait toutes les 404 derrière le mur
+  // d'authentification et désorientait les nouveaux utilisateurs. La 404
+  // doit s'afficher telle quelle.
+  test('unknown URL renders the 404 page instead of redirecting to login', async ({ page }) => {
+    await page.goto('/page-qui-n-existe-pas')
+    await expect(page).toHaveURL(/\/page-qui-n-existe-pas/)
+    await expect(page.getByText(/page introuvable|tableau de bord/i).first()).toBeVisible()
+  })
 })
