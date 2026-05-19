@@ -5,6 +5,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server', () => ({
   isSupabaseConfigured: vi.fn(),
   createServerClient: vi.fn(),
+  createServiceRoleClient: vi.fn().mockResolvedValue(null),
+}))
+
+// ensure-profile uses createServiceRoleClient → no admin → returns null.
+// Mock it explicitly so we don't depend on dynamic import + transitive deps.
+vi.mock('@/lib/auth/ensure-profile', () => ({
+  ensureProfileForCurrentUser: vi.fn().mockResolvedValue(null),
 }))
 
 import { requirePermission } from './server-guard'
@@ -17,6 +24,7 @@ function mockSupabaseClient(opts: {
   user?: { id: string; email?: string } | null
   profile?: { company_id: string; role: string; is_active: boolean } | null
 }) {
+  const profileResult = { data: opts.profile ?? null, error: null }
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: opts.user ?? null }, error: null }),
@@ -24,7 +32,8 @@ function mockSupabaseClient(opts: {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: opts.profile ?? null, error: null }),
+          single: vi.fn().mockResolvedValue(profileResult),
+          maybeSingle: vi.fn().mockResolvedValue(profileResult),
         }),
       }),
     }),
@@ -68,13 +77,13 @@ describe('requirePermission', () => {
       if (!result.ok) expect(result.error).toMatch(/authentifi/i)
     })
 
-    it('refuses when the user has no profile row', async () => {
+    it('refuses with a "compte non finalisé" message when the profile is missing and recovery fails', async () => {
       mockedCreateServer.mockResolvedValue(
         mockSupabaseClient({ user: { id: 'u1' }, profile: null }),
       )
       const result = await requirePermission('agent:write')
       expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.error).toMatch(/profil/i)
+      if (!result.ok) expect(result.error).toMatch(/compte non finalisé|inscription|support/i)
     })
 
     it('refuses a deactivated profile', async () => {

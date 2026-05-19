@@ -138,9 +138,28 @@ export function NewOpportunityFlow({ open, onOpenChange }: Props) {
     onOpenChange(false)
   }
 
+  // BUG-003 — Le modal se fermait pendant la saisie SIRENE. La cause la plus
+  // probable : un gestionnaire de mots de passe, un toast Sonner (portail
+  // hors du DialogContent) ou l'autocomplete du navigateur reprend le focus,
+  // ce que Radix interprète comme "focus outside" → fermeture. On bloque la
+  // fermeture sur focusOutside et sur les pointerdown qui ne sont pas un
+  // vrai clic utilisateur dans la zone overlay. Le clic sur l'overlay (et
+  // Escape) restent fonctionnels.
+  const handleInteractOutside = (e: Event) => {
+    // CustomEvent<{ originalEvent: PointerEvent | FocusEvent }>
+    const original = (e as unknown as { detail?: { originalEvent?: Event } }).detail?.originalEvent
+    if (!original || original.type !== 'pointerdown') {
+      e.preventDefault()
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0 overflow-hidden border-0 bg-transparent shadow-none">
+      <DialogContent
+        className="max-w-xl p-0 overflow-hidden border-0 bg-transparent shadow-none"
+        onInteractOutside={handleInteractOutside}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <div className="prospect-shell relative rounded-2xl overflow-hidden">
           <div className="p-7 text-slate-900">
             <Header step={step} onClose={() => onOpenChange(false)} />
@@ -250,6 +269,7 @@ function Step1Company({
   const [loading, setLoading] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const [manualName, setManualName] = useState('')
+  const [sireneError, setSireneError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   // Debounced fetch — the clear-on-short-query case is queued as a microtask
@@ -259,7 +279,10 @@ function Step1Company({
     if (manualMode || company) return
     const q = query.trim()
     if (q.length < 2) {
-      queueMicrotask(() => setResults(null))
+      queueMicrotask(() => {
+        setResults(null)
+        setSireneError(null)
+      })
       return
     }
     const t = setTimeout(async () => {
@@ -267,14 +290,25 @@ function Step1Company({
       const ctrl = new AbortController()
       abortRef.current = ctrl
       setLoading(true)
+      setSireneError(null)
       try {
         const res = await fetch(`/api/sirene/search?q=${encodeURIComponent(q)}`, {
           signal: ctrl.signal,
         })
-        const json = (await res.json()) as { results: CompanyHit[] }
+        const json = (await res.json()) as { results: CompanyHit[]; error?: string }
         setResults(json.results || [])
+        if (json.error && (!json.results || json.results.length === 0)) {
+          setSireneError(
+            json.error === 'sirene_timeout'
+              ? 'Le service SIRENE est lent — bascule en saisie manuelle si besoin.'
+              : 'Service SIRENE temporairement indisponible. Tu peux saisir l\'entreprise à la main.',
+          )
+        }
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') setResults([])
+        if ((e as Error).name !== 'AbortError') {
+          setResults([])
+          setSireneError('Réseau indisponible — bascule en saisie manuelle.')
+        }
       } finally {
         setLoading(false)
       }
@@ -386,6 +420,13 @@ function Step1Company({
         {results === null && !loading && (
           <div className="text-xs text-slate-500 px-1">
             Tapez au moins 2 caractères pour interroger la base SIRENE.
+          </div>
+        )}
+
+        {sireneError && !loading && (
+          <div className="flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 mb-2">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>{sireneError}</span>
           </div>
         )}
 

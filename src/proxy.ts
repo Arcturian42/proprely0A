@@ -15,8 +15,37 @@ const PUBLIC_PATHS = [
   '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
 ]
 
+// BUG-005 — Top-level segments that require an authenticated session. Anything
+// outside this allow-list falls through to Next.js so unknown URLs get the
+// real not-found.tsx instead of being silently redirected to /login (which
+// hid every 404 behind an auth wall and confused the QA team).
+//
+// '/' is included so a stale localStorage with no session still lands at
+// /login rather than the marketing 404. Keep this list in sync with new
+// top-level route groups created under src/app/.
+const PROTECTED_PREFIXES = [
+  '/',
+  '/dashboard',
+  '/commercial',
+  '/operations',
+  '/rh',
+  '/rentabilite',
+  '/parametres',
+  '/onboarding',
+  '/agent',
+  '/api',  // /api is broadly protected; specific public endpoints listed above
+  '/clients', '/sites', '/missions', '/calendrier', '/devis', '/factures',
+  '/equipe', '/profil', '/specialites', '/contrats', '/heures', '/paie',
+  '/documents', '/app',
+]
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
+function isProtectedPath(pathname: string): boolean {
+  if (pathname === '/') return true
+  return PROTECTED_PREFIXES.some(p => p !== '/' && (pathname === p || pathname.startsWith(p + '/')))
 }
 
 function isAgentPath(pathname: string): boolean {
@@ -48,8 +77,13 @@ export async function proxy(request: NextRequest) {
   // getUser() force un refresh token côté serveur si nécessaire.
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Pas de session + route protégée → redirige vers /login
+  // BUG-005 — Pas de session + route protégée connue → /login. Toute autre
+  // route (URL inconnue) tombe sur la not-found.tsx de Next plutôt que d'être
+  // redirigée silencieusement vers /login.
   if (!user && !isPublicPath(pathname)) {
+    if (!isProtectedPath(pathname)) {
+      return response
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('next', pathname)

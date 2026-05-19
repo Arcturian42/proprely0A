@@ -90,6 +90,11 @@ export interface AuthedProfile {
  *   const gate = await requireAuthenticatedProfile()
  *   if (gate instanceof NextResponse) return gate
  *   // gate.companyId is safe to use
+ *
+ * BUG-002 recovery : same auto-provisioning as requirePermission() in
+ * server-guard.ts — when an auth.user lacks a profile, we try to re-create
+ * it from user_metadata before failing with a clear "compte non finalisé".
+ * Lazy import to avoid `next/server` ↔ server actions cycle at module load.
  */
 export async function requireAuthenticatedProfile(): Promise<AuthedProfile | NextResponse> {
   if (!isSupabaseConfigured()) {
@@ -105,13 +110,29 @@ export async function requireAuthenticatedProfile(): Promise<AuthedProfile | Nex
     .from('profiles')
     .select('company_id, role')
     .eq('id', user.id)
-    .single()
-  if (!profile) return NextResponse.json({ error: 'Profil introuvable' }, { status: 403 })
+    .maybeSingle()
 
+  if (profile) {
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      companyId: profile.company_id,
+      role: profile.role,
+    }
+  }
+
+  const { ensureProfileForCurrentUser } = await import('@/lib/auth/ensure-profile')
+  const recovered = await ensureProfileForCurrentUser()
+  if (!recovered) {
+    return NextResponse.json(
+      { error: 'Compte non finalisé. Termine ton inscription ou contacte le support.' },
+      { status: 403 },
+    )
+  }
   return {
-    userId: user.id,
-    email: user.email ?? null,
-    companyId: profile.company_id,
-    role: profile.role,
+    userId: recovered.userId,
+    email: recovered.email,
+    companyId: recovered.companyId,
+    role: recovered.role,
   }
 }

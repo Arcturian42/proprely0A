@@ -82,6 +82,38 @@ export const SERVICE_CATEGORY_LABELS: Record<string, string> = {
   autre: 'Autre prestation',
 }
 
+// BUG-009 — short labels for the `sites.service_type` enum, used in the
+// clients-sites table to avoid showing raw snake_case values. The signup
+// site form uses these same keys.
+export const SITE_SERVICE_TYPE_LABELS: Record<string, string> = {
+  nettoyage_bureaux: 'Nettoyage bureaux',
+  nettoyage_medical: 'Nettoyage médical',
+  nettoyage_industriel: 'Nettoyage industriel',
+  nettoyage_residence: 'Nettoyage résidence',
+  nettoyage_parking: 'Nettoyage parking',
+  vitrerie: 'Vitrerie',
+}
+
+export const SITE_FREQUENCY_LABELS: Record<string, string> = {
+  quotidien: 'Quotidien',
+  hebdomadaire: 'Hebdomadaire',
+  bi_hebdomadaire: 'Bi-hebdomadaire',
+  mensuel: 'Mensuel',
+  trimestriel: 'Trimestriel',
+  annuel: 'Annuel',
+  ponctuel: 'Ponctuel',
+}
+
+export function formatServiceType(raw: string | null | undefined): string {
+  if (!raw) return ''
+  return SITE_SERVICE_TYPE_LABELS[raw] ?? raw.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+}
+
+export function formatFrequency(raw: string | null | undefined): string {
+  if (!raw) return ''
+  return SITE_FREQUENCY_LABELS[raw] ?? raw.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+}
+
 export const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 export const DAYS_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']

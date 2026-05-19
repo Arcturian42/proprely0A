@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
+import { toUserMessage } from '@/lib/errors/user-message'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -122,7 +123,10 @@ export async function setMemberActive(profileId: string, active: boolean): Promi
     .from('profiles')
     .update({ is_active: active })
     .eq('id', profileId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[members] toggle active failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Mise à jour du membre impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: active ? 'Membre réactivé.' : 'Membre désactivé — son siège est libéré.' }
@@ -169,7 +173,10 @@ export async function setMemberRole(formData: FormData): Promise<MemberActionRes
     .from('profiles')
     .update({ role: parsed.data.role })
     .eq('id', parsed.data.profile_id)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[members] role update failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Mise à jour du rôle impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: 'Rôle mis à jour.' }

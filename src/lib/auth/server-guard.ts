@@ -2,6 +2,7 @@
 
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { roleCan } from '@/lib/auth/rbac'
+import { ensureProfileForCurrentUser } from '@/lib/auth/ensure-profile'
 import type { Permission, Role } from '@/lib/auth/types'
 
 export type AuthorizedCaller = {
@@ -20,6 +21,12 @@ export type AuthorizedCaller = {
  *
  * In dummy mode (Supabase unconfigured) we let everything through so the
  * dev experience isn't blocked when there's no real auth backing the UI.
+ *
+ * BUG-002 recovery : when an auth.user has no matching profile (e.g. a partial
+ * signup that couldn't roll back), we ask ensureProfileForCurrentUser() to
+ * auto-provision the company + profile from user_metadata. Without this, every
+ * CRUD action shows the cryptic "Profil introuvable" toast even though the
+ * optimistic Zustand mutation makes the UI look healthy.
  */
 export async function requirePermission(
   permission: Permission,
@@ -40,8 +47,23 @@ export async function requirePermission(
     .from('profiles')
     .select('company_id, role, is_active')
     .eq('id', user.id)
-    .single()
-  if (!profile) return { ok: false, error: 'Profil introuvable' }
+    .maybeSingle()
+
+  if (!profile) {
+    const recovered = await ensureProfileForCurrentUser()
+    if (!recovered) {
+      return {
+        ok: false,
+        error:
+          'Compte non finalisé — termine ton inscription depuis la page d\'accueil ou contacte le support.',
+      }
+    }
+    if (!roleCan(recovered.role, permission)) {
+      return { ok: false, error: 'Permission refusée pour ton rôle.' }
+    }
+    return { ok: true, caller: { userId: recovered.userId, companyId: recovered.companyId, role: recovered.role } }
+  }
+
   if (!profile.is_active) return { ok: false, error: 'Compte désactivé' }
 
   const role = profile.role as Role

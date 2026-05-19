@@ -24,6 +24,7 @@ import { Plus, Search, Edit, Trash2, MapPin, Building2, Phone, Mail, Upload } fr
 import { toast } from 'sonner'
 import { Can } from '@/components/auth/Can'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { formatServiceType, formatFrequency } from '@/lib/constants'
 
 export default function ClientsSitesPage() {
   const companyId = useCurrentCompanyId()
@@ -347,8 +348,8 @@ export default function ClientsSitesPage() {
                         <TableCell className="text-sm">{client?.name || '—'}</TableCell>
                         <TableCell className="text-sm text-slate-600">{site.address || '—'}</TableCell>
                         <TableCell className="text-sm">{site.surface_area ? `${site.surface_area} m²` : '—'}</TableCell>
-                        <TableCell className="text-sm">{site.service_type || '—'}</TableCell>
-                        <TableCell className="text-sm">{site.frequency || '—'}</TableCell>
+                        <TableCell className="text-sm">{formatServiceType(site.service_type) || '—'}</TableCell>
+                        <TableCell className="text-sm">{formatFrequency(site.frequency) || '—'}</TableCell>
                         <TableCell>
                           <Can permission="site:write" fallback={<span className="text-xs text-slate-400">—</span>}>
                             <div className="flex gap-1">

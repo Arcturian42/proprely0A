@@ -2,6 +2,7 @@
 
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
+import { toUserMessage } from '@/lib/errors/user-message'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 
@@ -20,8 +21,11 @@ export type ActionResult =
   | { ok: true; message?: string }
   | { ok: false; error: string }
 
+// BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the magic-link
+// callback as "//auth/callback" — works but isn't clean. Strip it once here.
 function getOrigin(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const url = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  return url.replace(/\/+$/, '')
 }
 
 export async function signInWithMagicLink(formData: FormData): Promise<ActionResult> {
@@ -57,7 +61,10 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
     options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
   })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[login] signInWithOtp failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Envoi du lien impossible. Réessaie dans quelques instants.') }
+  }
   return { ok: true, message: 'Email envoyé. Consulte ta boîte de réception (et les indésirables) pour finaliser la connexion.' }
 }
 
@@ -119,13 +126,17 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     // (un signup précédent a foiré au milieu). On signale clairement plutôt
     // que de laisser l'erreur Supabase opaque atteindre l'utilisateur.
     const msg = userError?.message ?? ''
+    if (msg) console.error('[signup] createUser failed:', userError)
     if (/already.*(registered|exists)/i.test(msg)) {
       return {
         ok: false,
-        error: 'Cette adresse est déjà enregistrée auprès du fournisseur d\'auth. Contacte le support pour réconcilier ton compte.',
+        error: 'Cette adresse est déjà enregistrée. Connecte-toi via le lien magique sur /login.',
       }
     }
-    return { ok: false, error: msg || 'Création du compte échouée' }
+    return {
+      ok: false,
+      error: toUserMessage(userError, 'Création du compte impossible. Réessaie ou contacte le support.'),
+    }
   }
   const userId = userData.user.id
 
@@ -136,8 +147,12 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     .select('id')
     .single()
   if (companyError || !companyData) {
+    if (companyError) console.error('[signup] companies insert failed:', companyError)
     try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
-    return { ok: false, error: companyError?.message ?? 'Création de l\'entreprise échouée' }
+    return {
+      ok: false,
+      error: toUserMessage(companyError, 'Création de l\'entreprise impossible. Réessaie ou contacte le support.'),
+    }
   }
 
   // 3. Crée le profil owner. Si ça plante, on nettoie company + user.
@@ -153,38 +168,41 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
       is_active: true,
     })
   if (profileError) {
+    console.error('[signup] profiles insert failed:', profileError)
     try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
     try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
-    return { ok: false, error: profileError.message }
+    return {
+      ok: false,
+      error: toUserMessage(profileError, 'Création du profil impossible. Réessaie ou contacte le support.'),
+    }
   }
 
-  // 4. Initialise les tables d'onboarding. Si l'une échoue, rollback complet
-  // (profile + company + auth.user) pour laisser l'environnement propre — un
-  // signup partiel sans onboarding_status bloquerait le wizard ensuite.
-  const onboardingCleanup = async () => {
-    try { await admin.from('profiles').delete().eq('id', userId) } catch { /* best-effort */ }
-    try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
-    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
-  }
-
+  // 4. Initialise les tables d'onboarding. Si l'une échoue, on garde malgré
+  // tout le compte (auth.user + profil + company) : la fonction
+  // ensureProfileForCurrentUser() agit en filet de sécurité au prochain
+  // appel server-action, et le middleware ré-évalue le statut onboarding à
+  // chaque requête. Mieux vaut un signup "partiellement initialisé" qu'un
+  // rollback complet qui efface un compte valide à cause d'un blip réseau.
   const { error: onboardingError } = await admin
     .from('onboarding_status')
-    .insert({
-      company_id: companyData.id,
-      step_1_completed_at: new Date().toISOString(),
-    })
+    .upsert(
+      {
+        company_id: companyData.id,
+        step_1_completed_at: new Date().toISOString(),
+      },
+      { onConflict: 'company_id' },
+    )
   if (onboardingError) {
-    await onboardingCleanup()
-    return { ok: false, error: onboardingError.message }
+    // Log for ops, but don't fail the signup — onboarding rows are recreated
+    // on demand by ensureProfileForCurrentUser() / wizard layout.
+    console.error('[signup] onboarding_status insert failed (non-fatal):', onboardingError)
   }
 
   const { error: pricingSettingsError } = await admin
     .from('company_pricing_settings')
-    .insert({ company_id: companyData.id })
+    .upsert({ company_id: companyData.id }, { onConflict: 'company_id' })
   if (pricingSettingsError) {
-    try { await admin.from('onboarding_status').delete().eq('company_id', companyData.id) } catch { /* best-effort */ }
-    await onboardingCleanup()
-    return { ok: false, error: pricingSettingsError.message }
+    console.error('[signup] company_pricing_settings insert failed (non-fatal):', pricingSettingsError)
   }
 
   // 5. Envoie le magic link pour la première connexion. Le ?next=/onboarding/2

@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
+import { toUserMessage } from '@/lib/errors/user-message'
 
 export type RecurrenceActionResult =
   | { ok: true; message?: string; createdCount?: number }
@@ -131,7 +132,8 @@ export async function createRecurrence(formData: FormData): Promise<RecurrenceAc
     .select('id')
     .single<{ id: string }>()
   if (recErr || !rec) {
-    return { ok: false, error: recErr?.message ?? 'Création récurrence échouée' }
+    if (recErr) console.error('[recurrences] insert failed:', recErr)
+    return { ok: false, error: toUserMessage(recErr, 'Création de la récurrence impossible.') }
   }
 
   // Pre-generate 4 future missions
@@ -254,7 +256,10 @@ export async function deactivateRecurrence(id: string): Promise<RecurrenceAction
     .update({ is_active: false })
     .eq('id', id)
     .eq('company_id', gate.caller.companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[recurrences] deactivate failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Désactivation de la récurrence impossible.') }
+  }
 
   revalidatePath('/operations/planning')
   return { ok: true }
