@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { toast } from 'sonner'
 import { useCurrentCompanyId } from '@/lib/auth'
 import { isSupabaseClient } from '@/lib/supabase/client-config'
+import { toUserMessage } from '@/lib/errors/user-message'
 import {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem, Site, Sop, TimeEntry, MissionStatus, ServiceType, Quote, OpportunityStage,
   AgentSkill, AgentCertification, AvailabilityBlock, FatigueScore, ClientConstraint, SchedulingProposal,
@@ -43,9 +44,13 @@ import {
 function syncToSupabase(label: string, action: () => Promise<WriteResult>): void {
   if (!isSupabaseClient()) return
   void action().then(r => {
-    if (!r.ok) toast.error(`Sauvegarde ${label} échouée : ${r.error}`)
+    if (!r.ok) {
+      const fallback = `Sauvegarde ${label} échouée. Réessaie ou recharge la page.`
+      toast.error(toUserMessage(r.error, fallback))
+    }
   }).catch(err => {
-    toast.error(`Sauvegarde ${label} échouée : ${err?.message ?? 'erreur réseau'}`)
+    const fallback = `Sauvegarde ${label} échouée — erreur réseau.`
+    toast.error(toUserMessage(err, fallback))
   })
 }
 
