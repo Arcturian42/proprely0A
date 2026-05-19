@@ -60,10 +60,20 @@ WHERE id NOT IN (SELECT company_id FROM onboarding_status)
 ON CONFLICT (company_id) DO NOTHING;
 
 -- Mirror for company_pricing_settings — same reason (signUpCompany inserts here).
-INSERT INTO company_pricing_settings (company_id)
-SELECT id FROM companies
-WHERE id NOT IN (SELECT company_id FROM company_pricing_settings)
-ON CONFLICT (company_id) DO NOTHING;
+-- Wrapped in DO $$ so a totally absent table (older env that skipped
+-- 20260518000003) doesn't abort this whole migration: signup_recovery's
+-- primary job is to get onboarding_status back, and the app is now resilient
+-- to a missing company_pricing_settings (the insert in signUpCompany is
+-- non-fatal as of the same audit fix).
+DO $$
+BEGIN
+  INSERT INTO company_pricing_settings (company_id)
+  SELECT id FROM companies
+  WHERE id NOT IN (SELECT company_id FROM company_pricing_settings)
+  ON CONFLICT (company_id) DO NOTHING;
+EXCEPTION WHEN undefined_table THEN
+  RAISE NOTICE 'company_pricing_settings missing; re-run 20260518000003 manually';
+END $$;
 
 -- 3. Force PostgREST to refresh its schema cache so the table is visible to
 --    the REST API even if the previous deploy is still warm.

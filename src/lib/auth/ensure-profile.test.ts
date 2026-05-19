@@ -60,7 +60,7 @@ describe('ensureProfileForCurrentUser', () => {
             error: null,
           }),
       },
-      from: () => chain({ data: { company_id: 'c1', role: 'owner' }, error: null }),
+      from: () => chain({ data: { company_id: 'c1', role: 'owner', is_active: true }, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
@@ -72,6 +72,24 @@ describe('ensureProfileForCurrentUser', () => {
       role: 'owner',
     })
     // No service-role bootstrap path needed.
+    expect(mockedCreateServiceRole).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the existing profile is deactivated (defense in depth)', async () => {
+    mockedIsConfigured.mockReturnValue(true)
+    mockedCreateServer.mockResolvedValue({
+      auth: {
+        getUser: () =>
+          Promise.resolve({
+            data: { user: { id: 'u1', email: 'a@b', user_metadata: {} } },
+            error: null,
+          }),
+      },
+      from: () => chain({ data: { company_id: 'c1', role: 'owner', is_active: false }, error: null }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    await expect(ensureProfileForCurrentUser()).resolves.toBeNull()
     expect(mockedCreateServiceRole).not.toHaveBeenCalled()
   })
 

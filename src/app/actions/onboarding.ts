@@ -15,6 +15,7 @@ import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { invitationEmail } from '@/lib/email/templates'
 import { ROLE_LABELS } from '@/lib/auth/rbac'
 import { rateLimit } from '@/lib/rate-limit'
+import { toUserMessage } from '@/lib/errors/user-message'
 import type { OnboardingStatus } from '@/types'
 
 export type OnboardingActionResult =
@@ -177,7 +178,10 @@ async function markOnboardingStep(
     .from('onboarding_status')
     .update({ [field]: new Date().toISOString() })
     .eq('company_id', companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] mark step failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Mise à jour de l\'onboarding impossible.') }
+  }
   return { ok: true }
 }
 
@@ -354,7 +358,10 @@ async function deliverInvitationEmail(
     redirectTo: args.acceptUrl,
     data: { invitation_id: args.invitationId, role: args.role },
   })
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] inviteUserByEmail failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Envoi de l\'invitation impossible.') }
+  }
   return { ok: true }
 }
 
@@ -409,7 +416,10 @@ export async function setServices(formData: FormData): Promise<OnboardingActionR
   }))
 
   const { error } = await admin.from('service_types').insert(rows)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] service_types insert failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Enregistrement des prestations impossible.') }
+  }
 
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_3_services_completed_at')
   if (!mark.ok) return mark
@@ -436,7 +446,10 @@ export async function skipServices(): Promise<OnboardingActionResult> {
         step_4_pricing_skipped_at: now,
       })
       .eq('company_id', ownerGate.companyId)
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      console.error('[onboarding] skipServices update failed:', error)
+      return { ok: false, error: toUserMessage(error, 'Marquage de l\'étape impossible.') }
+    }
   }
   revalidatePath('/onboarding')
   return { ok: true }
@@ -512,7 +525,10 @@ export async function setPricingRules(formData: FormData): Promise<OnboardingAct
   const { error } = await admin
     .from('pricing_rules')
     .upsert(rows, { onConflict: 'company_id,service_type_id' })
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] pricing_rules upsert failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Enregistrement des règles de tarification impossible.') }
+  }
 
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_4_pricing_completed_at')
   if (!mark.ok) return mark
@@ -576,7 +592,10 @@ export async function setPricingSettings(formData: FormData): Promise<Onboarding
       },
       { onConflict: 'company_id' },
     )
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] company_pricing_settings upsert failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Enregistrement des paramètres impossible.') }
+  }
 
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_5_settings_completed_at')
   if (!mark.ok) return mark
@@ -627,7 +646,10 @@ export async function completeOnboarding(): Promise<OnboardingActionResult> {
     .from('onboarding_status')
     .update({ completed_at: new Date().toISOString() })
     .eq('company_id', ownerGate.companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[onboarding] completeOnboarding update failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Finalisation de l\'onboarding impossible.') }
+  }
 
   revalidatePath('/dashboard')
   revalidatePath('/onboarding')

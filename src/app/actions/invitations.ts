@@ -6,6 +6,7 @@ import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { invitationEmail } from '@/lib/email/templates'
 import { ROLE_LABELS } from '@/lib/auth/rbac'
 import { rateLimit } from '@/lib/rate-limit'
+import { toUserMessage } from '@/lib/errors/user-message'
 import type { Role } from '@/lib/auth/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
@@ -100,7 +101,10 @@ async function deliverInvitationEmail(
     redirectTo: args.acceptUrl,
     data: { invitation_id: args.invitationId, role: args.role },
   })
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[invitations] inviteUserByEmail failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Envoi de l\'invitation impossible.') }
+  }
   return { ok: true }
 }
 
@@ -377,7 +381,10 @@ export async function revokeInvitation(invitationId: string): Promise<Invitation
     .update({ status: 'revoked' })
     .eq('id', invitationId)
     .eq('status', 'pending')
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[invitations] revoke failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Révocation de l\'invitation impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: 'Invitation révoquée.' }

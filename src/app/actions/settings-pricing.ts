@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
+import { toUserMessage } from '@/lib/errors/user-message'
 import type {
   PricingRule,
   CompanyPricingSettings,
@@ -173,7 +174,10 @@ export async function updatePricingSettings(
       },
       { onConflict: 'company_id' },
     )
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[settings-pricing] company_pricing_settings upsert failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Enregistrement des paramètres tarifaires impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: 'Paramètres enregistrés.' }
@@ -222,7 +226,10 @@ export async function upsertPricingRule(
       },
       { onConflict: 'company_id,service_type_id' },
     )
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[settings-pricing] pricing_rules upsert failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Enregistrement de la règle de tarification impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: 'Tarification enregistrée.' }
@@ -242,7 +249,10 @@ export async function deletePricingRule(
     .delete()
     .eq('company_id', gate.caller.companyId)
     .eq('service_type_id', serviceTypeId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[settings-pricing] pricing_rules delete failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Suppression de la règle de tarification impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true }
@@ -275,7 +285,10 @@ export async function upsertServiceType(
       })
       .eq('id', parsed.data.id)
       .eq('company_id', gate.caller.companyId)
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      console.error('[settings-pricing] service_types update failed:', error)
+      return { ok: false, error: toUserMessage(error, 'Mise à jour de la prestation impossible.') }
+    }
   } else {
     const { error } = await admin.from('service_types').insert({
       company_id: gate.caller.companyId,
@@ -286,7 +299,10 @@ export async function upsertServiceType(
       sort_order: parsed.data.sort_order ?? 0,
       created_by: gate.caller.userId,
     })
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      console.error('[settings-pricing] service_types insert failed:', error)
+      return { ok: false, error: toUserMessage(error, 'Création de la prestation impossible.') }
+    }
   }
 
   revalidatePath('/parametres')
@@ -308,7 +324,10 @@ export async function archiveServiceType(
     .update({ is_active: false })
     .eq('id', serviceTypeId)
     .eq('company_id', gate.caller.companyId)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[settings-pricing] service_types archive failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Archivage de la prestation impossible.') }
+  }
 
   revalidatePath('/parametres')
   return { ok: true, message: 'Prestation archivée.' }

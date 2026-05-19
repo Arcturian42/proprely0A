@@ -363,7 +363,10 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
   if (agentIds.length > 0) {
     const rows = agentIds.map(agent_id => ({ mission_id: missionId, agent_id }))
     const { error } = await supabase.from('mission_agents').insert(rows)
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      console.error('[data] mission_agents insert failed:', error)
+      return { ok: false, error: toUserMessage(error, 'Assignation des agents impossible.') }
+    }
   }
 
   // Best-effort notification email to newly assigned agents.

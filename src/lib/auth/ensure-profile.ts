@@ -47,10 +47,14 @@ export async function ensureProfileForCurrentUser(): Promise<EnsuredProfile | nu
   //    their own row). A row could have been created since the caller checked.
   const { data: existing } = await supabase
     .from('profiles')
-    .select('company_id, role')
+    .select('company_id, role, is_active')
     .eq('id', user.id)
     .maybeSingle()
   if (existing) {
+    // Deactivated profiles are surfaced via the same null path so the caller
+    // emits the explicit "Compte désactivé" / "Compte non finalisé" message
+    // instead of silently granting access.
+    if (!existing.is_active) return null
     return {
       userId: user.id,
       email: user.email ?? null,
@@ -80,10 +84,11 @@ export async function ensureProfileForCurrentUser(): Promise<EnsuredProfile | nu
   // may have created the profile. Re-check under service-role and bail if so.
   const { data: existingViaAdmin } = await admin
     .from('profiles')
-    .select('company_id, role')
+    .select('company_id, role, is_active')
     .eq('id', user.id)
     .maybeSingle()
   if (existingViaAdmin) {
+    if (!existingViaAdmin.is_active) return null
     return {
       userId: user.id,
       email: user.email ?? null,
