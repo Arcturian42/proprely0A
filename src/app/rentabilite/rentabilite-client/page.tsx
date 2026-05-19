@@ -38,22 +38,30 @@ export default function RentabiliteClientPage() {
   const missions = useAppStore((s) => s.missions)
   const agents = useAppStore((s) => s.agents)
   const timeEntries = useAppStore((s) => s.timeEntries)
+  const opportunities = useAppStore((s) => s.opportunities)
 
   const [from, setFrom] = useState(startOfYear())
   const [to, setTo] = useState(today())
 
   const stats = useMemo(() => {
     const agentCost = new Map(agents.map((a) => [a.id, a.hourly_cost ?? 0]))
+    // quotes carry only client_name (snapshot) + opportunity_id — not client_id.
+    // Resolve via the opportunity so two homonymous clients don't conflate
+    // (matching by name alone would sum their revenue together).
+    const opportunityClientId = new Map(
+      opportunities.map((o) => [o.id, o.client_id]),
+    )
 
     const rows = clients.map((client) => {
-      const clientQuotes = quotes.filter(
-        (q) =>
-          q.client_name === client.name &&
-          q.status === 'signe' &&
-          q.signed_at &&
-          q.signed_at >= from &&
-          q.signed_at <= to,
-      )
+      const clientQuotes = quotes.filter((q) => {
+        if (q.status !== 'signe' || !q.signed_at) return false
+        if (q.signed_at < from || q.signed_at > to) return false
+        const oppClientId = q.opportunity_id ? opportunityClientId.get(q.opportunity_id) : null
+        if (oppClientId) return oppClientId === client.id
+        // Fallback for orphan quotes (opportunity deleted or unset): match by
+        // name. Imperfect on homonyms but the only signal left.
+        return q.client_name === client.name
+      })
       const revenueHt = clientQuotes.reduce((sum, q) => sum + (q.costs?.price_ht ?? 0), 0)
       const directCost = clientQuotes.reduce(
         (sum, q) => sum + (q.costs?.total_cost_ht ?? 0),
@@ -115,7 +123,7 @@ export default function RentabiliteClientPage() {
     )
 
     return { rows: filtered, totals }
-  }, [clients, quotes, missions, agents, timeEntries, from, to])
+  }, [clients, quotes, missions, agents, timeEntries, opportunities, from, to])
 
   const globalMargin = stats.totals.revenueHt - stats.totals.directCost
   const globalMarginPct =

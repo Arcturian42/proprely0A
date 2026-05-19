@@ -2,6 +2,7 @@
 
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { toUserMessage } from '@/lib/errors/user-message'
+import { isOwnerOrAdmin } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -76,7 +77,7 @@ export async function listCompanyMembers(): Promise<MemberRow[]> {
 export async function setMemberActive(profileId: string, active: boolean): Promise<MemberActionResult> {
   const caller = await resolveCaller()
   if (!caller) return { ok: false, error: 'Non authentifié' }
-  if (caller.profile.role !== 'owner' && caller.profile.role !== 'admin') {
+  if (!isOwnerOrAdmin(caller.profile.role)) {
     return { ok: false, error: 'Seuls les propriétaires et administrateurs peuvent gérer les membres.' }
   }
   if (profileId === caller.user.id) {

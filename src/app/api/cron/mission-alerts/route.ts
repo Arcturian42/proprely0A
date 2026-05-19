@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tickMissionReminders, tickMissionLateAlerts } from '@/app/actions/mission-alerts'
+import { verifyBearer } from '@/lib/auth/bearer'
 
 // Vercel Cron entrypoint. Schedule twice daily in vercel.json:
 // - Early morning UTC for "tomorrow" reminders to land overnight
@@ -7,9 +8,7 @@ import { tickMissionReminders, tickMissionLateAlerts } from '@/app/actions/missi
 // Gated by Authorization: Bearer ${CRON_SECRET}.
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  const auth = req.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!verifyBearer(req.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

@@ -1,10 +1,11 @@
 'use server'
 
 import { createHash, randomBytes } from 'crypto'
+import * as Sentry from '@sentry/nextjs'
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { invitationEmail } from '@/lib/email/templates'
-import { ROLE_LABELS } from '@/lib/auth/rbac'
+import { ROLE_LABELS, isOwnerOrAdmin } from '@/lib/auth/rbac'
 import { rateLimit } from '@/lib/rate-limit'
 import { toUserMessage } from '@/lib/errors/user-message'
 import type { Role } from '@/lib/auth/types'
@@ -199,7 +200,7 @@ export async function createInvitation(formData: FormData): Promise<InvitationAc
       last_name: string
       companies: { name: string } | null
     }>()
-  if (!inviter || (inviter.role !== 'owner' && inviter.role !== 'admin')) {
+  if (!inviter || !isOwnerOrAdmin(inviter.role)) {
     return { ok: false, error: "Seuls les propriétaires et administrateurs peuvent inviter." }
   }
   const inviterName = [inviter.first_name, inviter.last_name].filter(Boolean).join(' ') || user.email || 'Un administrateur'
@@ -355,7 +356,14 @@ export async function acceptInvitation(formData: FormData): Promise<InvitationAc
         .from('invitations')
         .update({ status: 'pending', accepted_at: null, accepted_by: null })
         .eq('id', invitation.id)
-    } catch { /* best-effort rollback */ }
+    } catch (rollbackErr) {
+      // L'invitation reste en 'accepted' sans profil — orphan que seul un
+      // admin DB peut nettoyer. Sentry pour qu'on soit alerté tout de suite.
+      Sentry.captureException(rollbackErr, {
+        tags: { action: 'acceptInvitation.rollback' },
+        extra: { invitationId: invitation.id, originalError: errorMsg },
+      })
+    }
     // Cas spécifique : le user a déjà un profile (cross-tenant accidentel) →
     // message FR explicite.
     if (/duplicate.*key|profiles_pkey/i.test(errorMsg)) {
@@ -423,7 +431,7 @@ export async function listInvitations(): Promise<InvitationRow[]> {
     .select('role')
     .eq('id', user.id)
     .single<{ role: string }>()
-  if (!profile || (profile.role !== 'owner' && profile.role !== 'admin')) {
+  if (!profile || !isOwnerOrAdmin(profile.role)) {
     return []
   }
   const { data } = await supabase
@@ -449,7 +457,7 @@ export async function resendInvitation(invitationId: string): Promise<Invitation
     .select('role, first_name, last_name, companies(name)')
     .eq('id', user.id)
     .single<{ role: string; first_name: string; last_name: string; companies: { name: string } | null }>()
-  if (!caller || (caller.role !== 'owner' && caller.role !== 'admin')) {
+  if (!caller || !isOwnerOrAdmin(caller.role)) {
     return { ok: false, error: "Seuls les propriétaires et administrateurs peuvent renvoyer." }
   }
   const inviterName = [caller.first_name, caller.last_name].filter(Boolean).join(' ') || user.email || 'Un administrateur'

@@ -94,12 +94,24 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Une seule query profile pour toute la suite (role + company_id).
+  // Une seule query profile pour toute la suite (role + company_id + is_active).
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, company_id')
+    .select('role, company_id, is_active')
     .eq('id', user.id)
-    .single<{ role: 'owner' | 'admin' | 'sales' | 'agent'; company_id: string }>()
+    .single<{ role: 'owner' | 'admin' | 'sales' | 'agent'; company_id: string; is_active: boolean }>()
+
+  // Compte désactivé : on signe le user out côté server et on renvoie sur /login
+  // avec un flag pour afficher le message. Sans ça, un owner désactivé pouvait
+  // entrer dans /onboarding (qui ne checke pas is_active) et toutes les server
+  // actions échouaient ensuite avec "Compte désactivé" sans contexte UI.
+  if (profile && !profile.is_active) {
+    await supabase.auth.signOut()
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'account_disabled')
+    return NextResponse.redirect(url)
+  }
 
   // Session + sur /login ou /signup → redirige vers le landing par défaut
   if (pathname === '/login' || pathname === '/signup') {

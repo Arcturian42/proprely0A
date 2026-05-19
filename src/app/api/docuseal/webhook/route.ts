@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
+import * as Sentry from '@sentry/nextjs'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { isResendConfigured, sendEmail } from '@/lib/email/resend'
 import { quoteSignedEmail } from '@/lib/email/templates'
@@ -161,7 +162,15 @@ export async function POST(req: NextRequest) {
             signedAt,
             appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
           })
-          await sendEmail({ to: profile.email, ...tpl }).catch(() => undefined)
+          await sendEmail({ to: profile.email, ...tpl }).catch(err => {
+            // Webhook still returns 200 — the quote is already flipped to
+            // 'signe' in the DB and Docuseal doesn't retry on 5xx. Surface
+            // the failure to Sentry so a Resend outage doesn't go silent.
+            Sentry.captureException(err, {
+              tags: { route: 'docuseal/webhook', step: 'salesperson_notify' },
+              extra: { submissionId },
+            })
+          })
         }
       }
     }

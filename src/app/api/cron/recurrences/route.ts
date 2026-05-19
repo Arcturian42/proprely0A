@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
 import { tickRecurrences } from '@/app/actions/recurrences'
+import { verifyBearer } from '@/lib/auth/bearer'
 
 // Vercel Cron entrypoint — gated by Authorization: Bearer ${CRON_SECRET}.
 // Schedule daily in vercel.json (or hourly if recurrence latency matters).
 // Returns count of generated missions for observability / Sentry.
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  const auth = req.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!verifyBearer(req.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
