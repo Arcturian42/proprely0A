@@ -10,6 +10,7 @@ import { Quote, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/typ
 import { calculateQuotePrice, estimateFromSurface } from '@/lib/pricing-engine'
 import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
 import { track } from '@/lib/analytics/posthog'
+import { generateQuoteNumber } from '@/app/actions/quotes'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 import type {
@@ -185,11 +186,22 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
 
   // ─── Create draft quote ────────────────────────────────────────────────────
 
-  const handleCreateDraft = useCallback(() => {
+  // P2.4 / BUG-MAJ-06 — allocate a server-side unique quote number via the
+  // RPC instead of slicing Date.now(). Falls back to a local-uniqueness
+  // string if the server call fails so the user can still draft (the number
+  // will be re-stamped on send/sign via the same RPC).
+  const handleCreateDraft = useCallback(async () => {
+    const result = await generateQuoteNumber()
+    const quoteNumber = result.ok
+      ? result.number
+      : `DEV-LOCAL-${Date.now().toString(36).toUpperCase()}`
+    if (!result.ok) {
+      toast.error(`Numéro de devis temporaire (${result.error}). Le numéro définitif sera attribué à l'envoi.`)
+    }
+
     const costs = aggregatedCosts()
     const totalSurface = services.reduce((sum, s) => sum + (parseFloat(s.surface) || 0), 0)
     const serviceNames = services.map(s => SERVICE_CATEGORY_LABELS[s.category]).join(', ')
-    const quoteNumber = `DEV-${Date.now().toString().slice(-6)}`
     const now = new Date().toISOString()
 
     // Build line items from all services

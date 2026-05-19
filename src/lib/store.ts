@@ -67,6 +67,10 @@ interface CompanySettings {
   address: string
   siret: string
   logo_url?: string
+  // Mirror of company_pricing_settings.hourly_labor_cost. Lives here (not in a
+  // separate slice) so time-entry totals + KPI calculations don't have to
+  // cross-store. Null when the company hasn't completed onboarding step 4.
+  hourly_labor_cost?: number | null
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -75,6 +79,7 @@ const defaultCompanySettings: CompanySettings = {
   phone: '01 23 45 67 89',
   address: '10 Rue de la Propreté, Paris',
   siret: '12345678901234',
+  hourly_labor_cost: null,
 }
 
 interface AppStore {
@@ -422,17 +427,26 @@ export const useAppStore = create<AppStore>()(
             updated_at: now,
           } : m),
           timeEntries: sanitizedHours !== undefined
-            ? s.timeEntries.map(te => te.mission_id === id
-                ? {
-                    ...te,
-                    status: 'validee',
-                    validated_hours: sanitizedHours,
-                    total_cost: te.hourly_cost != null ? sanitizedHours * te.hourly_cost : te.total_cost,
-                    validated_at: now,
-                    updated_at: now,
-                  }
-                : te
-              )
+            ? s.timeEntries.map(te => {
+                if (te.mission_id !== id) return te
+                // BUG-MAJ-05 — total_cost must reflect the validated hours.
+                // Use the time-entry's own hourly_cost first (covers agents
+                // with negotiated rates), then fall back to the company
+                // default. Final 0 fallback only triggers if neither is
+                // configured — surfaces as €0 in P&L reports rather than
+                // silently keeping a stale total_cost from creation time.
+                const hourly = te.hourly_cost
+                  ?? s.companySettings?.hourly_labor_cost
+                  ?? 0
+                return {
+                  ...te,
+                  status: 'validee',
+                  validated_hours: sanitizedHours,
+                  total_cost: sanitizedHours * hourly,
+                  validated_at: now,
+                  updated_at: now,
+                }
+              })
             : s.timeEntries,
         }))
         if (updatedMission) {
@@ -733,7 +747,7 @@ export const useAppStore = create<AppStore>()(
         quotes: [],
       }),
 
-      hydrateCompanyData: (data) => set({
+      hydrateCompanyData: (data) => set(s => ({
         agents: data.agents,
         clients: data.clients,
         sites: data.sites,
@@ -745,7 +759,14 @@ export const useAppStore = create<AppStore>()(
         timeEntries: data.timeEntries,
         serviceTypes: data.serviceTypes,
         quotes: data.quotes,
-      }),
+        // Mirror the DB pricing settings into the companySettings slice so
+        // time-entry total_cost computation (BUG-MAJ-05) has a fallback to
+        // the company default when te.hourly_cost is null.
+        companySettings: {
+          ...s.companySettings,
+          hourly_labor_cost: data.pricingSettings?.hourly_labor_cost ?? null,
+        },
+      })),
     }),
     {
       name: 'proprely-store',

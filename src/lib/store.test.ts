@@ -60,6 +60,7 @@ describe('useAppStore — mutations', () => {
       leads: [], opportunities: [baseOpp],
       missions: [], operationalItems: [], sops: [],
       timeEntries: [], serviceTypes: [], quotes: [],
+      pricingSettings: { hourly_labor_cost: null },
     })
   })
 
@@ -183,6 +184,84 @@ describe('useAppStore — mutations', () => {
       useAppStore.getState().updateMissionStatus(missionId, 'terminee', NaN)
       const te = useAppStore.getState().timeEntries.find(t => t.mission_id === missionId)
       expect(te?.validated_hours).toBe(0)
+    })
+
+    // P2.3 / BUG-MAJ-05 — total_cost must be (validated_hours * hourly_cost)
+    // with a clean fallback chain (time-entry rate → company default → 0)
+    // instead of silently preserving the prior total_cost.
+    it('computes total_cost from the time-entry hourly_cost when present', () => {
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-3',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: 25,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 4)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-3')
+      expect(te?.total_cost).toBe(100) // 4 × 25
+    })
+
+    it('falls back to companySettings.hourly_labor_cost when te.hourly_cost is null', () => {
+      // Hydrate the store's company settings with a default rate (mirrors
+      // what loadCompanyData → hydrateCompanyData does in production).
+      useAppStore.getState().updateCompanySettings({ hourly_labor_cost: 22 })
+
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-4',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: null,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 5)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-4')
+      expect(te?.total_cost).toBe(110) // 5 × 22 (company default)
+    })
+
+    it('lands on 0 (rather than stale null) when neither rate is set', () => {
+      useAppStore.getState().updateCompanySettings({ hourly_labor_cost: null })
+
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-5',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: null,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 6)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-5')
+      expect(te?.total_cost).toBe(0)
     })
   })
 

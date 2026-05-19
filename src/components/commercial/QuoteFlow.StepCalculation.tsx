@@ -19,7 +19,7 @@ interface Props {
   computedLines: ComputedServiceLine[]
   aggregatedCosts: QuoteCostBreakdown
   onBack: () => void
-  onNext: () => void
+  onNext: () => void | Promise<void>
 }
 
 export function StepCalculation({

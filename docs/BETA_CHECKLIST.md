@@ -211,6 +211,54 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 8. **Inviter** les 2 premiers users beta.
 9. **Surveiller** Sentry pendant 48h avant d'ouvrir aux 13 autres.
 
+## ✅ Sprint QA — Phase 1 + 2 (rapport QA 20 mai 2026)
+
+### Phase 1 — Bloquant bêta privée
+- **P1.2** Validation HTML5 française via `useFrenchValidation` hook
+  (`src/lib/forms/use-french-validation.ts`) sur `/login` et `/signup`.
+  Tooltip natif affiche désormais "Adresse email est requis." au lieu de
+  "Please fill out this field.".
+- **P1.3** Page dédiée `/signup/confirmation` après création de compte +
+  Server Action `resendSignupLink` pour relancer un magic link.
+- **P1.4** `recordingDuration` dans QuoteFlow capturé via `useRef`
+  (`recordingStartRef`), plus de valeur 0 dans le toast/notes.
+- **P1.5** `SUPPORT_EMAIL` constant exposé dans : footer public, FAQ login,
+  AppSidebar dropdown (lien "Aide & support").
+- **P1.6** `/api/health` bi-modal : `{status:'ok'}` public, version
+  détaillée derrière `Authorization: Bearer ${HEALTH_SECRET}` avec
+  `tables_ok.onboarding_status` (canary BUG-BLOQUANT-01).
+- **P1.7** `/login` parse `?error=` (missing-code, server_error, expired,
+  access_denied, invalid_request) et affiche un message FR dédié.
+- **P1.8** Server Actions onboarding/invitations + auth/callback : remplace
+  `error.message` brut par `toUserMessage(err, fallback)`.
+- **P1.9** Webhook DocuSeal refuse les requêtes sans signature en prod
+  (`VERCEL_ENV === 'production'`) au lieu de fail-open.
+- **P1.10** Sentry — env vars à configurer côté Vercel (cf. RUNBOOK).
+
+### Phase 2 — Critique bêta fermée → ouverte
+- **P2.1** CGU et Politique de confidentialité réécrites en version 1.0
+  RGPD-compliant (DPO, base légale, sous-traitants, durées de conservation,
+  cookies, recours CNIL).
+- **P2.3** `total_cost` dans `updateMissionStatus` calcule depuis
+  `te.hourly_cost ?? companySettings.hourly_labor_cost ?? 0` (BUG-MAJ-05),
+  avec hydratation `hourly_labor_cost` depuis `company_pricing_settings`.
+- **P2.4** `quote_number` persistant via migration
+  `20260520000000_quote_number_sequence.sql` + RPC `generate_quote_number()`
+  + Server Action `generateQuoteNumber`. Format `DEV-2026-0001` atomique
+  par (company, year).
+- **P2.5** Script `scripts/post-deploy-check.mjs` — smoke /api/health avec
+  HEALTH_SECRET pour gate CI/CD.
+
+## ❌ Faux positifs du rapport QA (vérifiés)
+
+| Item rapport | Réalité | Preuve |
+|---|---|---|
+| BUG-CRIT-01 `deleteQuote` absent | Exposé dans le store | `src/lib/store.ts:682-685` |
+| BUG-MAJ-07 `OWNER_SECRET` | N'existe pas | `grep -r OWNER_SECRET src/` → 0 |
+| `lang="fr"` manquant | Déjà présent | `src/app/layout.tsx:58` |
+| BUG-MAJ-04 404 absente | Implémentée | `src/app/not-found.tsx` |
+| BUG-MIN-06 CSP absent | Configurée | `next.config.ts:33-48` (à durcir Phase 3) |
+
 ## 📊 Métriques de référence (post-Sprint 1+2+3+V1+V2)
 
 | Métrique | Avant | Après |
