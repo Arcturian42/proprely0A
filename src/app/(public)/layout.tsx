@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +25,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="px-6 py-5 border-t border-slate-200/60 text-xs text-slate-500 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
         <Link href="/cgu" className="hover:text-slate-700">Conditions générales</Link>
         <Link href="/confidentialite" className="hover:text-slate-700">Politique de confidentialité</Link>
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-slate-700">
+          Contact
+        </a>
         <span>© {new Date().getFullYear()} Proprely</span>
       </footer>
     </div>

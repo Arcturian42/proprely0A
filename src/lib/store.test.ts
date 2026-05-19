@@ -60,6 +60,7 @@ describe('useAppStore — mutations', () => {
       leads: [], opportunities: [baseOpp],
       missions: [], operationalItems: [], sops: [],
       timeEntries: [], serviceTypes: [], quotes: [],
+      pricingSettings: { hourly_labor_cost: null },
     })
   })
 
@@ -184,10 +185,91 @@ describe('useAppStore — mutations', () => {
       const te = useAppStore.getState().timeEntries.find(t => t.mission_id === missionId)
       expect(te?.validated_hours).toBe(0)
     })
+
+    // P2.3 / BUG-MAJ-05 — total_cost must be (validated_hours * hourly_cost)
+    // with a clean fallback chain (time-entry rate → company default → 0)
+    // instead of silently preserving the prior total_cost.
+    it('computes total_cost from the time-entry hourly_cost when present', () => {
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-3',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: 25,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 4)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-3')
+      expect(te?.total_cost).toBe(100) // 4 × 25
+    })
+
+    it('falls back to companySettings.hourly_labor_cost when te.hourly_cost is null', () => {
+      // Hydrate the store's company settings with a default rate (mirrors
+      // what loadCompanyData → hydrateCompanyData does in production).
+      useAppStore.getState().updateCompanySettings({ hourly_labor_cost: 22 })
+
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-4',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: null,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 5)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-4')
+      expect(te?.total_cost).toBe(110) // 5 × 22 (company default)
+    })
+
+    it('lands on 0 (rather than stale null) when neither rate is set', () => {
+      useAppStore.getState().updateCompanySettings({ hourly_labor_cost: null })
+
+      const missionId = useAppStore.getState().signOpportunityContract('opp-1')!
+      useAppStore.getState().addTimeEntry({
+        id: 'te-5',
+        company_id: 'company-test',
+        mission_id: missionId,
+        agent_id: 'a-1',
+        client_id: 'c-1',
+        site_id: 's-1',
+        date: '2026-01-01',
+        planned_hours: 3,
+        validated_hours: null,
+        hourly_cost: null,
+        total_cost: null,
+        status: 'prevue',
+        validated_at: null,
+        created_at: '', updated_at: '',
+      })
+      useAppStore.getState().updateMissionStatus(missionId, 'terminee', 6)
+      const te = useAppStore.getState().timeEntries.find(t => t.id === 'te-5')
+      expect(te?.total_cost).toBe(0)
+    })
   })
 
-  describe('deleteClient — cascade', () => {
-    it('mirrors the DB cascade locally (sites + missions wiped)', () => {
+  describe('deleteClient — soft-delete cascade', () => {
+    // P3.5 / BUG-MIN-08 — Archiving a client must mirror server-side soft
+    // delete: client + its sites disappear from active views, missions stay
+    // (workflow state, not master data).
+    it('removes the client and its sites from the active store', () => {
       useAppStore.getState().winOpportunity('opp-1')
       useAppStore.getState().signOpportunityContract('opp-1')
       const clientId = useAppStore.getState().clients[0].id
@@ -196,8 +278,26 @@ describe('useAppStore — mutations', () => {
       const state = useAppStore.getState()
       expect(state.clients.length).toBe(0)
       expect(state.sites.length).toBe(0)
-      expect(state.missions.length).toBe(0)
-      expect(state.operationalItems.length).toBe(0)
+    })
+
+    it('keeps missions in the store (operational history is preserved)', () => {
+      useAppStore.getState().winOpportunity('opp-1')
+      useAppStore.getState().signOpportunityContract('opp-1')
+      const missionsBefore = useAppStore.getState().missions.length
+      const clientId = useAppStore.getState().clients[0].id
+      useAppStore.getState().deleteClient(clientId)
+
+      expect(useAppStore.getState().missions.length).toBe(missionsBefore)
+    })
+
+    it('nulls client_id on opportunities pointing at the archived client', () => {
+      useAppStore.getState().winOpportunity('opp-1')
+      const clientId = useAppStore.getState().clients[0].id
+      useAppStore.getState().deleteClient(clientId)
+
+      const opp = useAppStore.getState().opportunities.find(o => o.id === 'opp-1')
+      expect(opp?.client_id).toBeNull()
+      expect(opp?.site_id).toBeNull()
     })
   })
 })

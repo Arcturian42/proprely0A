@@ -67,6 +67,10 @@ interface CompanySettings {
   address: string
   siret: string
   logo_url?: string
+  // Mirror of company_pricing_settings.hourly_labor_cost. Lives here (not in a
+  // separate slice) so time-entry totals + KPI calculations don't have to
+  // cross-store. Null when the company hasn't completed onboarding step 4.
+  hourly_labor_cost?: number | null
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -75,6 +79,7 @@ const defaultCompanySettings: CompanySettings = {
   phone: '01 23 45 67 89',
   address: '10 Rue de la Propreté, Paris',
   siret: '12345678901234',
+  hourly_labor_cost: null,
 }
 
 interface AppStore {
@@ -251,23 +256,27 @@ export const useAppStore = create<AppStore>()(
         if (next) syncToSupabase('client', () => _upsertClient({ ...next, ...data }))
       },
       deleteClient: (id) => {
-        // Cascade locale : on miroirise ce que la DB fera via ON DELETE CASCADE
-        // (sites + missions via FK, leads/opportunities ré-affectés en local).
+        // Archive locally to mirror the server-side soft-delete (sets
+        // archived_at on clients + cascades to sites via DB trigger from
+        // 20260520000001_soft_delete_cascade.sql). Missions stay in the
+        // store — they're workflow state, not master data, and the user
+        // can still see them in operational views with the archived client
+        // showing as "client archivé". The next loadCompanyData() reload
+        // filters archived clients/sites out via `is('archived_at', null)`.
         set(s => {
-          const deletedSiteIds = new Set(s.sites.filter(si => si.client_id === id).map(si => si.id))
-          const deletedMissionIds = new Set(
-            s.missions.filter(m => m.client_id === id).map(m => m.id)
+          const archivedSiteIds = new Set(
+            s.sites.filter(si => si.client_id === id).map(si => si.id),
           )
           return {
             clients: s.clients.filter(c => c.id !== id),
             sites: s.sites.filter(si => si.client_id !== id),
-            missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
-            timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+            // Opportunities pointing at this client lose their client_id
+            // reference (the contract is no longer tied to a live client).
             opportunities: s.opportunities.map(o =>
               o.client_id === id ? { ...o, client_id: null, site_id: null } : o
             ),
             operationalItems: s.operationalItems.filter(
-              i => i.client_id !== id && !deletedSiteIds.has(i.site_id ?? '')
+              i => i.client_id !== id && !archivedSiteIds.has(i.site_id ?? '')
             ),
             leads: s.leads.map(l =>
               l.converted_opportunity_id && s.opportunities.find(
@@ -422,17 +431,26 @@ export const useAppStore = create<AppStore>()(
             updated_at: now,
           } : m),
           timeEntries: sanitizedHours !== undefined
-            ? s.timeEntries.map(te => te.mission_id === id
-                ? {
-                    ...te,
-                    status: 'validee',
-                    validated_hours: sanitizedHours,
-                    total_cost: te.hourly_cost != null ? sanitizedHours * te.hourly_cost : te.total_cost,
-                    validated_at: now,
-                    updated_at: now,
-                  }
-                : te
-              )
+            ? s.timeEntries.map(te => {
+                if (te.mission_id !== id) return te
+                // BUG-MAJ-05 — total_cost must reflect the validated hours.
+                // Use the time-entry's own hourly_cost first (covers agents
+                // with negotiated rates), then fall back to the company
+                // default. Final 0 fallback only triggers if neither is
+                // configured — surfaces as €0 in P&L reports rather than
+                // silently keeping a stale total_cost from creation time.
+                const hourly = te.hourly_cost
+                  ?? s.companySettings?.hourly_labor_cost
+                  ?? 0
+                return {
+                  ...te,
+                  status: 'validee',
+                  validated_hours: sanitizedHours,
+                  total_cost: sanitizedHours * hourly,
+                  validated_at: now,
+                  updated_at: now,
+                }
+              })
             : s.timeEntries,
         }))
         if (updatedMission) {
@@ -733,7 +751,7 @@ export const useAppStore = create<AppStore>()(
         quotes: [],
       }),
 
-      hydrateCompanyData: (data) => set({
+      hydrateCompanyData: (data) => set(s => ({
         agents: data.agents,
         clients: data.clients,
         sites: data.sites,
@@ -745,7 +763,14 @@ export const useAppStore = create<AppStore>()(
         timeEntries: data.timeEntries,
         serviceTypes: data.serviceTypes,
         quotes: data.quotes,
-      }),
+        // Mirror the DB pricing settings into the companySettings slice so
+        // time-entry total_cost computation (BUG-MAJ-05) has a fallback to
+        // the company default when te.hourly_cost is null.
+        companySettings: {
+          ...s.companySettings,
+          hourly_labor_cost: data.pricingSettings?.hourly_labor_cost ?? null,
+        },
+      })),
     }),
     {
       name: 'proprely-store',

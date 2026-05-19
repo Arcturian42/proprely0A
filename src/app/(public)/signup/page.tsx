@@ -1,29 +1,36 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { signUpCompany } from '@/app/actions/auth'
 import { track } from '@/lib/analytics/posthog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sparkles, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { useFrenchValidation } from '@/lib/forms/use-french-validation'
 
 export default function SignupPage() {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { onInvalid, onInput } = useFrenchValidation()
 
   function handleSubmit(formData: FormData) {
-    setResult(null)
+    setError(null)
     startTransition(async () => {
       const res = await signUpCompany(formData)
       if (res.ok) {
-        setResult({ ok: true, message: res.message ?? 'Compte créé.' })
         track('signup_completed', {
           company_name: formData.get('company_name'),
         })
+        // Redirect to the dedicated "check your inbox" confirmation page so
+        // the user has a clear next step + a way to resend the magic link.
+        const email = res.email ?? String(formData.get('email') ?? '')
+        router.push(`/signup/confirmation?email=${encodeURIComponent(email)}`)
       } else {
-        setResult({ ok: false, message: res.error })
+        setError(res.error)
         track('signup_failed', { error: res.error })
       }
     })
@@ -48,9 +55,12 @@ export default function SignupPage() {
               id="owner_first_name"
               name="owner_first_name"
               required
+              maxLength={100}
               autoComplete="given-name"
               placeholder="Marie"
-              disabled={pending || result?.ok}
+              disabled={pending}
+              onInvalid={onInvalid}
+              onInput={onInput}
             />
           </div>
           <div>
@@ -59,9 +69,12 @@ export default function SignupPage() {
               id="owner_last_name"
               name="owner_last_name"
               required
+              maxLength={100}
               autoComplete="family-name"
               placeholder="Dupont"
-              disabled={pending || result?.ok}
+              disabled={pending}
+              onInvalid={onInvalid}
+              onInput={onInput}
             />
           </div>
         </div>
@@ -74,8 +87,12 @@ export default function SignupPage() {
             id="company_name"
             name="company_name"
             required
+            minLength={2}
+            maxLength={200}
             placeholder="Ex: Nettoyage Pro SARL"
-            disabled={pending || result?.ok}
+            disabled={pending}
+            onInvalid={onInvalid}
+            onInput={onInput}
           />
         </div>
 
@@ -90,7 +107,9 @@ export default function SignupPage() {
             required
             autoComplete="email"
             placeholder="prenom@entreprise.fr"
-            disabled={pending || result?.ok}
+            disabled={pending}
+            onInvalid={onInvalid}
+            onInput={onInput}
           />
         </div>
 
@@ -98,7 +117,7 @@ export default function SignupPage() {
           <span className="text-rose-500">*</span> Champs obligatoires
         </p>
 
-        <Button type="submit" className="w-full gap-2" disabled={pending || result?.ok}>
+        <Button type="submit" className="w-full gap-2" disabled={pending}>
           {pending ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" /> Création en cours…
@@ -110,27 +129,10 @@ export default function SignupPage() {
           )}
         </Button>
 
-        {result && (
-          <div
-            className={`flex items-start gap-2 text-sm rounded-md px-3 py-2.5 ${
-              result.ok
-                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-                : 'bg-rose-50 text-rose-900 border border-rose-200'
-            }`}
-          >
-            {result.ok ? (
-              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            )}
-            <div className="flex-1">
-              <p>{result.message}</p>
-              {result.ok && (
-                <p className="text-[12px] text-emerald-800 mt-2">
-                  Consulte ta boîte mail (et les indésirables) pour cliquer sur le lien et continuer la configuration de ton espace.
-                </p>
-              )}
-            </div>
+        {error && (
+          <div className="flex items-start gap-2 text-sm rounded-md px-3 py-2.5 bg-rose-50 text-rose-900 border border-rose-200">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p className="flex-1">{error}</p>
           </div>
         )}
 

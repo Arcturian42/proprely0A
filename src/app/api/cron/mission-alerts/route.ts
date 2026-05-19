@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
 import { tickMissionReminders, tickMissionLateAlerts } from '@/app/actions/mission-alerts'
+import { verifyCronRequest } from '@/lib/cron/verify'
 
 // Vercel Cron entrypoint. Schedule twice daily in vercel.json:
 // - Early morning UTC for "tomorrow" reminders to land overnight
 // - Every 15 min during business hours for late alerts
-// Gated by Authorization: Bearer ${CRON_SECRET}.
+// Gated by Authorization: Bearer ${CRON_SECRET} with constant-time compare
+// (see lib/cron/verify.ts).
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  const auth = req.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = verifyCronRequest(req)
+  if (denied) return denied
 
   const start = Date.now()
   const url = new URL(req.url)

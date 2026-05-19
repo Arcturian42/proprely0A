@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { Suspense, useEffect, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { signInWithMagicLink } from '@/app/actions/auth'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -8,10 +9,33 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { useFrenchValidation } from '@/lib/forms/use-french-validation'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
-export default function LoginPage() {
+// Maps the ?error= query param (set by /auth/callback redirects) to a
+// user-facing French message. Unknown codes fall back to a generic one
+// rather than silently swallowing the redirect.
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  'missing-code': 'Lien de connexion invalide ou expiré. Demande un nouveau lien ci-dessous.',
+  'server_error': 'Une erreur serveur s\'est produite. Réessaie dans un instant.',
+  'expired': 'Ce lien a expiré (validité 15 min). Demande un nouveau lien ci-dessous.',
+  'access_denied': 'Accès refusé. Vérifie que le lien provient bien de Proprely.',
+  'invalid_request': 'Lien de connexion mal formé. Demande un nouveau lien ci-dessous.',
+}
+
+function LoginContent() {
+  const params = useSearchParams()
+  const errorCode = params.get('error')
   const [pending, startTransition] = useTransition()
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  // Hydrate the result state directly from the URL on mount — using an
+  // effect to do this would re-render unnecessarily and trips the
+  // react-hooks/set-state-in-effect lint.
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(() => {
+    if (!errorCode) return null
+    const message = AUTH_ERROR_MESSAGES[errorCode] ?? 'Une erreur d\'authentification s\'est produite. Réessaie.'
+    return { ok: false, message }
+  })
+  const { onInvalid, onInput } = useFrenchValidation()
 
   // Safety net : si on atterrit ici via une redirection du proxy (session expirée)
   // sans passer par le bouton "Se déconnecter", on purge quand même le cache local.
@@ -53,6 +77,8 @@ export default function LoginPage() {
             autoComplete="email"
             placeholder="prenom@entreprise.fr"
             disabled={pending}
+            onInvalid={onInvalid}
+            onInput={onInput}
           />
         </div>
 
@@ -103,8 +129,23 @@ export default function LoginPage() {
           <li>Vérifie l&apos;orthographe de ton email — un seul caractère faux et il n&apos;arrive jamais.</li>
           <li>Trop de tentatives en peu de temps ? Le système te bloque 10 minutes — c&apos;est une protection anti-spam.</li>
           <li>Compte désactivé par ton admin ? Contacte-le pour qu&apos;il te réactive depuis Paramètres → Équipe.</li>
+          <li>
+            Pour toute autre question :{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline hover:text-slate-700">
+              {SUPPORT_EMAIL}
+            </a>
+            .
+          </li>
         </ul>
       </details>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-slate-500">Chargement…</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
