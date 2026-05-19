@@ -249,6 +249,20 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 - **P2.5** Script `scripts/post-deploy-check.mjs` — smoke /api/health avec
   HEALTH_SECRET pour gate CI/CD.
 
+## ✅ Sprint QA — Hotfixes post-PR
+
+- **Proxy gate is_active** : `src/proxy.ts` redirige vers
+  `/login?error=access_denied` les profils `is_active=false` (correctif
+  RUNBOOK section 5, faille documentée mais non corrigée).
+- **`vercel.json`** créé avec 2 CRON jobs daily (recurrences à 4h UTC,
+  mission-alerts à 6h UTC). Compatible plan Hobby (1 exécution/jour max).
+  Late alerts business hours nécessitent Vercel Pro.
+- **`.env.example`** complété : `HEALTH_SECRET`, `CRON_SECRET`,
+  `UPSTASH_REDIS_REST_URL/TOKEN`, flag `CSP_STRICT`.
+- **`generateQuoteNumber`** ajoute `requirePermission('opportunity:write')`
+  en plus de la RLS RPC (défense en profondeur — empêche un agent
+  authentifié de brûler des numéros).
+
 ## ❌ Faux positifs du rapport QA (vérifiés)
 
 | Item rapport | Réalité | Preuve |
@@ -257,7 +271,22 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 | BUG-MAJ-07 `OWNER_SECRET` | N'existe pas | `grep -r OWNER_SECRET src/` → 0 |
 | `lang="fr"` manquant | Déjà présent | `src/app/layout.tsx:58` |
 | BUG-MAJ-04 404 absente | Implémentée | `src/app/not-found.tsx` |
-| BUG-MIN-06 CSP absent | Configurée | `next.config.ts:33-48` (à durcir Phase 3) |
+| BUG-MIN-06 CSP absent | Configurée | `next.config.ts:33-48` (durcie Phase 3) |
+
+## 🟡 Tests Playwright cassés pré-existants (hors scope de cette PR)
+
+Ces 4 tests étaient déjà rouges sur `main` avant l'audit QA — non causés
+par les changements de cette PR. À traiter dans une PR séparée :
+
+| Test | Problème | Action recommandée |
+|---|---|---|
+| `e2e/settings.spec.ts:30` "Rentabilité is hidden from sidebar" | Obsolète : `Rentabilité client` est dans `AppSidebar.tsx:81` (feature activée) | Supprimer ou inverser l'assertion |
+| `e2e/ux-additions.spec.ts:10` Cmd+K opens dialog | `GlobalSearch.tsx` existe mais le test timeout en dummy mode | Tester en mode authentifié seed Supabase |
+| `e2e/ux-additions.spec.ts:23` Cmd+K hint | Idem | Idem |
+| `e2e/ux-additions.spec.ts:64` Statut dropdown | `clients-sites` redirect en dummy mode (auth required) | Idem |
+
+CI principal (`Lint · Typecheck · Test · Build`) passe en vert sur cette PR
+— ces 4 fails Playwright ne sont pas un blocker merge.
 
 ## 📊 Métriques de référence (post-Sprint 1+2+3+V1+V2)
 
