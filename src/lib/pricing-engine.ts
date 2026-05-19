@@ -64,7 +64,12 @@ export interface PricingInput {
   consumablesCost: number
   transportCost: number
   otherCosts: number
+  // Optional override; defaults to the FR standard rate (0.20). Lux/export
+  // companies pass their own rate from CompanyPricingSettings.default_vat_rate.
+  vatRate?: number
 }
+
+const DEFAULT_VAT_RATE = 0.20
 
 export function calculateQuotePrice(input: PricingInput): QuoteCostBreakdown {
   const {
@@ -111,7 +116,7 @@ export function calculateQuotePrice(input: PricingInput): QuoteCostBreakdown {
     marginRate = minMargin
   }
 
-  const vatRate = 0.20
+  const vatRate = input.vatRate ?? DEFAULT_VAT_RATE
   const priceTTC = priceHT * (1 + vatRate)
 
   return {

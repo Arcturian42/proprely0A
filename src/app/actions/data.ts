@@ -7,6 +7,7 @@ import { missionAssignedEmail } from '@/lib/email/templates'
 import { hasTimeOverlap, minutesToTime, timeToMinutes } from '@/lib/scheduling/overlap'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { getEntitySchema } from '@/lib/schemas/entities'
 import type { Permission } from '@/lib/auth/types'
 import type {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem,
@@ -66,9 +67,11 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     missions, operationalItems, sops, timeEntries,
     serviceTypes, quotes,
   ] = await Promise.all([
-    supabase.from('agents').select('*').order('created_at', { ascending: false }),
-    supabase.from('clients').select('*').order('created_at', { ascending: false }),
-    supabase.from('sites').select('*').order('created_at', { ascending: false }),
+    // archived_at IS NULL on the three soft-deleted tables — archived rows
+    // stay in the DB for history but never reach the UI snapshot.
+    supabase.from('agents').select('*').is('archived_at', null).order('created_at', { ascending: false }),
+    supabase.from('clients').select('*').is('archived_at', null).order('created_at', { ascending: false }),
+    supabase.from('sites').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     supabase.from('leads')
       .select('*')
       .order('created_at', { ascending: false })
@@ -176,11 +179,31 @@ async function upsert(
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
 
-  const payload = { ...stripJoins(row), company_id: guard.caller.companyId }
+  const stripped = stripJoins(row)
+
+  // App-level validation before the DB sees the payload. Strips junk fields
+  // and gives a clean French error instead of a Postgres CHECK violation.
+  const schema = getEntitySchema(table)
+  if (schema) {
+    const parsed = schema.safeParse(stripped)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      const path = issue?.path?.join('.') || 'champ'
+      return { ok: false, error: `Données invalides (${path}) : ${issue?.message ?? 'format incorrect'}` }
+    }
+  }
+
+  const payload = { ...stripped, company_id: guard.caller.companyId }
   const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' })
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
+
+// Tables that soft-delete (set archived_at) instead of DELETE. Hard delete
+// on these would cascade to missions/time_entries via FK and silently destroy
+// history — bad for a SaaS the user is expected to trust. See migration
+// 20260519000000_soft_delete.sql for the schema side.
+const SOFT_DELETE_TABLES = new Set(['clients', 'sites', 'agents'])
 
 async function remove(
   table: string,
@@ -191,7 +214,16 @@ async function remove(
   if (!guard.ok) return { ok: false, error: guard.error }
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Supabase indisponible' }
+
   // RLS already restricts to current company; eq() is belt-and-braces.
+  if (SOFT_DELETE_TABLES.has(table)) {
+    const { error } = await supabase
+      .from(table).update({ archived_at: new Date().toISOString() })
+      .eq('id', id).eq('company_id', guard.caller.companyId)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
   const { error } = await supabase
     .from(table).delete()
     .eq('id', id).eq('company_id', guard.caller.companyId)

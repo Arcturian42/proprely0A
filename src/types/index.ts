@@ -177,6 +177,7 @@ export interface Client {
   status: string
   notes: string | null
   created_from_opportunity_id: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
   sites?: Site[]
@@ -197,6 +198,7 @@ export interface Site {
   sop_id: string | null
   notes: string | null
   created_from_opportunity_id: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
   client?: Client
@@ -219,6 +221,7 @@ export interface Agent {
   status: AgentStatus
   hourly_cost: number | null
   notes: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }

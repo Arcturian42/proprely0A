@@ -142,12 +142,36 @@ done
   - Require status checks to pass (CI · Playwright · Supabase Preview)
   - Disallow force pushes
 
+## 🟢 Sprint audit (post-roadmap review) — corrections P0/P1
+
+Suite à l'audit QA/CTO du 2026-05-19, les éléments suivants ont été corrigés
+avant d'ouvrir aux bêta-testeurs :
+
+- **A1** API `/api/quotes/send` : suppression de la fuite `err.message` dans
+  les réponses 500. Détail capturé via `Sentry.captureException` côté
+  serveur, message générique côté client.
+- **A2** TVA dynamique sur le devis PDF : libellé `TVA (X%)` calculé depuis
+  `quote.costs.vat_rate` au lieu du hardcoded 20 %. `pricing-engine.ts`
+  accepte un `vatRate` optionnel pour les sociétés non-FR (LU 17 %, export 0 %).
+- **A3** Schémas Zod par entité (`src/lib/schemas/entities.ts`) pour
+  agents/clients/sites/leads/opportunities/missions/time_entries/sops/
+  service_types/operational_items/quotes. Branchés dans `upsert()` —
+  validation structurelle avant d'atteindre Supabase, 23 tests unitaires.
+- **A4** Soft delete sur clients/sites/agents (migration
+  `20260519000000_soft_delete.sql`). `remove()` archive ces 3 entités
+  (`archived_at = NOW()`) au lieu de DELETE. `loadCompanyData()` filtre
+  les rows archivées via `.is('archived_at', null)`.
+- **A5** Playwright `auth-forms.spec.ts` : 6 tests semi-réels (validation
+  HTML5, server actions appelées, erreurs surfaceées) sans Supabase
+  preview project. Pour le flow auth complet, H4 reste reporté.
+
 ## 🟡 Items reportés (out of scope beta, V1+ après onboarding)
 
 Ces items n'ont pas été codés mais sont documentés dans le plan pour plus tard :
 
 - **H4** Tests E2E auth flow complet (signup → magic link mock → dashboard).
-  Bloqué sur : besoin d'un Supabase test project + mock du mail.
+  Bloqué sur : besoin d'un Supabase test project + mock du mail. (Versions
+  semi-réelles en place — voir A5.)
 - **V1.3** idem H4.
 - **V1.4** (suite) Refactor Docuseal en templates partagés par service_type.
   Note inline laissée dans le code.
@@ -191,9 +215,9 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 
 | Métrique | Avant | Après |
 |---|---|---|
-| Tests unitaires | 24 | **46** (+22) |
+| Tests unitaires | 24 | **141** (+23 schémas Zod entités) |
 | Lint warnings | 27 | **0** |
-| Migrations Supabase | 7 | **11** (+4 : profiles, RLS, seat-limit, audit) |
+| Migrations Supabase | 7 | **19** (+ soft delete + audit + onboarding + pricing) |
 | Sentry coverage | 0 | client + server + edge + request errors |
 | Empty states | dashboard | dashboard + clients + agents + cockpit + onboarding |
 | RBAC enforcement | UI only | UI + server actions + tests |

@@ -141,10 +141,13 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   // ─── Aggregated totals ─────────────────────────────────────────────────────
 
   const aggregatedCosts = useCallback((): QuoteCostBreakdown => {
+    // Pick the first line's vat_rate as the quote-wide rate; all lines share
+    // the company default for now. Falls back to the FR standard 20 %.
+    const vatRate = computedLines[0]?.costs.vat_rate ?? 0.20
     if (computedLines.length === 0) {
       return {
         labor_cost: 0, machines_cost: 0, consumables_cost: 0, transport_cost: 0,
-        other_costs: 0, total_cost_ht: 0, margin_rate: 0, price_ht: 0, vat_rate: 0.20, price_ttc: 0,
+        other_costs: 0, total_cost_ht: 0, margin_rate: 0, price_ht: 0, vat_rate: vatRate, price_ttc: 0,
       }
     }
     const totals = computedLines.reduce((acc, { costs }) => ({
@@ -165,7 +168,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
     return {
       ...totals,
       margin_rate: Math.round(margin_rate * 1000) / 1000,
-      vat_rate: 0.20,
+      vat_rate: vatRate,
       price_ttc: Math.round(totals.price_ttc * 100) / 100,
       price_ht: Math.round(totals.price_ht * 100) / 100,
     }

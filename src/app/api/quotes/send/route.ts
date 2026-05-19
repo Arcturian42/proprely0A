@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import * as Sentry from '@sentry/nextjs'
 import { sendForSignature } from '@/lib/docuseal'
 import { requireAuthenticatedProfile } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
@@ -153,9 +154,12 @@ function buildPDF(body: SendQuoteBody): Buffer {
   const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY || 160
   const totalsX = W - 14 - 75
 
+  // VAT label reflects the actual rate carried on the quote (validated 0..1
+  // via Zod above), so a 17 % LU or 0 % export quote renders correctly.
+  const vatPct = Math.round(quote.costs.vat_rate * 100 * 100) / 100
   const rows = [
     ['Total HT', formatCurrency(quote.costs.price_ht)],
-    ['TVA (20%)', formatCurrency(quote.costs.price_ttc - quote.costs.price_ht)],
+    [`TVA (${vatPct}%)`, formatCurrency(quote.costs.price_ttc - quote.costs.price_ht)],
   ]
   rows.forEach(([label, value], i) => {
     doc.setFont('helvetica', 'normal')
@@ -260,9 +264,15 @@ export async function POST(req: NextRequest) {
       webhookUrl: `${appUrl}/api/docuseal/webhook`,
     })
   } catch (err) {
+    // Detail goes to Sentry + server log; the client gets a generic message
+    // so we don't leak Docuseal/jsPDF/Resend internals (URLs, stack traces).
     console.error('[Send Quote]', err)
+    Sentry.captureException(err, {
+      tags: { route: 'quotes/send' },
+      user: { id: gate.userId },
+    })
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: 'Une erreur est survenue lors de l\'envoi du devis. Réessaie dans un instant.' },
       { status: 500 }
     )
   }
