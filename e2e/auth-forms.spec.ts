@@ -22,6 +22,22 @@ test.describe('login form', () => {
     expect(isValid).toBe(false)
   })
 
+  // P1.2 — Form keeps native HTML5 validation enabled but useFrenchValidation
+  // replaces the browser-locale tooltip text with French via setCustomValidity().
+  test('empty submit yields a French validation message', async ({ page }) => {
+    await page.goto('/login')
+    const emailInput = page.getByLabel(/email/i).first()
+    await page.getByRole('button', { name: /recevoir.*lien|connexion/i }).first().click()
+    const msg = await emailInput.evaluate((el: HTMLInputElement) => el.validationMessage)
+    expect(msg).toMatch(/requis/i)
+    expect(msg).not.toMatch(/please|fill out/i)
+  })
+
+  test('shows an error message when redirected with ?error=missing-code', async ({ page }) => {
+    await page.goto('/login?error=missing-code')
+    await expect(page.getByText(/invalide ou expir/i)).toBeVisible()
+  })
+
   test('valid email submits and surfaces the dummy-mode error', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).first().fill('test@proprely.fr')
@@ -32,6 +48,13 @@ test.describe('login form', () => {
     await expect(
       page.getByText(/non configurée|trop de tentatives|email envoyé/i),
     ).toBeVisible({ timeout: 10_000 })
+  })
+
+  // P1.5 — Support email visible in the FAQ details panel.
+  test('shows the support email in the FAQ details', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByText(/n'as pas reçu/i).click() // expands <details>
+    await expect(page.locator('a[href="mailto:support@proprely.fr"]')).toBeVisible()
   })
 })
 

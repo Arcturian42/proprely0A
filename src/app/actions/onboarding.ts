@@ -341,7 +341,7 @@ async function deliverInvitationEmail(
         options: { redirectTo: args.acceptUrl },
       })
     }
-    if (linkResult.error) return { ok: false, error: linkResult.error.message }
+    if (linkResult.error) return { ok: false, error: toUserMessage(linkResult.error, 'Envoi du lien impossible. Réessaie ou contacte le support.') }
     const actionLink = linkResult.data?.properties?.action_link
     if (!actionLink) return { ok: false, error: 'Magic link non généré.' }
     const tpl = invitationEmail({
