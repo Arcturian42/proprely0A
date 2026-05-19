@@ -250,29 +250,56 @@ export async function tickMissionLateAlerts(): Promise<{ alertsSent: number }> {
     agentsByMission.set(row.mission_id, list)
   }
 
-  let alertsSent = 0
+  // Build the send plan first, then fan out in parallel. Same shape as
+  // tickMissionReminders — fixes the per-mission sequential await that was
+  // capping cron throughput regardless of Resend latency.
+  type AlertSend = {
+    missionId: string
+    email: string
+    tpl: ReturnType<typeof missionLateAlertEmail>
+  }
+  const sends: AlertSend[] = []
   for (const mission of lateMissions) {
     const owner = ownerByCompany.get(mission.company_id)
     if (!owner?.email || !mission.start_time) continue
     const delayMinutes = cutoffMinutes - timeToMinutes(mission.start_time) + LATE_THRESHOLD_MINUTES
-    const tpl = missionLateAlertEmail({
-      managerFirstName: owner.first_name ?? '',
-      clientName: clientMap.get(mission.client_id ?? '') ?? 'Client',
-      siteName: siteMap.get(mission.site_id ?? '') ?? null,
-      scheduledDate: mission.scheduled_date,
-      startTime: mission.start_time.slice(0, 5),
-      agentNames: agentsByMission.get(mission.id) ?? [],
-      delayMinutes,
-      appUrl: getAppUrl(),
+    sends.push({
+      missionId: mission.id,
+      email: owner.email,
+      tpl: missionLateAlertEmail({
+        managerFirstName: owner.first_name ?? '',
+        clientName: clientMap.get(mission.client_id ?? '') ?? 'Client',
+        siteName: siteMap.get(mission.site_id ?? '') ?? null,
+        scheduledDate: mission.scheduled_date,
+        startTime: mission.start_time.slice(0, 5),
+        agentNames: agentsByMission.get(mission.id) ?? [],
+        delayMinutes,
+        appUrl: getAppUrl(),
+      }),
     })
-    const res = await sendEmail({ to: owner.email, ...tpl })
-    if (res.ok) {
-      alertsSent += 1
-      await admin
-        .from('missions')
-        .update({ late_alert_sent_at: new Date().toISOString() })
-        .eq('id', mission.id)
-    }
+  }
+
+  const CHUNK = 25
+  const stampMissions: string[] = []
+  let alertsSent = 0
+  for (let i = 0; i < sends.length; i += CHUNK) {
+    const chunk = sends.slice(i, i + CHUNK)
+    const results = await Promise.all(
+      chunk.map(s => sendEmail({ to: s.email, ...s.tpl })),
+    )
+    results.forEach((r, idx) => {
+      if (r.ok) {
+        alertsSent += 1
+        stampMissions.push(chunk[idx].missionId)
+      }
+    })
+  }
+
+  if (stampMissions.length > 0) {
+    await admin
+      .from('missions')
+      .update({ late_alert_sent_at: new Date().toISOString() })
+      .in('id', stampMissions)
   }
 
   return { alertsSent }

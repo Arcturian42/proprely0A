@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { roleCan, PERMISSIONS, ROLE_LABELS } from './rbac'
+import { roleCan, PERMISSIONS, ROLE_LABELS, isOwnerOrAdmin } from './rbac'
 import type { Role } from './types'
 
 describe('RBAC matrix', () => {
@@ -86,6 +86,22 @@ describe('RBAC matrix', () => {
       for (const p of PERMISSIONS.agent) {
         expect(adminSet.has(p)).toBe(true)
       }
+    })
+  })
+
+  describe('isOwnerOrAdmin', () => {
+    it('returns true for owner and admin', () => {
+      expect(isOwnerOrAdmin('owner')).toBe(true)
+      expect(isOwnerOrAdmin('admin')).toBe(true)
+    })
+
+    it('returns false for sales, agent, junk, null, undefined', () => {
+      expect(isOwnerOrAdmin('sales')).toBe(false)
+      expect(isOwnerOrAdmin('agent')).toBe(false)
+      expect(isOwnerOrAdmin('OWNER')).toBe(false) // case sensitive
+      expect(isOwnerOrAdmin('')).toBe(false)
+      expect(isOwnerOrAdmin(null)).toBe(false)
+      expect(isOwnerOrAdmin(undefined)).toBe(false)
     })
   })
 })

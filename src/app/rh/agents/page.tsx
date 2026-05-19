@@ -520,15 +520,33 @@ export default function AgentsPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={!!confirmDelete}
-        onOpenChange={() => setConfirmDelete(null)}
-        title="Supprimer l'agent"
-        description="Cette action est irréversible."
-        confirmLabel="Supprimer"
-        variant="destructive"
-        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
-      />
+      {(() => {
+        const target = confirmDelete ? agents.find(a => a.id === confirmDelete) : null
+        const targetMissionCount = confirmDelete
+          ? missions.filter(m => m.agents?.some(a => a.id === confirmDelete)).length
+          : 0
+        const fullName = target
+          ? [target.first_name, target.last_name].filter(Boolean).join(' ') || 'cet agent'
+          : 'cet agent'
+        // Surface name + mission count so the operator has the context they
+        // need to confirm. "Cette action est irréversible." alone was generic
+        // enough that operators sometimes deleted the wrong row in QA.
+        const description =
+          targetMissionCount > 0
+            ? `${fullName} est lié à ${targetMissionCount} mission(s). La suppression sera bloquée. Désaffecte-le d'abord depuis le planning.`
+            : `${fullName} sera archivé. Tu pourras toujours retrouver son historique d'heures et de missions.`
+        return (
+          <ConfirmDialog
+            open={!!confirmDelete}
+            onOpenChange={() => setConfirmDelete(null)}
+            title={`Supprimer ${fullName}`}
+            description={description}
+            confirmLabel="Supprimer"
+            variant="destructive"
+            onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+          />
+        )
+      })()}
 
       <AgentProfilePanel
         agent={profileAgent ?? null}

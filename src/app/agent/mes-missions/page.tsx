@@ -10,7 +10,7 @@ import {
 import { useCurrentUser } from '@/lib/auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, Calendar, Clock, MapPin } from 'lucide-react'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 
 export default function MesMissionsPage() {
@@ -48,41 +48,92 @@ export default function MesMissionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Site</TableHead>
-                <TableHead>Heures</TableHead>
-                <TableHead>Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {myMissions.map(m => {
-                const client = clients.find(c => c.id === m.client_id)
-                const site = sites.find(s => s.id === m.site_id)
-                return (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs">
-                      {new Date(m.scheduled_date).toLocaleDateString('fr-FR')}
-                      {m.start_time && <span className="text-slate-500"> · {m.start_time}</span>}
-                    </TableCell>
-                    <TableCell className="text-sm">{client?.name ?? '—'}</TableCell>
-                    <TableCell className="text-sm">{site?.name ?? '—'}</TableCell>
-                    <TableCell className="text-xs">{m.planned_hours ? `${m.planned_hours}h` : '—'}</TableCell>
-                    <TableCell>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                        {MISSION_STATUS_LABELS[m.status] ?? m.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <>
+          {/* Mobile: one card per mission. Field agents work on phones and a
+              horizontal-scroll table was unusable below ~375px. */}
+          <ul className="grid grid-cols-1 gap-3 sm:hidden">
+            {myMissions.map(m => {
+              const client = clients.find(c => c.id === m.client_id)
+              const site = sites.find(s => s.id === m.site_id)
+              return (
+                <li key={m.id}>
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {client?.name ?? '—'}
+                          </p>
+                          {site?.name && (
+                            <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                              <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              {site.name}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
+                          {MISSION_STATUS_LABELS[m.status] ?? m.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-600 pt-1">
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" aria-hidden="true" />
+                          {new Date(m.scheduled_date).toLocaleDateString('fr-FR')}
+                        </span>
+                        {m.start_time && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" aria-hidden="true" />
+                            {m.start_time}
+                          </span>
+                        )}
+                        {m.planned_hours != null && (
+                          <span className="tabular-nums">{m.planned_hours}h</span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </li>
+              )
+            })}
+          </ul>
+
+          {/* Tablet+ : keep the dense table view operators are used to. */}
+          <Card className="hidden sm:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Site</TableHead>
+                  <TableHead>Heures</TableHead>
+                  <TableHead>Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {myMissions.map(m => {
+                  const client = clients.find(c => c.id === m.client_id)
+                  const site = sites.find(s => s.id === m.site_id)
+                  return (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-xs">
+                        {new Date(m.scheduled_date).toLocaleDateString('fr-FR')}
+                        {m.start_time && <span className="text-slate-500"> · {m.start_time}</span>}
+                      </TableCell>
+                      <TableCell className="text-sm">{client?.name ?? '—'}</TableCell>
+                      <TableCell className="text-sm">{site?.name ?? '—'}</TableCell>
+                      <TableCell className="text-xs">{m.planned_hours ? `${m.planned_hours}h` : '—'}</TableCell>
+                      <TableCell>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          {MISSION_STATUS_LABELS[m.status] ?? m.status}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   )
