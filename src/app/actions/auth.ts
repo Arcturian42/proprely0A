@@ -38,7 +38,7 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
   // spam (en plus du rate-limit Supabase interne). Empêche aussi un user de
   // crasher accidentellement sa propre boîte mail.
   const email = parsed.data.email.toLowerCase().trim()
-  const rl = rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
+  const rl = await rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
   if (!rl.allowed) {
     return {
       ok: false,

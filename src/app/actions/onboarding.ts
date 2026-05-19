@@ -229,7 +229,7 @@ export async function inviteTeam(formData: FormData): Promise<OnboardingActionRe
   if (!admin || !supabase) return { ok: false, error: 'Client Supabase indisponible.' }
 
   // Rate-limit batch (count comme une seule action multiple, donc 10/10min OK)
-  const rl = rateLimit(`invite:${ownerGate.userId}`, 10, 10 * 60 * 1000)
+  const rl = await rateLimit(`invite:${ownerGate.userId}`, 10, 10 * 60 * 1000)
   if (!rl.allowed) {
     return { ok: false, error: 'Trop d\'invitations en peu de temps. Réessaie dans quelques minutes.' }
   }

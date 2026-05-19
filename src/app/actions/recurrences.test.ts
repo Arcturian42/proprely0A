@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { nextOccurrenceDates } from './recurrences'
 
+// Mirrors the constant in recurrences.ts. Kept inline because "use server"
+// modules can't export non-function values.
+const MAX_OCCURRENCES = 500
+
 describe('nextOccurrenceDates — weekly', () => {
   it('generates 4 weekly dates aligned to the target weekday', async () => {
     // 2026-05-18 is a Monday. Target weekday=1 (Monday).
@@ -76,5 +80,53 @@ describe('nextOccurrenceDates — monthly', () => {
       count: 2,
     })
     expect(dates).toEqual(['2026-05-07', '2026-06-07'])
+  })
+})
+
+// P3.1 / BUG-MIN-04 — guard against pathological counts.
+describe('nextOccurrenceDates — MAX_OCCURRENCES ceiling', () => {
+  it('caps weekly dates to MAX_OCCURRENCES when caller asks for more', async () => {
+    const dates = await nextOccurrenceDates({
+      frequency: 'weekly',
+      weekday: 1,
+      day_of_month: null,
+      starts_on: '2026-05-18',
+      ends_on: null,
+      count: 10_000,
+    })
+    expect(dates.length).toBe(MAX_OCCURRENCES)
+  })
+
+  it('caps monthly dates to MAX_OCCURRENCES when caller asks for more', async () => {
+    const dates = await nextOccurrenceDates({
+      frequency: 'monthly',
+      weekday: null,
+      day_of_month: 15,
+      starts_on: '2026-05-01',
+      ends_on: null,
+      count: 10_000,
+    })
+    expect(dates.length).toBe(MAX_OCCURRENCES)
+  })
+
+  it('clamps negative or NaN counts to 0 (no infinite loop)', async () => {
+    const negative = await nextOccurrenceDates({
+      frequency: 'weekly',
+      weekday: 1,
+      day_of_month: null,
+      starts_on: '2026-05-18',
+      ends_on: null,
+      count: -5,
+    })
+    expect(negative).toEqual([])
+    const nan = await nextOccurrenceDates({
+      frequency: 'weekly',
+      weekday: 1,
+      day_of_month: null,
+      starts_on: '2026-05-18',
+      ends_on: null,
+      count: Number.NaN,
+    })
+    expect(nan).toEqual([])
   })
 })

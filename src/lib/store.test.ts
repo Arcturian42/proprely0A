@@ -265,8 +265,11 @@ describe('useAppStore — mutations', () => {
     })
   })
 
-  describe('deleteClient — cascade', () => {
-    it('mirrors the DB cascade locally (sites + missions wiped)', () => {
+  describe('deleteClient — soft-delete cascade', () => {
+    // P3.5 / BUG-MIN-08 — Archiving a client must mirror server-side soft
+    // delete: client + its sites disappear from active views, missions stay
+    // (workflow state, not master data).
+    it('removes the client and its sites from the active store', () => {
       useAppStore.getState().winOpportunity('opp-1')
       useAppStore.getState().signOpportunityContract('opp-1')
       const clientId = useAppStore.getState().clients[0].id
@@ -275,8 +278,26 @@ describe('useAppStore — mutations', () => {
       const state = useAppStore.getState()
       expect(state.clients.length).toBe(0)
       expect(state.sites.length).toBe(0)
-      expect(state.missions.length).toBe(0)
-      expect(state.operationalItems.length).toBe(0)
+    })
+
+    it('keeps missions in the store (operational history is preserved)', () => {
+      useAppStore.getState().winOpportunity('opp-1')
+      useAppStore.getState().signOpportunityContract('opp-1')
+      const missionsBefore = useAppStore.getState().missions.length
+      const clientId = useAppStore.getState().clients[0].id
+      useAppStore.getState().deleteClient(clientId)
+
+      expect(useAppStore.getState().missions.length).toBe(missionsBefore)
+    })
+
+    it('nulls client_id on opportunities pointing at the archived client', () => {
+      useAppStore.getState().winOpportunity('opp-1')
+      const clientId = useAppStore.getState().clients[0].id
+      useAppStore.getState().deleteClient(clientId)
+
+      const opp = useAppStore.getState().opportunities.find(o => o.id === 'opp-1')
+      expect(opp?.client_id).toBeNull()
+      expect(opp?.site_id).toBeNull()
     })
   })
 })

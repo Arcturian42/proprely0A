@@ -37,6 +37,18 @@ function parseJSONField<T>(raw: FormDataEntryValue | null): T | null {
 }
 
 /**
+ * Hard ceiling on the number of occurrences any single call can request. The
+ * cron tick passes count=8 (low) and createRecurrence pre-generates 4, so 500
+ * is generous for any legitimate use while preventing an infinite loop or a
+ * crafted payload from generating millions of mission rows.
+ *
+ * Not exported : "use server" modules can only export async functions. Test
+ * coverage exists via the behavioural assertions in recurrences.test.ts (a
+ * request for 10_000 dates returns exactly 500).
+ */
+const MAX_OCCURRENCES = 500
+
+/**
  * Computes the next N occurrence dates for a recurrence pattern.
  * Pure — exported for test reuse. Doesn't care about company/RLS.
  */
@@ -49,6 +61,16 @@ export async function nextOccurrenceDates(args: {
   count: number
   fromDate?: string
 }): Promise<string[]> {
+  // P3.1 / BUG-MIN-04 — clamp count before the loop to bound work. A monthly
+  // recurrence with no ends_on and count=10_000 would happily build 10k dates
+  // before this guard.
+  const requestedCount = Math.max(0, Math.floor(args.count))
+  const count = Math.min(requestedCount, MAX_OCCURRENCES)
+  if (requestedCount > MAX_OCCURRENCES) {
+    console.warn(
+      `[recurrences] nextOccurrenceDates count=${requestedCount} truncated to ${MAX_OCCURRENCES}`,
+    )
+  }
   const start = new Date(`${args.fromDate ?? args.starts_on}T00:00:00Z`)
   const end = args.ends_on ? new Date(`${args.ends_on}T00:00:00Z`) : null
   const out: string[] = []
@@ -61,7 +83,7 @@ export async function nextOccurrenceDates(args: {
     while (cursor.getUTCDay() !== targetWeekday) {
       cursor.setUTCDate(cursor.getUTCDate() + 1)
     }
-    while (out.length < args.count) {
+    while (out.length < count) {
       if (end && cursor > end) break
       out.push(cursor.toISOString().slice(0, 10))
       cursor.setUTCDate(cursor.getUTCDate() + stepDays)
@@ -69,8 +91,9 @@ export async function nextOccurrenceDates(args: {
   } else {
     const dom = args.day_of_month ?? start.getUTCDate()
     const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), dom))
-    while (out.length < args.count) {
-      if (cursor >= start && (!end || cursor <= end)) {
+    while (out.length < count) {
+      if (end && cursor > end) break
+      if (cursor >= start) {
         out.push(cursor.toISOString().slice(0, 10))
       }
       cursor.setUTCMonth(cursor.getUTCMonth() + 1)

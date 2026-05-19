@@ -256,23 +256,27 @@ export const useAppStore = create<AppStore>()(
         if (next) syncToSupabase('client', () => _upsertClient({ ...next, ...data }))
       },
       deleteClient: (id) => {
-        // Cascade locale : on miroirise ce que la DB fera via ON DELETE CASCADE
-        // (sites + missions via FK, leads/opportunities ré-affectés en local).
+        // Archive locally to mirror the server-side soft-delete (sets
+        // archived_at on clients + cascades to sites via DB trigger from
+        // 20260520000001_soft_delete_cascade.sql). Missions stay in the
+        // store — they're workflow state, not master data, and the user
+        // can still see them in operational views with the archived client
+        // showing as "client archivé". The next loadCompanyData() reload
+        // filters archived clients/sites out via `is('archived_at', null)`.
         set(s => {
-          const deletedSiteIds = new Set(s.sites.filter(si => si.client_id === id).map(si => si.id))
-          const deletedMissionIds = new Set(
-            s.missions.filter(m => m.client_id === id).map(m => m.id)
+          const archivedSiteIds = new Set(
+            s.sites.filter(si => si.client_id === id).map(si => si.id),
           )
           return {
             clients: s.clients.filter(c => c.id !== id),
             sites: s.sites.filter(si => si.client_id !== id),
-            missions: s.missions.filter(m => !deletedMissionIds.has(m.id)),
-            timeEntries: s.timeEntries.filter(te => !deletedMissionIds.has(te.mission_id)),
+            // Opportunities pointing at this client lose their client_id
+            // reference (the contract is no longer tied to a live client).
             opportunities: s.opportunities.map(o =>
               o.client_id === id ? { ...o, client_id: null, site_id: null } : o
             ),
             operationalItems: s.operationalItems.filter(
-              i => i.client_id !== id && !deletedSiteIds.has(i.site_id ?? '')
+              i => i.client_id !== id && !archivedSiteIds.has(i.site_id ?? '')
             ),
             leads: s.leads.map(l =>
               l.converted_opportunity_id && s.opportunities.find(
