@@ -44,17 +44,21 @@ test.describe('login form', () => {
     await page.getByRole('button', { name: /recevoir.*lien|connexion/i }).first().click()
     // In dummy mode the server action returns "Auth Supabase non configurée"
     // (or rate-limit if the test ran multiple times). Either proves the
-    // action ran end-to-end.
+    // action ran end-to-end. Scope to .first() because the same wording
+    // ("trop de tentatives") also appears in the FAQ details panel.
     await expect(
-      page.getByText(/non configurée|trop de tentatives|email envoyé/i),
+      page.getByText(/non configurée|trop de tentatives|email envoyé/i).first(),
     ).toBeVisible({ timeout: 10_000 })
   })
 
-  // P1.5 — Support email visible in the FAQ details panel.
+  // P1.5 — Support email visible in the FAQ details panel. The footer also
+  // exposes the same mailto link, so we scope the visibility check to the
+  // FAQ's <details> element to avoid a strict-mode collision.
   test('shows the support email in the FAQ details', async ({ page }) => {
     await page.goto('/login')
     await page.getByText(/n'as pas reçu/i).click() // expands <details>
-    await expect(page.locator('a[href="mailto:support@proprely.fr"]')).toBeVisible()
+    const faqMailto = page.locator('details a[href="mailto:support@proprely.fr"]')
+    await expect(faqMailto).toBeVisible()
   })
 })
 

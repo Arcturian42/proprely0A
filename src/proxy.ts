@@ -95,12 +95,33 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Une seule query profile pour toute la suite (role + company_id).
+  // Une seule query profile pour toute la suite (role + company_id + is_active).
+  // is_active is read here to deny deactivated members at the edge — without
+  // this, a member toggled off by their owner could still reach /dashboard
+  // (requirePermission catches server actions, but the proxy never did). See
+  // docs/RUNBOOK.md "Un user désactivé peut quand même se connecter".
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, company_id')
+    .select('role, company_id, is_active')
     .eq('id', user.id)
-    .single<{ role: 'owner' | 'admin' | 'sales' | 'agent'; company_id: string }>()
+    .single<{
+      role: 'owner' | 'admin' | 'sales' | 'agent'
+      company_id: string
+      is_active: boolean
+    }>()
+
+  // Deactivated members are signed out and bounced to /login with an error
+  // code (the login page maps `?error=access_denied` to "Accès refusé.
+  // Vérifie que le lien provient bien de Proprely." which doubles as a hint
+  // to contact their admin). We don't await signOut here because a stale
+  // session is harmless — the next request will hit this same gate.
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut().catch(() => undefined)
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = '?error=access_denied'
+    return NextResponse.redirect(url)
+  }
 
   // Session + sur /login ou /signup → redirige vers le landing par défaut
   if (pathname === '/login' || pathname === '/signup') {

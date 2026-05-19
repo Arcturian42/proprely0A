@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/recurrences",
+      "schedule": "0 4 * * *",
+      "_comment": "Daily at 04:00 UTC — generate upcoming mission occurrences. tickRecurrences caps at 8 occurrences per recurrence per run with a 28-day horizon (src/app/actions/recurrences.ts:296)."
+    },
+    {
+      "path": "/api/cron/mission-alerts",
+      "schedule": "*/15 6-18 * * 1-5",
+      "_comment": "Every 15 min during EU business hours, Mon-Fri — runs both 'reminders' (next-day notifications, idempotent via reminder_sent_at) and 'late' alerts in a single tick. Hobby plan caps at 2 cron jobs total."
+    }
+  ]
+}

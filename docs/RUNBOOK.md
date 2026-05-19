@@ -98,15 +98,20 @@ rien".
   si l'API ne répond pas (l'UI a déjà un toggle "Manuel" — vérifier
   qu'il marche bien).
 
-### 5. Un user désactivé peut quand même se connecter
+### 5. Un user désactivé peut quand même se connecter — **CORRIGÉ (Phase 3 QA)**
 
 **Symptômes** : Membre marqué `is_active: false` arrive sur le dashboard.
 
-**Action** :
-- C'est un trou : `requirePermission` rejette le user désactivé pour les
-  server actions, mais le proxy/middleware ne check pas `is_active`.
-- À fixer immédiatement : ajouter le check `is_active` dans `proxy.ts`
-  avant le redirect dashboard. **(Ouvert : voir TODO V1.1 audit trail).**
+**Action (correctif appliqué)** :
+- `src/proxy.ts` lit désormais `is_active` dans la query profile.
+- Si `is_active === false` :
+  1. Force `supabase.auth.signOut()` côté serveur
+  2. Redirige vers `/login?error=access_denied`
+- Le membre voit "Accès refusé. Vérifie que le lien provient bien de
+  Proprely." — il doit contacter son admin pour réactivation
+  (Paramètres → Équipe).
+- `requirePermission` continue de protéger les server actions en double
+  défense.
 
 ## Backups & DR
 
