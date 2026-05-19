@@ -48,12 +48,15 @@ test.describe('signup form', () => {
 
   test('accepts a fully filled form (dummy-mode error reached)', async ({ page }) => {
     await page.goto('/signup')
-    await page.getByLabel(/email/i).first().fill('owner@example.fr')
-    await page.getByLabel(/prénom/i).first().fill('Alice')
-    await page.getByLabel(/nom/i).first().fill('Martin')
-    await page.getByLabel(/entreprise/i).first().fill('ACME Cleaning')
+    // Selectors by input id — labels collide ("Nom" vs "Nom de l'entreprise"
+    // vs "Prénom" all contain "nom" as a substring, so regex match by label
+    // text picks the wrong field). Each <Input> has an `id` we can target.
+    await page.locator('#owner_first_name').fill('Alice')
+    await page.locator('#owner_last_name').fill('Martin')
+    await page.locator('#company_name').fill('ACME Cleaning')
+    await page.locator('#email').fill('owner@example.fr')
     await page.getByRole('button', { name: /créer|signup|inscription/i }).first().click()
-    // Same as login : in dummy mode the action returns a configuration error,
+    // In dummy mode the action returns a configuration error,
     // which is enough to prove the form posted + action ran.
     await expect(
       page.getByText(/non configurée|email envoyé|déjà|trop de tentatives/i),

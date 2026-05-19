@@ -213,3 +213,46 @@ describe('dispatcher', () => {
     expect(getEntitySchema('')).toBeNull()
   })
 })
+
+// Regression smoke : every row of mock-data.ts (which mirrors real DB shapes
+// across the app) must pass its own schema. If this fails, I broke the
+// upsert path for an existing flow.
+import {
+  mockAgents, mockClients, mockSites, mockLeads,
+  mockOpportunities, mockMissions, mockTimeEntries, mockSops,
+  mockOperationalItems,
+} from '../mock-data'
+import {
+  LeadSchema, OpportunitySchema, SiteSchema, SopSchema,
+  OperationalItemSchema,
+} from './entities'
+
+describe('mock-data fixtures pass their schemas (regression)', () => {
+  it.each(mockAgents.map((a, i) => [i, a]))('agent[%d]', (_i, agent) => {
+    expect(AgentSchema.safeParse(agent).success).toBe(true)
+  })
+  it.each(mockClients.map((c, i) => [i, c]))('client[%d]', (_i, client) => {
+    expect(ClientSchema.safeParse(client).success).toBe(true)
+  })
+  it.each(mockSites.map((s, i) => [i, s]))('site[%d]', (_i, site) => {
+    expect(SiteSchema.safeParse(site).success).toBe(true)
+  })
+  it.each(mockLeads.map((l, i) => [i, l]))('lead[%d]', (_i, lead) => {
+    expect(LeadSchema.safeParse(lead).success).toBe(true)
+  })
+  it.each(mockOpportunities.map((o, i) => [i, o]))('opportunity[%d]', (_i, opp) => {
+    expect(OpportunitySchema.safeParse(opp).success).toBe(true)
+  })
+  it.each(mockMissions.map((m, i) => [i, m]))('mission[%d]', (_i, mission) => {
+    expect(MissionSchema.safeParse(mission).success).toBe(true)
+  })
+  it.each(mockTimeEntries.map((t, i) => [i, t]))('time_entry[%d]', (_i, te) => {
+    expect(TimeEntrySchema.safeParse(te).success).toBe(true)
+  })
+  it.each(mockSops.map((s, i) => [i, s]))('sop[%d]', (_i, sop) => {
+    expect(SopSchema.safeParse(sop).success).toBe(true)
+  })
+  it.each(mockOperationalItems.map((o, i) => [i, o]))('operational_item[%d]', (_i, item) => {
+    expect(OperationalItemSchema.safeParse(item).success).toBe(true)
+  })
+})
