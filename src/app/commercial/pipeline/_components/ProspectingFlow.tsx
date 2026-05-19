@@ -174,7 +174,10 @@ export function ProspectingFlow() {
       </button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden border-0 bg-transparent shadow-none">
+        <DialogContent
+          className="max-w-2xl p-0 overflow-hidden border-0 bg-transparent shadow-none"
+          onFocusOutside={(e) => e.preventDefault()}
+        >
           <div className="prospect-shell relative rounded-2xl overflow-hidden">
             {phase === 'wizard' && (
               <WizardView

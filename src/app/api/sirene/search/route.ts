@@ -77,14 +77,21 @@ export async function GET(req: Request) {
 
   const endpoint = `https://recherche-entreprises.api.gouv.fr/search?${params.toString()}`
 
+  // 5s hard timeout — the upstream sometimes hangs and the modal becomes
+  // unusable while the spinner spins forever. AbortController short-circuits
+  // it and lets the UI fall back to manual entry.
+  const ctrl = new AbortController()
+  const timeout = setTimeout(() => ctrl.abort(), 5000)
   try {
     const res = await fetch(endpoint, {
       headers: { Accept: 'application/json' },
       next: { revalidate: 30 },
+      signal: ctrl.signal,
     })
     if (!res.ok) {
+      console.warn('[sirene] upstream non-OK:', res.status)
       return NextResponse.json(
-        { results: [], error: `Upstream ${res.status}` },
+        { results: [], error: 'sirene_unavailable' },
         { status: 200 },
       )
     }
@@ -92,10 +99,14 @@ export async function GET(req: Request) {
     const results: CompanyHit[] = (data.results || []).map(shape)
     return NextResponse.json({ results })
   } catch (err) {
+    const aborted = (err as Error).name === 'AbortError'
+    console.warn('[sirene] fetch failed:', aborted ? 'timeout' : (err as Error).message)
     return NextResponse.json(
-      { results: [], error: (err as Error).message },
+      { results: [], error: aborted ? 'sirene_timeout' : 'sirene_unavailable' },
       { status: 200 },
     )
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
