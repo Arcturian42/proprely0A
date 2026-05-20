@@ -44,11 +44,17 @@ test.describe('Rentabilité pages (dummy mode)', () => {
     await expect(page.getByRole('heading', { name: /tableau de bord/i })).toBeVisible()
   })
 
-  test('Rentabilité links are back in the sidebar', async ({ page }) => {
+  test('Rentabilité links are hidden from sidebar during private beta', async ({ page }) => {
+    // Sprint 0 (audit bêta) — la section "Pilotage rentabilité" est marquée
+    // `betaHidden` dans AppSidebar.tsx parce que la donnée alimente mal les
+    // KPI et qu'on ne veut pas créer d'attentes. Les pages restent accessibles
+    // par URL directe (cf. les deux tests précédents) pour qu'on puisse
+    // continuer à itérer dessus.
     await page.goto('/dashboard')
     const sidebar = page.locator('aside')
-    await expect(sidebar.getByText(/pilotage rentabilité/i)).toBeVisible()
-    await expect(sidebar.getByRole('link', { name: /rentabilité client/i })).toBeVisible()
-    await expect(sidebar.getByRole('link', { name: /analyse des heures/i })).toBeVisible()
+    await expect(sidebar).toBeVisible()
+    await expect(sidebar.getByText(/pilotage rentabilité/i)).toHaveCount(0)
+    await expect(sidebar.getByRole('link', { name: /rentabilité client/i })).toHaveCount(0)
+    await expect(sidebar.getByRole('link', { name: /analyse des heures/i })).toHaveCount(0)
   })
 })
