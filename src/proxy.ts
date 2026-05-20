@@ -5,13 +5,14 @@ import { computeNextIncompleteStep, isOnboardingComplete } from '@/lib/onboardin
 const PUBLIC_PATHS = [
   '/login',
   '/signup',
+  '/signup/confirmation',  // Post-signup "check your inbox" page (P1.3)
   '/auth/callback',
   '/accept-invitation',
   '/cgu',
   '/confidentialite',
   '/api/auth/signup',
   '/api/health',           // Public liveness probe — for uptime monitors
-  '/api/cron',             // Vercel cron — auth via verifyBearer in route handler
+  '/api/cron',             // Vercel cron — auth via verifyCronRequest in route handler
   '/api/docuseal/webhook', // Docuseal callback — auth via HMAC signature in handler
   '/sentry-example-page',  // Sentry verification — public, not linked from UI
   '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
@@ -97,18 +98,26 @@ export async function proxy(request: NextRequest) {
   }
 
   // Une seule query profile pour toute la suite (role + company_id + is_active).
+  // is_active is read here to deny deactivated members at the edge — without
+  // this, a member toggled off by their owner could still reach /dashboard
+  // (requirePermission catches server actions, but the proxy never did). See
+  // docs/RUNBOOK.md "Un user désactivé peut quand même se connecter".
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, company_id, is_active')
     .eq('id', user.id)
-    .single<{ role: 'owner' | 'admin' | 'sales' | 'agent'; company_id: string; is_active: boolean }>()
+    .single<{
+      role: 'owner' | 'admin' | 'sales' | 'agent'
+      company_id: string
+      is_active: boolean
+    }>()
 
-  // Compte désactivé : on signe le user out côté server et on renvoie sur /login
-  // avec un flag pour afficher le message. Sans ça, un owner désactivé pouvait
-  // entrer dans /onboarding (qui ne checke pas is_active) et toutes les server
-  // actions échouaient ensuite avec "Compte désactivé" sans contexte UI.
-  if (profile && !profile.is_active) {
-    await supabase.auth.signOut()
+  // Compte désactivé : on sign out côté server et on renvoie sur /login avec
+  // ?error=account_disabled (mappé en FR explicite par la page login). On
+  // catch le signOut pour ne pas faire échouer la redirection si le call à
+  // Supabase plante — la session sera de toute façon refusée au prochain hit.
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut().catch(() => undefined)
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('error', 'account_disabled')

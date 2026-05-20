@@ -99,33 +99,36 @@ rien".
   si l'API ne répond pas (l'UI a déjà un toggle "Manuel" — vérifier
   qu'il marche bien).
 
-### 5. Un user désactivé peut quand même se connecter
+### 5. Un user désactivé peut quand même se connecter — **CORRIGÉ (Phase 3 QA)**
 
 **Symptômes** : Membre marqué `is_active: false` arrive sur le dashboard.
 
-**Action** :
-- Depuis le sprint pré-beta, `proxy.ts` charge `is_active` en même temps que
-  `role`/`company_id`. Si `is_active = false` → `auth.signOut()` côté serveur
-  + redirect `/login?error=account_disabled`. La page login affiche un
-  message FR clair via le map `ERROR_MESSAGES`.
+**Action (correctif appliqué)** :
+- `src/proxy.ts` lit désormais `is_active` dans la query profile (même trip
+  que `role` et `company_id`).
+- Si `is_active === false` :
+  1. Force `supabase.auth.signOut()` côté serveur (catch silencieux car la
+     session sera de toute façon refusée au prochain hit)
+  2. Redirige vers `/login?error=account_disabled`
+- La page login (`AUTH_ERROR_MESSAGES` dans `(public)/login/page.tsx`)
+  affiche "Ton compte a été désactivé par ton administrateur. Contacte-le
+  pour qu'il te réactive depuis Paramètres → Équipe."
+- `requirePermission` continue de protéger les server actions en double
+  défense.
 - Si malgré ça un user désactivé arrive sur le dashboard : vérifier que le
   cookie Supabase a bien été dropé (`sb-access-token` absent dans les
   cookies du navigateur). Si présent, vider manuellement et retester.
-- Vérifier que la modification `profiles.is_active` est bien commitée en
-  base — `revalidatePath('/parametres')` est appelé par `setMemberActive`,
-  mais le middleware lit la valeur fraîche à chaque requête, donc la
-  désactivation s'applique au prochain hit du middleware.
 
 ### 6. Vercel Cron tombe en 401
 
 **Symptômes** : Dans Vercel Logs ou Sentry, requêtes `GET /api/cron/*`
-renvoient 401 — les rappels J-1 et alertes mission late ne partent pas, et
-les missions récurrentes ne se génèrent plus.
+renvoient 401 (mauvais header) ou 500 (`CRON_SECRET not configured`) — les
+rappels J-1 ne partent pas et les missions récurrentes ne se génèrent plus.
 
 **Action** :
 1. Vérifier que `CRON_SECRET` est set côté Vercel (Project Settings → Env Vars).
-2. Vérifier que `vercel.json` à la racine contient bien les 3 entrées sous
-   `crons` (mission-alerts × 2 + recurrences). Vercel passe automatiquement
+2. Vérifier que `vercel.json` à la racine contient bien les 2 entrées sous
+   `crons` (recurrences + mission-alerts). Vercel passe automatiquement
    `Authorization: Bearer ${CRON_SECRET}` aux URLs listées là, **pas
    ailleurs**.
 3. Tester manuellement :
@@ -134,9 +137,9 @@ les missions récurrentes ne se génèrent plus.
      https://app.proprely.fr/api/cron/mission-alerts?mode=both
    ```
    → doit retourner 200 + JSON `{remindersSent, alertsSent, durationMs}`.
-4. Si toujours 401 : `verifyBearer` short-circuite sur longueur différente.
-   Vérifier qu'il n'y a pas d'espace en trop dans la valeur stockée sur
-   Vercel.
+4. Si toujours 401 : `verifyCronRequest` short-circuite sur longueur
+   différente. Vérifier qu'il n'y a pas d'espace en trop dans la valeur
+   stockée sur Vercel.
 
 ## Backups & DR
 

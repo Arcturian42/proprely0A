@@ -56,12 +56,16 @@ function extractSubmissionId(body: DocusealEvent): string | null {
  * `submission.completed` event and mark any quote as signed (service role
  * bypasses RLS). Use timingSafeEqual to avoid a side-channel.
  *
- * If DOCUSEAL_WEBHOOK_SECRET is unset (dev/staging), signature is skipped —
- * production should always have it configured.
+ * In production (VERCEL_ENV === 'production') the secret is REQUIRED — missing
+ * config produces a 401 so a misconfigured deploy fails closed instead of
+ * trusting every request. In other envs (dev/staging) we skip verification.
  */
 function verifySignature(rawBody: string, headerSignature: string | null): boolean {
   const secret = process.env.DOCUSEAL_WEBHOOK_SECRET
-  if (!secret) return true // dev mode — explicit opt-out
+  if (!secret) {
+    if (process.env.VERCEL_ENV === 'production') return false
+    return true // dev/staging — explicit opt-out
+  }
   if (!headerSignature) return false
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
   const expectedBuf = Buffer.from(expected, 'hex')

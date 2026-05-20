@@ -8,6 +8,7 @@ import { useCurrentUser, useCurrentCompany, useCurrentRole } from '@/lib/auth'
 import { roleCan } from '@/lib/auth/rbac'
 import type { Permission } from '@/lib/auth/types'
 import { useAppStore } from '@/lib/store'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -25,6 +26,7 @@ import {
   ChevronUp,
   User,
   LogOut,
+  LifeBuoy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -188,6 +190,15 @@ export function AppSidebar() {
                 <Settings className="w-4 h-4" />
                 Paramètres
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[Proprely] Demande de support')}`}
+                className="flex items-center gap-2"
+              >
+                <LifeBuoy className="w-4 h-4" />
+                Aide & support
+              </a>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <form action={signOut} className="px-1 py-0.5">

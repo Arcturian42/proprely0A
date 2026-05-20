@@ -10,6 +10,7 @@ import { Quote, ServiceCategory, QuoteCostBreakdown, QuoteLineItem } from '@/typ
 import { calculateQuotePrice, estimateFromSurface } from '@/lib/pricing-engine'
 import { SERVICE_CATEGORY_LABELS } from '@/lib/constants'
 import { track } from '@/lib/analytics/posthog'
+import { generateQuoteNumber } from '@/app/actions/quotes'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 import type {
@@ -46,6 +47,10 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Source of truth for the actual elapsed seconds. The state above lags one
+  // render behind in handleStopRecording (closure captures the value before
+  // setInterval's final tick), so we read the ref for the recorded value.
+  const recordingStartRef = useRef<number>(0)
 
   // Step 3 — Media
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
@@ -90,6 +95,7 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   const handleStartRecording = () => {
     setIsRecording(true)
     setRecordingDuration(0)
+    recordingStartRef.current = Date.now()
     recordingTimer.current = setInterval(() => setRecordingDuration(d => d + 1), 1000)
     toast.info('Enregistrement en cours...')
   }
@@ -97,9 +103,13 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   const handleStopRecording = () => {
     setIsRecording(false)
     if (recordingTimer.current) clearInterval(recordingTimer.current)
-    toast.success(`Enregistrement de ${recordingDuration}s sauvegardé`)
+    const elapsedSeconds = Math.max(
+      0,
+      Math.round((Date.now() - recordingStartRef.current) / 1000),
+    )
+    toast.success(`Enregistrement de ${elapsedSeconds}s sauvegardé`)
     if (!visitNotes) {
-      setVisitNotes(`[Note vocale ${recordingDuration}s] Visite terrain effectuée.`)
+      setVisitNotes(`[Note vocale ${elapsedSeconds}s] Visite terrain effectuée.`)
     }
   }
 
@@ -176,11 +186,22 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
 
   // ─── Create draft quote ────────────────────────────────────────────────────
 
-  const handleCreateDraft = useCallback(() => {
+  // P2.4 / BUG-MAJ-06 — allocate a server-side unique quote number via the
+  // RPC instead of slicing Date.now(). Falls back to a local-uniqueness
+  // string if the server call fails so the user can still draft (the number
+  // will be re-stamped on send/sign via the same RPC).
+  const handleCreateDraft = useCallback(async () => {
+    const result = await generateQuoteNumber()
+    const quoteNumber = result.ok
+      ? result.number
+      : `DEV-LOCAL-${Date.now().toString(36).toUpperCase()}`
+    if (!result.ok) {
+      toast.error(`Numéro de devis temporaire (${result.error}). Le numéro définitif sera attribué à l'envoi.`)
+    }
+
     const costs = aggregatedCosts()
     const totalSurface = services.reduce((sum, s) => sum + (parseFloat(s.surface) || 0), 0)
     const serviceNames = services.map(s => SERVICE_CATEGORY_LABELS[s.category]).join(', ')
-    const quoteNumber = `DEV-${Date.now().toString().slice(-6)}`
     const now = new Date().toISOString()
 
     // Build line items from all services

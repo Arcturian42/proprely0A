@@ -6,6 +6,11 @@ import { withSentryConfig } from '@sentry/nextjs'
 // Tailwind, mais on garde script-src strict avec un nonce-less fallback à
 // 'self' (Next.js inline les hydration scripts au même origin).
 //
+// P3.3 — `unsafe-eval` est retiré en production. Next.js HMR et certaines libs
+// dev-only en ont besoin, mais la prod n'utilise que du code compilé. Garder
+// `unsafe-inline` : Next 16 inline les scripts hydration (un nonce per-request
+// est l'étape suivante mais demande un refactor proxy + layout coordonné).
+//
 // connect-src autorise Supabase + Sentry + Resend + Docuseal + l'origin courant.
 //
 // NB CSP wildcards : `*.sentry.io` ne couvre QU'UN seul niveau de sous-domaine.
@@ -30,9 +35,19 @@ const POSTHOG_HOSTS = [
   'https://us-assets.i.posthog.com',
 ].join(' ')
 
+// `unsafe-eval` is dev-only (Next HMR + some Tailwind/JIT tooling). It is
+// stripped from the production directive below so a XSS payload can't `eval`
+// arbitrary code in the browser. CSP_STRICT=0 in Vercel env disables the
+// hardening if a regression is spotted post-deploy.
+const isProductionBuild =
+  process.env.NODE_ENV === 'production' && process.env.CSP_STRICT !== '0'
+const scriptSrc = isProductionBuild
+  ? `script-src 'self' 'unsafe-inline' ${SENTRY_HOSTS} ${POSTHOG_HOSTS}`
+  : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SENTRY_HOSTS} ${POSTHOG_HOSTS}`
+
 const cspParts = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${SENTRY_HOSTS} ${POSTHOG_HOSTS}`,
+  scriptSrc,
   // style-src-elem must include fonts.googleapis.com explicitly because
   // browsers use script-src/style-src as a fallback when -elem isn't set,
   // and `Instrument Serif` is loaded via @import in globals.css.

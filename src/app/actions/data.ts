@@ -40,12 +40,19 @@ export interface CompanyDataSnapshot {
   timeEntries: TimeEntry[]
   serviceTypes: ServiceType[]
   quotes: Quote[]
+  // Subset of company_pricing_settings consumed by the store at hydrate time.
+  // We don't expose the full row to keep this snapshot focused; full settings
+  // are loaded by the /parametres page on demand.
+  pricingSettings: {
+    hourly_labor_cost: number | null
+  }
 }
 
 const EMPTY: CompanyDataSnapshot = {
   agents: [], clients: [], sites: [], leads: [], opportunities: [],
   missions: [], operationalItems: [], sops: [], timeEntries: [],
   serviceTypes: [], quotes: [],
+  pricingSettings: { hourly_labor_cost: null },
 }
 
 export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
@@ -72,7 +79,7 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
   const [
     agents, clients, sites, leads, opportunities,
     missions, operationalItems, sops, timeEntries,
-    serviceTypes, quotes,
+    serviceTypes, quotes, pricingSettingsRow,
   ] = await Promise.all([
     // archived_at IS NULL on the three soft-deleted tables — archived rows
     // stay in the DB for history but never reach the UI snapshot.
@@ -104,6 +111,9 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(QUOTES_LIMIT),
+    supabase.from('company_pricing_settings')
+      .select('hourly_labor_cost')
+      .maybeSingle<{ hourly_labor_cost: number | null }>(),
   ])
 
   const agentsList = (agents.data ?? []) as Agent[]
@@ -142,6 +152,9 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     timeEntries: (timeEntries.data ?? []) as TimeEntry[],
     serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
     quotes: (quotes.data ?? []) as Quote[],
+    pricingSettings: {
+      hourly_labor_cost: pricingSettingsRow.data?.hourly_labor_cost ?? null,
+    },
   }
 }
 

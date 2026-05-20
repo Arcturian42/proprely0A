@@ -1,3 +1,7 @@
+// Support contact — single source of truth, used in footer + FAQ + emails.
+// Update here only ; downstream display copy reads this constant.
+export const SUPPORT_EMAIL = 'support@proprely.fr'
+
 export const LEAD_STATUS_LABELS: Record<string, string> = {
   nouveau: 'Nouveau',
   qualifie: 'Qualifié',

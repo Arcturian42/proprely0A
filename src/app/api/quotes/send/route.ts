@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
   if (gate instanceof NextResponse) return gate
 
   // 5 envois / min / user — PDF gen + Resend dispatch, ressource-heavy.
-  const rl = rateLimit(`quotes-send:${gate.userId}`, 5, 60 * 1000)
+  const rl = await rateLimit(`quotes-send:${gate.userId}`, 5, 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Trop d\'envois rapprochés. Réessaie dans une minute.' },

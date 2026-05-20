@@ -82,7 +82,7 @@ async function deliverInvitationEmail(
         options: { redirectTo: args.acceptUrl },
       })
     }
-    if (linkResult.error) return { ok: false, error: linkResult.error.message }
+    if (linkResult.error) return { ok: false, error: toUserMessage(linkResult.error, 'Envoi de l\'invitation impossible. Réessaie ou contacte le support.') }
     const actionLink = linkResult.data?.properties?.action_link
     if (!actionLink) return { ok: false, error: 'Magic link non généré par Supabase' }
 
@@ -208,7 +208,7 @@ export async function createInvitation(formData: FormData): Promise<InvitationAc
 
   // Rate-limit côté inviteur : 10 invitations / 10 min, suffisant pour
   // remplir les 5 sièges + retries sans bloquer un usage normal.
-  const rl = rateLimit(`invite:${inviter.id}`, 10, 10 * 60 * 1000)
+  const rl = await rateLimit(`invite:${inviter.id}`, 10, 10 * 60 * 1000)
   if (!rl.allowed) {
     return { ok: false, error: 'Trop d\'invitations en peu de temps. Réessaie dans quelques minutes.' }
   }
@@ -464,7 +464,7 @@ export async function resendInvitation(invitationId: string): Promise<Invitation
   const companyName = caller.companies?.name ?? 'ton entreprise'
 
   // Rate-limit le renvoi : 5 / 10 min par invitation.
-  const rl = rateLimit(`resend:${invitationId}`, 5, 10 * 60 * 1000)
+  const rl = await rateLimit(`resend:${invitationId}`, 5, 10 * 60 * 1000)
   if (!rl.allowed) {
     return { ok: false, error: 'Trop de renvois récents. Réessaie dans quelques minutes.' }
   }

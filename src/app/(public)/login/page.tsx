@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { Suspense, useEffect, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { signInWithMagicLink } from '@/app/actions/auth'
 import { useAppStore } from '@/lib/store'
@@ -9,32 +9,42 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { useFrenchValidation } from '@/lib/forms/use-french-validation'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
-// Maps the `?error=` query param the proxy/middleware appends when it
-// kicks a user out (deactivated account, Supabase misconfig, etc.) into a
-// French message displayed above the form. Keep keys in sync with the
-// values set in proxy.ts and auth/callback/route.ts.
-const ERROR_MESSAGES: Record<string, string> = {
-  account_disabled:
+// Maps the ?error= query param to a user-facing French message. Sources :
+// - /auth/callback/route.ts (Supabase magic-link errors : missing-code, etc.)
+// - proxy.ts (account_disabled when a deactivated user gets signed out)
+// Unknown codes fall back to a generic message rather than swallowing the
+// redirect silently.
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  'missing-code': 'Lien de connexion invalide ou expiré. Demande un nouveau lien ci-dessous.',
+  'server_error': 'Une erreur serveur s\'est produite. Réessaie dans un instant.',
+  'expired': 'Ce lien a expiré (validité 15 min). Demande un nouveau lien ci-dessous.',
+  'access_denied': 'Accès refusé. Vérifie que le lien provient bien de Proprely.',
+  'invalid_request': 'Lien de connexion mal formé. Demande un nouveau lien ci-dessous.',
+  'account_disabled':
     'Ton compte a été désactivé par ton administrateur. Contacte-le pour qu\'il te réactive depuis Paramètres → Équipe.',
   'supabase-not-configured':
     'Service indisponible — réessaie dans quelques minutes. Si le problème persiste, contacte le support.',
-  'missing-code':
-    'Lien de connexion invalide. Demande un nouveau magic link ci-dessous.',
-  'client-unavailable':
-    'Service indisponible — réessaie dans quelques minutes.',
+  'client-unavailable': 'Service indisponible — réessaie dans quelques minutes.',
 }
 
-export default function LoginPage() {
+function LoginContent() {
+  const params = useSearchParams()
+  const errorCode = params.get('error')
   const [pending, startTransition] = useTransition()
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
-  const searchParams = useSearchParams()
-  const errorParam = searchParams.get('error')
-  // Unknown error params surface the raw value (likely a Supabase error message
-  // forwarded by /auth/callback/route.ts) rather than swallowing it silently.
-  const redirectError = errorParam
-    ? ERROR_MESSAGES[errorParam] ?? decodeURIComponent(errorParam)
-    : null
+  // Hydrate the result state directly from the URL on mount — using an
+  // effect to do this would re-render unnecessarily and trips the
+  // react-hooks/set-state-in-effect lint.
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(() => {
+    if (!errorCode) return null
+    const message =
+      AUTH_ERROR_MESSAGES[errorCode] ??
+      'Une erreur d\'authentification s\'est produite. Réessaie.'
+    return { ok: false, message }
+  })
+  const { onInvalid, onInput } = useFrenchValidation()
 
   // Safety net : si on atterrit ici via une redirection du proxy (session expirée)
   // sans passer par le bouton "Se déconnecter", on purge quand même le cache local.
@@ -63,16 +73,6 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {redirectError && (
-        <div
-          role="alert"
-          className="mb-4 flex items-start gap-2 text-sm rounded-md px-3 py-2.5 bg-rose-50 text-rose-900 border border-rose-200"
-        >
-          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
-          <p>{redirectError}</p>
-        </div>
-      )}
-
       <form action={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div>
           <Label htmlFor="email">
@@ -86,6 +86,8 @@ export default function LoginPage() {
             autoComplete="email"
             placeholder="prenom@entreprise.fr"
             disabled={pending}
+            onInvalid={onInvalid}
+            onInput={onInput}
           />
         </div>
 
@@ -103,6 +105,7 @@ export default function LoginPage() {
 
         {result && (
           <div
+            role="alert"
             className={`flex items-start gap-2 text-sm rounded-md px-3 py-2.5 ${
               result.ok
                 ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -110,9 +113,9 @@ export default function LoginPage() {
             }`}
           >
             {result.ok ? (
-              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
             ) : (
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
             )}
             <p>{result.message}</p>
           </div>
@@ -136,8 +139,23 @@ export default function LoginPage() {
           <li>Vérifie l&apos;orthographe de ton email — un seul caractère faux et il n&apos;arrive jamais.</li>
           <li>Trop de tentatives en peu de temps ? Le système te bloque 10 minutes — c&apos;est une protection anti-spam.</li>
           <li>Compte désactivé par ton admin ? Contacte-le pour qu&apos;il te réactive depuis Paramètres → Équipe.</li>
+          <li>
+            Pour toute autre question :{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline hover:text-slate-700">
+              {SUPPORT_EMAIL}
+            </a>
+            .
+          </li>
         </ul>
       </details>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-slate-500">Chargement…</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }

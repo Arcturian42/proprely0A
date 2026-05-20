@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   if (gate instanceof NextResponse) return gate
 
   // 20 recherches / min / user — la recherche est exploratoire mais bornée.
-  const rl = rateLimit(`prospecting:${gate.userId}`, 20, 60 * 1000)
+  const rl = await rateLimit(`prospecting:${gate.userId}`, 20, 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json(
       { leads: [], total: 0, error: 'Trop de recherches. Réessaie dans une minute.' },

@@ -2,12 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/mission-alerts?mode=both",
-      "schedule": "0 6 * * *"
+      "path": "/api/cron/recurrences",
+      "schedule": "0 4 * * *",
+      "_comment": "Daily at 04:00 UTC — generate upcoming mission occurrences. tickRecurrences caps at 8 occurrences per recurrence per run with a 28-day horizon (src/app/actions/recurrences.ts:296)."
     },
     {
-      "path": "/api/cron/recurrences",
-      "schedule": "0 4 * * *"
+      "path": "/api/cron/mission-alerts",
+      "schedule": "0 6 * * *",
+      "_comment": "Daily at 06:00 UTC — sends next-day mission reminders to assigned agents. Mode defaults to 'both' (reminders + late alerts in one tick). Late alerts have limited utility on a daily cadence; upgrade to Vercel Pro for sub-daily scheduling if real-time late alerts are needed."
     }
   ]
 }

@@ -62,7 +62,7 @@ export async function GET(req: Request) {
   }
 
   // 30 lookups / min / user — autocomplete triggers fast, but bounded.
-  const rl = rateLimit(`sirene:${gate.userId}`, 30, 60 * 1000)
+  const rl = await rateLimit(`sirene:${gate.userId}`, 30, 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json(
       { results: [], error: 'Trop de recherches. Réessaie dans une minute.' },

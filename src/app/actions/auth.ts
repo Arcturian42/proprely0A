@@ -19,7 +19,7 @@ const SignupSchema = z.object({
 })
 
 export type ActionResult =
-  | { ok: true; message?: string }
+  | { ok: true; message?: string; email?: string }
   | { ok: false; error: string }
 
 // BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the magic-link
@@ -39,7 +39,7 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
   // spam (en plus du rate-limit Supabase interne). Empêche aussi un user de
   // crasher accidentellement sa propre boîte mail.
   const email = parsed.data.email.toLowerCase().trim()
-  const rl = rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
+  const rl = await rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
   if (!rl.allowed) {
     return {
       ok: false,
@@ -234,11 +234,28 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   if (linkError) {
     return {
       ok: true,
+      email: normalizedEmail,
       message: `Compte créé, mais l'envoi du magic link a échoué (${linkError.message}). Connecte-toi via /login pour recevoir un nouveau lien.`,
     }
   }
 
-  return { ok: true, message: 'Compte créé. Consulte ta boîte de réception pour le lien de connexion.' }
+  return {
+    ok: true,
+    email: normalizedEmail,
+    message: 'Compte créé. Consulte ta boîte de réception pour le lien de connexion.',
+  }
+}
+
+/**
+ * Used by the post-signup confirmation page when the user clicks "Renvoyer
+ * le lien". Validates the email and re-issues the magic link without
+ * recreating the account. Falls back to signInWithMagicLink semantics so
+ * existing rate-limiting still applies.
+ */
+export async function resendSignupLink(email: string): Promise<ActionResult> {
+  const fd = new FormData()
+  fd.set('email', email)
+  return signInWithMagicLink(fd)
 }
 
 export async function signOut() {
