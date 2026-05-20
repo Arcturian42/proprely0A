@@ -14,6 +14,19 @@ const SCHEMA_PATTERNS = [
   /function .* does not exist/i,
 ]
 
+/**
+ * True when the underlying error looks like a PostgREST schema-cache miss
+ * (table/column/function not found, schema cache stale). Used by callers that
+ * want to tag observability events differently for ops-actionable issues vs
+ * transient user errors. Re-uses the same regex set as `toUserMessage` so the
+ * two helpers can't drift.
+ */
+export function isSchemaCacheError(err: unknown): boolean {
+  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  if (!raw) return false
+  return SCHEMA_PATTERNS.some((p) => p.test(raw))
+}
+
 const FK_PATTERN = /violates foreign key constraint/i
 const UNIQUE_PATTERN = /duplicate key value violates unique constraint|already exists/i
 const CHECK_PATTERN = /violates check constraint/i

@@ -3,7 +3,7 @@
 import * as Sentry from '@sentry/nextjs'
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
-import { toUserMessage } from '@/lib/errors/user-message'
+import { isSchemaCacheError, toUserMessage } from '@/lib/errors/user-message'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 
@@ -27,6 +27,27 @@ export type ActionResult =
 function getOrigin(): string {
   const url = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   return url.replace(/\/+$/, '')
+}
+
+// BUG-001 reocurrence : we now Sentry-capture every fatal signup step and
+// surface the event id to the user. Support can grep Sentry by the 8-char
+// prefix shown in the UI (`réf. support : xxxxxxxx`) and find the exact
+// session that failed — instead of asking the user to re-describe the error.
+function friendlySignupError(err: unknown, eventId: string | undefined, fallback: string): string {
+  const base = toUserMessage(err, fallback)
+  if (!eventId) return base
+  return `${base} (réf. support : ${eventId.slice(0, 8)})`
+}
+
+function captureSignupFailure(err: unknown, step: string, extra: Record<string, unknown>): string {
+  return Sentry.captureException(err, {
+    tags: {
+      action: 'signUpCompany',
+      step,
+      schema_cache_error: isSchemaCacheError(err) ? 'true' : 'false',
+    },
+    extra,
+  })
 }
 
 export async function signInWithMagicLink(formData: FormData): Promise<ActionResult> {
@@ -80,6 +101,20 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide' }
   }
 
+  const normalizedEmail = parsed.data.email.toLowerCase().trim()
+
+  // Rate-limit : 3 tentatives de création / 1h par email. Parité avec
+  // signInWithMagicLink (5/10min) — le signup est plus coûteux côté DB donc
+  // on serre la fenêtre. Protège contre signup-spam qui peut faire échouer
+  // l'infra et déclencher le message "Service temporairement indisponible".
+  const rl = await rateLimit(`signup:${normalizedEmail}`, 3, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      error: 'Trop de tentatives de création de compte. Réessaie dans 1 heure.',
+    }
+  }
+
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
@@ -90,8 +125,6 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   const admin = await createServiceRoleClient()
   if (!admin) return { ok: false, error: 'Service role indisponible (SUPABASE_SERVICE_ROLE_KEY manquante).' }
 
-  const normalizedEmail = parsed.data.email.toLowerCase().trim()
-
   // Pre-flight: réjete tout email déjà attaché à un profil existant. Sans ça,
   // createUser ci-dessous échoue avec "User already registered" mais peut
   // laisser un état partiel (auth.users orphelin si profile insert échoue
@@ -100,11 +133,28 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   // ne s'appuie pas dessus (pas exposé dans tous les SDK), donc on regarde
   // côté profiles (notre source de vérité). Si un profil existe déjà avec
   // cet email, le user a déjà un compte (et est associé à une company).
-  const { data: existingProfile } = await admin
+  // .eq() (et pas .ilike()) : les emails sont normalisés en lowercase au
+  // stockage, et ilike interprète `_` et `%` comme wildcards SQL — un
+  // `john_smith@example.com` matchait n'importe quel `johnXsmith@…`.
+  const { data: existingProfile, error: existingErr } = await admin
     .from('profiles')
     .select('id')
-    .ilike('email', normalizedEmail)
+    .eq('email', normalizedEmail)
     .maybeSingle<{ id: string }>()
+  if (existingErr) {
+    console.error('[signup] existing profile lookup failed:', existingErr)
+    const eventId = captureSignupFailure(existingErr, 'existing_profile_lookup', {
+      email: normalizedEmail,
+    })
+    return {
+      ok: false,
+      error: friendlySignupError(
+        existingErr,
+        eventId,
+        'Vérification du compte impossible. Réessaie ou contacte le support.',
+      ),
+    }
+  }
   if (existingProfile) {
     return {
       ok: false,
@@ -129,14 +179,34 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     const msg = userError?.message ?? ''
     if (msg) console.error('[signup] createUser failed:', userError)
     if (/already.*(registered|exists)/i.test(msg)) {
+      // Best-effort : renvoie automatiquement un magic link. Le compte existe
+      // déjà dans auth.users — ensureProfileForCurrentUser() complétera la
+      // setup au prochain hit côté serveur si profiles manque. Pas de
+      // régression vie privée : le message disclose déjà l'existence du compte.
+      try {
+        await admin.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
+        })
+      } catch (err) {
+        // Log only — l'utilisateur a toujours le path /login pour redemander.
+        console.warn('[signup] auto-resend magic link failed:', err)
+      }
       return {
         ok: false,
-        error: 'Cette adresse est déjà enregistrée. Connecte-toi via le lien magique sur /login.',
+        error: 'Cette adresse est déjà enregistrée. Vérifie ta boîte de réception — un lien de connexion vient de t\'être renvoyé.',
       }
     }
+    const eventId = captureSignupFailure(userError ?? new Error('createUser returned no user'), 'create_user', {
+      email: normalizedEmail,
+    })
     return {
       ok: false,
-      error: toUserMessage(userError, 'Création du compte impossible. Réessaie ou contacte le support.'),
+      error: friendlySignupError(
+        userError,
+        eventId,
+        'Création du compte impossible. Réessaie ou contacte le support.',
+      ),
     }
   }
   const userId = userData.user.id
@@ -149,6 +219,10 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     .single()
   if (companyError || !companyData) {
     if (companyError) console.error('[signup] companies insert failed:', companyError)
+    const eventId = captureSignupFailure(companyError ?? new Error('companies insert returned no row'), 'companies_insert', {
+      userId,
+      company_name: parsed.data.company_name,
+    })
     try { await admin.auth.admin.deleteUser(userId) } catch (err) {
       // Auth user is now orphaned — the user will hit signUpCompany again and
       // either succeed (deleted in retry) or surface the duplicate-email path.
@@ -160,7 +234,11 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     }
     return {
       ok: false,
-      error: toUserMessage(companyError, 'Création de l\'entreprise impossible. Réessaie ou contacte le support.'),
+      error: friendlySignupError(
+        companyError,
+        eventId,
+        'Création de l\'entreprise impossible. Réessaie ou contacte le support.',
+      ),
     }
   }
 
@@ -178,6 +256,10 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     })
   if (profileError) {
     console.error('[signup] profiles insert failed:', profileError)
+    const eventId = captureSignupFailure(profileError, 'profiles_insert', {
+      userId,
+      companyId: companyData.id,
+    })
     try { await admin.from('companies').delete().eq('id', companyData.id) } catch (err) {
       Sentry.captureException(err, {
         tags: { action: 'signUpCompany.rollback', step: 'delete_company' },
@@ -192,7 +274,11 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     }
     return {
       ok: false,
-      error: toUserMessage(profileError, 'Création du profil impossible. Réessaie ou contacte le support.'),
+      error: friendlySignupError(
+        profileError,
+        eventId,
+        'Création du profil impossible. Réessaie ou contacte le support.',
+      ),
     }
   }
 
