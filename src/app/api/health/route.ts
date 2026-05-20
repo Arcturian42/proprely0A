@@ -15,11 +15,21 @@ import { isSupabaseConfigured, createServiceRoleClient } from '@/lib/supabase/se
 
 async function checkTables(): Promise<Record<string, boolean>> {
   const admin = await createServiceRoleClient()
-  if (!admin) return { onboarding_status: false }
+  if (!admin) {
+    return { onboarding_status: false, notifications: false }
+  }
   // Cheap "does the table exist + is reachable" probe. Failing this means a
   // migration didn't apply — same root cause as BUG-BLOQUANT-01.
-  const { error } = await admin.from('onboarding_status').select('company_id', { count: 'exact', head: true }).limit(1)
-  return { onboarding_status: !error }
+  // Notifications was added in Sprint 1 (20260520000002) — checking it here
+  // ensures preview branches that forgot to run migrations fail loudly.
+  const [onboarding, notifications] = await Promise.all([
+    admin.from('onboarding_status').select('company_id', { count: 'exact', head: true }).limit(1),
+    admin.from('notifications').select('id', { count: 'exact', head: true }).limit(1),
+  ])
+  return {
+    onboarding_status: !onboarding.error,
+    notifications: !notifications.error,
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -47,7 +57,9 @@ export async function GET(req: NextRequest) {
     sentry: Boolean(process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN),
     app_url: process.env.NEXT_PUBLIC_APP_URL ?? null,
   }
-  const tablesOk = supabaseOk ? await checkTables() : { onboarding_status: false }
+  const tablesOk = supabaseOk
+    ? await checkTables()
+    : { onboarding_status: false, notifications: false }
 
   // Baseline = the original three (Supabase + Docuseal + Resend) plus the
   // critical-table reachability check from P2 (catches missing migrations).
@@ -60,7 +72,8 @@ export async function GET(req: NextRequest) {
     integrations.supabase &&
     integrations.docuseal &&
     integrations.resend &&
-    tablesOk.onboarding_status
+    tablesOk.onboarding_status &&
+    tablesOk.notifications
   const prodHealthy =
     baseHealthy &&
     integrations.docuseal_webhook_secret &&
