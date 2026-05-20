@@ -56,6 +56,31 @@ describe('toUserMessage', () => {
     expect(toUserMessage('JWT expired')).toMatch(/session expirée/i)
     expect(toUserMessage(undefined, 'Erreur par défaut')).toBe('Erreur par défaut')
   })
+
+  it('extracts .message from supabase PostgrestError-shaped plain objects', () => {
+    // supabase-js returns plain objects (not Error instances) with a .message
+    // field. Before this extraction logic, instanceof Error returned false and
+    // every Supabase error fell through to the fallback — the bug that hid the
+    // real schema-cache message in BUG-001.
+    const supabaseError = {
+      message: "Could not find the table 'public.profiles' in the schema cache",
+      code: 'PGRST106',
+      details: null,
+      hint: null,
+    }
+    expect(toUserMessage(supabaseError, 'fallback')).toMatch(/temporairement indisponible/i)
+  })
+
+  it('extracts .message from AuthError-shaped objects', () => {
+    const authError = { message: 'User already registered', status: 422 }
+    expect(toUserMessage(authError)).toBe('User already registered')
+  })
+
+  it('falls back when an object has no string message', () => {
+    expect(toUserMessage({ code: 'X', details: 'Y' }, 'fb')).toBe('fb')
+    expect(toUserMessage({ message: 42 }, 'fb')).toBe('fb')
+    expect(toUserMessage({}, 'fb')).toBe('fb')
+  })
 })
 
 describe('isSchemaCacheError', () => {
@@ -79,6 +104,16 @@ describe('isSchemaCacheError', () => {
     expect(isSchemaCacheError(null)).toBe(false)
     expect(isSchemaCacheError(undefined)).toBe(false)
     expect(isSchemaCacheError('')).toBe(false)
-    expect(isSchemaCacheError({ message: 'not an Error instance' })).toBe(false)
+    expect(isSchemaCacheError({})).toBe(false)
+    expect(isSchemaCacheError({ code: 'PGRST106' })).toBe(false)
+  })
+
+  it('matches Supabase PostgrestError-shaped plain objects', () => {
+    expect(
+      isSchemaCacheError({
+        message: "Could not find the table 'public.profiles' in the schema cache",
+        code: 'PGRST106',
+      }),
+    ).toBe(true)
   })
 })
