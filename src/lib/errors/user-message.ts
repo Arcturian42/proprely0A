@@ -53,6 +53,9 @@ const NOT_NULL_PATTERN = /null value in column .* violates not-null/i
 const RLS_PATTERN = /new row violates row-level security|permission denied for/i
 const JWT_PATTERN = /jwt|invalid token|token expired|not authenticated/i
 const NETWORK_PATTERN = /fetch failed|network request failed|timeout|econnrefused|enotfound/i
+// Supabase Auth's built-in rate limit message comes back in English ; we want
+// the same French copy as our app-level rateLimit() returns.
+const RATE_LIMIT_PATTERN = /for security purposes.*after \d+ seconds?|over_email_send_rate_limit|too many requests|rate limit/i
 
 export function toUserMessage(err: unknown, fallback?: string): string {
   const raw = extractMessage(err)
@@ -78,6 +81,9 @@ export function toUserMessage(err: unknown, fallback?: string): string {
   }
   if (NETWORK_PATTERN.test(raw)) {
     return 'Erreur réseau. Vérifie ta connexion et réessaie.'
+  }
+  if (RATE_LIMIT_PATTERN.test(raw)) {
+    return 'Trop de tentatives rapprochées. Réessaie dans une minute.'
   }
 
   // Short, no obvious English-y stack trace → trust the caller-supplied message

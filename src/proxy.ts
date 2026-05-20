@@ -62,6 +62,19 @@ function isOnboardingPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Defensive : Supabase sometimes redirects magic-link clicks to
+  // `${SiteURL}/login?code=…&next=…` instead of our configured `/auth/callback`
+  // — happens when the email template was customized away from the default
+  // `{{ .ConfirmationURL }}` or when the redirect_to isn't in the allow-list
+  // and Supabase falls back to the Site URL. Either way, the PKCE code is
+  // useless on /login (no exchange handler). Forward to /auth/callback so the
+  // existing exchangeCodeForSession path runs. Preserves all query params.
+  if (pathname === '/login' && request.nextUrl.searchParams.has('code')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/callback'
+    return NextResponse.redirect(url)
+  }
+
   // Pass-through quand Supabase n'est pas configuré (dev local sans backend).
   // L'app tourne alors en mode dummy provider — voir src/lib/auth/context.tsx.
   // En production cela ne doit JAMAIS se produire : assertSupabaseConfiguredInProduction()
