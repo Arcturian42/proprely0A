@@ -65,11 +65,37 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // Sprint 2 (audit bêta) — le snapshot est rôle-aware côté server. Sans ça,
+  // un agent connecté reçoit le hourly_cost de tous ses collègues, le pipeline
+  // commercial, les devis, les heures-paie etc. via le store Zustand
+  // (`loadCompanyData` était l'unique point d'entrée). RLS bloque déjà
+  // l'écriture cross-tenant ; ce check ferme l'angle de lecture interne.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, email')
+    .eq('id', user.id)
+    .maybeSingle<{ role: 'owner' | 'admin' | 'sales' | 'agent'; email: string | null }>()
+
+  if (!profile) return null
+
+  if (profile.role === 'agent') {
+    return loadAgentSnapshot(supabase, user.email ?? profile.email ?? null)
+  }
+  if (profile.role === 'sales') {
+    return loadSalesSnapshot(supabase)
+  }
+  // owner / admin : pas de redaction.
+  return loadFullSnapshot(supabase)
+}
+
+/**
+ * Snapshot complet pour les rôles privilégiés (owner, admin). Identique au
+ * comportement pré-Sprint 2 : on tire tout ce qu'il faut pour faire tourner
+ * dashboard + cockpit + pipeline + paie + analytics.
+ */
+async function loadFullSnapshot(supabase: ServerSupabaseClient): Promise<CompanyDataSnapshot> {
   // Pagination defaults — keep the initial hydrate snapshot under a few MB
   // even for power users. UI can fetch more on demand later (V1).
-  // - Missions/time-entries: only the recent window matters for cockpit/planning.
-  // - Leads/opportunities: filter out closed ones (gagne/perdu are archives).
-  // - Quotes: same — terminal states stay accessible via the opportunity card.
   const MISSIONS_LIMIT = 200
   const TIME_ENTRIES_DAYS = 90
   const QUOTES_LIMIT = 200
@@ -81,8 +107,6 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     missions, operationalItems, sops, timeEntries,
     serviceTypes, quotes, pricingSettingsRow,
   ] = await Promise.all([
-    // archived_at IS NULL on the three soft-deleted tables — archived rows
-    // stay in the DB for history but never reach the UI snapshot.
     supabase.from('agents').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     supabase.from('clients').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     supabase.from('sites').select('*').is('archived_at', null).order('created_at', { ascending: false }),
@@ -93,9 +117,6 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
     supabase.from('opportunities')
       .select('*')
       .order('created_at', { ascending: false }),
-    // Join mission_agents so mission.agents survives a refresh — Zustand
-    // stores the array client-side after assignAgentsToMission, but it'd be
-    // dropped on next hydrate without this select expansion.
     supabase.from('missions')
       .select('*, mission_agents(agent_id)')
       .order('scheduled_date', { ascending: false })
@@ -116,19 +137,188 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
       .maybeSingle<{ hourly_labor_cost: number | null }>(),
   ])
 
-  const agentsList = (agents.data ?? []) as Agent[]
-  const clientsList = (clients.data ?? []) as Client[]
-  const sitesList = (sites.data ?? []) as Site[]
-  const sopsList = (sops.data ?? []) as Sop[]
-  const agentsById = new Map(agentsList.map(a => [a.id, a]))
-  const clientsById = new Map(clientsList.map(c => [c.id, c]))
-  const sitesById = new Map(sitesList.map(s => [s.id, s]))
-  const sopsById = new Map(sopsList.map(s => [s.id, s]))
+  return enrichSnapshot({
+    agents: (agents.data ?? []) as Agent[],
+    clients: (clients.data ?? []) as Client[],
+    sites: (sites.data ?? []) as Site[],
+    leads: (leads.data ?? []) as Lead[],
+    opportunities: (opportunities.data ?? []) as Opportunity[],
+    rawMissions: missions.data ?? [],
+    operationalItems: (operationalItems.data ?? []) as OperationalItem[],
+    sops: (sops.data ?? []) as Sop[],
+    timeEntries: (timeEntries.data ?? []) as TimeEntry[],
+    serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
+    quotes: (quotes.data ?? []) as Quote[],
+    pricingSettings: {
+      hourly_labor_cost: pricingSettingsRow.data?.hourly_labor_cost ?? null,
+    },
+  })
+}
 
-  // Reconstitute denormalised joins (client/site/sop/agents) on missions —
-  // the UI reads them directly (mission.client.name, mission.agents[].first_name).
+/**
+ * Snapshot pour un rôle `sales` : pipeline + clients + sites + agents (sans
+ * `hourly_cost`) + opérations en read-only. Volontairement absent :
+ * - `time_entries` (sales n'a pas `time:read`)
+ * - `pricingSettings.hourly_labor_cost` (info financière interne)
+ */
+async function loadSalesSnapshot(supabase: ServerSupabaseClient): Promise<CompanyDataSnapshot> {
+  const MISSIONS_LIMIT = 200
+  const QUOTES_LIMIT = 200
+  const LEADS_LIMIT = 500
+
+  const [
+    agents, clients, sites, leads, opportunities,
+    missions, operationalItems, sops, serviceTypes, quotes,
+  ] = await Promise.all([
+    supabase.from('agents').select('*').is('archived_at', null).order('created_at', { ascending: false }),
+    supabase.from('clients').select('*').is('archived_at', null).order('created_at', { ascending: false }),
+    supabase.from('sites').select('*').is('archived_at', null).order('created_at', { ascending: false }),
+    supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(LEADS_LIMIT),
+    supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
+    supabase.from('missions')
+      .select('*, mission_agents(agent_id)')
+      .order('scheduled_date', { ascending: false })
+      .limit(MISSIONS_LIMIT),
+    supabase.from('operational_items').select('*').order('created_at', { ascending: false }),
+    supabase.from('sops').select('*').order('created_at', { ascending: false }),
+    supabase.from('service_types').select('*').order('created_at', { ascending: false }),
+    supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(QUOTES_LIMIT),
+  ])
+
+  // Redact hourly_cost — sales voit les agents pour les assigner mais pas
+  // leur coût. RLS ne peut pas filtrer au niveau colonne, donc on le fait
+  // côté server avant que la donnée n'atteigne le store Zustand.
+  const redactedAgents = ((agents.data ?? []) as Agent[]).map(a => ({ ...a, hourly_cost: null }))
+
+  return enrichSnapshot({
+    agents: redactedAgents,
+    clients: (clients.data ?? []) as Client[],
+    sites: (sites.data ?? []) as Site[],
+    leads: (leads.data ?? []) as Lead[],
+    opportunities: (opportunities.data ?? []) as Opportunity[],
+    rawMissions: missions.data ?? [],
+    operationalItems: (operationalItems.data ?? []) as OperationalItem[],
+    sops: (sops.data ?? []) as Sop[],
+    timeEntries: [],
+    serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
+    quotes: (quotes.data ?? []) as Quote[],
+    pricingSettings: { hourly_labor_cost: null },
+  })
+}
+
+/**
+ * Snapshot pour un agent terrain : limité strictement à ce dont il a besoin
+ * pour `/agent/mes-missions`, `/agent/mon-agenda`, `/agent/annuaire`.
+ * - Missions : celles assignées à cet agent
+ * - Time entries : celles de cet agent
+ * - Agents : tous les collègues (annuaire), mais champs sensibles supprimés
+ * - Clients & sites : seulement ceux référencés par ses missions
+ * - SOPs : tous (lecture-seule, c'est public dans l'entreprise)
+ * - Pas de leads, opportunités, devis, opérations, pricing
+ */
+async function loadAgentSnapshot(
+  supabase: ServerSupabaseClient,
+  email: string | null,
+): Promise<CompanyDataSnapshot> {
+  // Lien agent ↔ profile via email (cf. /agent/mes-missions/page.tsx:24).
+  // Si l'agent n'a pas encore de ligne dans `agents`, on retourne un snapshot
+  // vide — le layout /agent affichera l'empty state "ton compte n'est pas
+  // encore lié à un agent" plutôt que de planter.
+  if (!email) {
+    return { ...EMPTY }
+  }
+  const { data: selfAgent } = await supabase
+    .from('agents')
+    .select('id, company_id')
+    .eq('email', email)
+    .is('archived_at', null)
+    .maybeSingle<{ id: string; company_id: string }>()
+
+  if (!selfAgent) {
+    return { ...EMPTY }
+  }
+
+  // Étape 1 : missions assignées via join mission_agents (RLS filtre tenant).
+  const { data: assignedMissionRows } = await supabase
+    .from('missions')
+    .select('*, mission_agents!inner(agent_id)')
+    .eq('mission_agents.agent_id', selfAgent.id)
+    .order('scheduled_date', { ascending: false })
+    .limit(200)
+
+  const missionRows = assignedMissionRows ?? []
+  const clientIds = Array.from(new Set(missionRows.map(m => m.client_id).filter(Boolean) as string[]))
+  const siteIds = Array.from(new Set(missionRows.map(m => m.site_id).filter(Boolean) as string[]))
+  const sopIds = Array.from(new Set(missionRows.map(m => m.sop_id).filter(Boolean) as string[]))
+
+  // Étape 2 : clients/sites/sops uniquement ceux référencés par ses missions.
+  const [agentsResult, clientsResult, sitesResult, sopsResult, timeEntries, serviceTypes] = await Promise.all([
+    // Annuaire : tous les agents de la company. On fetch tout puis on redact
+    // les champs sensibles (hourly_cost, notes, business_registration_number).
+    supabase.from('agents')
+      .select('*')
+      .is('archived_at', null)
+      .order('first_name', { ascending: true }),
+    clientIds.length > 0
+      ? supabase.from('clients').select('*').in('id', clientIds).is('archived_at', null)
+      : Promise.resolve({ data: [] as Client[] }),
+    siteIds.length > 0
+      ? supabase.from('sites').select('*').in('id', siteIds).is('archived_at', null)
+      : Promise.resolve({ data: [] as Site[] }),
+    sopIds.length > 0
+      ? supabase.from('sops').select('*').in('id', sopIds)
+      : Promise.resolve({ data: [] as Sop[] }),
+    supabase.from('time_entries')
+      .select('*')
+      .eq('agent_id', selfAgent.id)
+      .order('date', { ascending: false })
+      .limit(180),
+    supabase.from('service_types').select('*').order('sort_order', { ascending: true }),
+  ])
+
+  // Redact : un agent qui ouvre DevTools ne doit voir ni les rémunérations
+  // ni les notes RH internes de ses collègues. Le `notes` field peut contenir
+  // des commentaires confidentiels du manager. `business_registration_number`
+  // est une donnée légale parfois confidentielle (auto-entrepreneurs).
+  const redactedAgents = ((agentsResult.data ?? []) as Agent[]).map(a => ({
+    ...a,
+    hourly_cost: null,
+    notes: a.id === selfAgent.id ? a.notes : null,
+    business_registration_number: a.id === selfAgent.id ? a.business_registration_number : null,
+  }))
+
+  return enrichSnapshot({
+    agents: redactedAgents,
+    clients: (clientsResult.data ?? []) as Client[],
+    sites: (sitesResult.data ?? []) as Site[],
+    leads: [],
+    opportunities: [],
+    rawMissions: missionRows,
+    operationalItems: [],
+    sops: (sopsResult.data ?? []) as Sop[],
+    timeEntries: (timeEntries.data ?? []) as TimeEntry[],
+    serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
+    quotes: [],
+    pricingSettings: { hourly_labor_cost: null },
+  })
+}
+
+/**
+ * Reconstitue les jointures missions → client/site/sop/agents que les UI lisent
+ * en direct (mission.client.name, mission.agents[].first_name). Mutualisé entre
+ * les trois snapshots pour garantir la même forme de sortie.
+ */
+type EnrichInput = Omit<CompanyDataSnapshot, 'missions'> & {
+  rawMissions: unknown[]
+}
+function enrichSnapshot(input: EnrichInput): CompanyDataSnapshot {
+  const agentsById = new Map(input.agents.map(a => [a.id, a]))
+  const clientsById = new Map(input.clients.map(c => [c.id, c]))
+  const sitesById = new Map(input.sites.map(s => [s.id, s]))
+  const sopsById = new Map(input.sops.map(s => [s.id, s]))
+
   type MissionRow = Mission & { mission_agents?: { agent_id: string }[] }
-  const missionsEnriched: Mission[] = ((missions.data ?? []) as MissionRow[]).map(m => ({
+  const missions: Mission[] = (input.rawMissions as MissionRow[]).map(m => ({
     ...m,
     client: m.client_id ? clientsById.get(m.client_id) : undefined,
     site: m.site_id ? sitesById.get(m.site_id) : undefined,
@@ -140,21 +330,18 @@ export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
   }))
 
   return {
-    ...EMPTY,
-    agents: agentsList,
-    clients: clientsList,
-    sites: sitesList,
-    leads: (leads.data ?? []) as Lead[],
-    opportunities: (opportunities.data ?? []) as Opportunity[],
-    missions: missionsEnriched,
-    operationalItems: (operationalItems.data ?? []) as OperationalItem[],
-    sops: sopsList,
-    timeEntries: (timeEntries.data ?? []) as TimeEntry[],
-    serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
-    quotes: (quotes.data ?? []) as Quote[],
-    pricingSettings: {
-      hourly_labor_cost: pricingSettingsRow.data?.hourly_labor_cost ?? null,
-    },
+    agents: input.agents,
+    clients: input.clients,
+    sites: input.sites,
+    leads: input.leads,
+    opportunities: input.opportunities,
+    missions,
+    operationalItems: input.operationalItems,
+    sops: input.sops,
+    timeEntries: input.timeEntries,
+    serviceTypes: input.serviceTypes,
+    quotes: input.quotes,
+    pricingSettings: input.pricingSettings,
   }
 }
 
