@@ -305,18 +305,19 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 
 ## 🟡 Tests Playwright cassés pré-existants (hors scope de cette PR)
 
-Ces 4 tests étaient déjà rouges sur `main` avant l'audit QA — non causés
+Ces 3 tests étaient déjà rouges sur `main` avant l'audit QA — non causés
 par les changements de cette PR. À traiter dans une PR séparée :
 
 | Test | Problème | Action recommandée |
 |---|---|---|
-| `e2e/settings.spec.ts:30` "Rentabilité is hidden from sidebar" | Obsolète : `Rentabilité client` est dans `AppSidebar.tsx:81` (feature activée) | Supprimer ou inverser l'assertion |
 | `e2e/ux-additions.spec.ts:10` Cmd+K opens dialog | `GlobalSearch.tsx` existe mais le test timeout en dummy mode | Tester en mode authentifié seed Supabase |
 | `e2e/ux-additions.spec.ts:23` Cmd+K hint | Idem | Idem |
 | `e2e/ux-additions.spec.ts:64` Statut dropdown | `clients-sites` redirect en dummy mode (auth required) | Idem |
 
+> Note : le 4e fail listé précédemment (`settings.spec.ts:30` "Rentabilité is hidden") a été corrigé dans cette PR. La feature Rentabilité étant désormais live, le test a été inversé pour vérifier qu'elle EST bien visible pour le rôle owner.
+
 CI principal (`Lint · Typecheck · Test · Build`) passe en vert sur cette PR
-— ces 4 fails Playwright ne sont pas un blocker merge.
+— ces 3 fails Playwright restants ne sont pas un blocker merge.
 
 ## 📊 Métriques de référence (post-Sprint 1+2+3+V1+V2)
 
