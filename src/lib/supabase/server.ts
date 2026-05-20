@@ -1,4 +1,5 @@
 import { createServerClient as createSSRClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -64,13 +65,24 @@ export async function createServiceRoleClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!url || !key) return null
-  const cookieStore = await cookies()
-  return createSSRClient(url, key, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: () => {},
+  // IMPORTANT : use the plain @supabase/supabase-js createClient here (not
+  // the SSR helper) so the request is always Bearer-authenticated as the
+  // service_role JWT. createSSRClient pipes the request's cookies into the
+  // client, and a stray user/anon session cookie can end up overriding the
+  // Authorization header — every subsequent INSERT then hits RLS as the
+  // user instead of bypassing as service_role. That's exactly what broke
+  // signUpCompany after FORCE ROW LEVEL SECURITY landed (the symptom was
+  // "new row violates row-level security policy" on companies INSERT).
+  //
+  // Disable session persistence + auto-refresh too — server-side clients
+  // don't have a place to put a refreshed JWT, and service_role tokens
+  // don't expire anyway.
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
     },
-    auth: { persistSession: false },
   })
 }
 
