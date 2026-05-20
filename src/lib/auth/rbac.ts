@@ -44,6 +44,16 @@ export function roleCan(role: Role, permission: Permission): boolean {
   return PERMISSIONS[role].includes(permission)
 }
 
+/**
+ * Shortcut for "is this caller allowed to manage team / billing / audit-level
+ * settings". Sales/agent are NOT included even though sales has 'settings:read'
+ * — that permission is for the read-only side panels (recurrences, pricing),
+ * not for invitation lists or audit logs which can leak admin-only info.
+ */
+export function isOwnerOrAdmin(role: Role | string | null | undefined): boolean {
+  return role === 'owner' || role === 'admin'
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Propriétaire',
   admin: 'Administrateur',

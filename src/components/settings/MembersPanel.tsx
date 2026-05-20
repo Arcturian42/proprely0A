@@ -12,14 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Users, UserCheck, UserX, Crown, Loader2 } from 'lucide-react'
-import { ROLE_LABELS, useCurrentRole } from '@/lib/auth'
+import { ROLE_LABELS, isOwnerOrAdmin, useCurrentRole } from '@/lib/auth'
 import { toast } from 'sonner'
 
 const ASSIGNABLE_ROLES = ['admin', 'sales', 'agent'] as const
 
 export function MembersPanel() {
   const role = useCurrentRole()
-  const canManage = role === 'owner' || role === 'admin'
+  const canManage = isOwnerOrAdmin(role)
   const isOwner = role === 'owner'
   const [members, setMembers] = useState<MemberRow[]>([])
   const [loading, setLoading] = useState(true)

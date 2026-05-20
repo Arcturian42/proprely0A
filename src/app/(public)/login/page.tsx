@@ -12,15 +12,22 @@ import Link from 'next/link'
 import { useFrenchValidation } from '@/lib/forms/use-french-validation'
 import { SUPPORT_EMAIL } from '@/lib/constants'
 
-// Maps the ?error= query param (set by /auth/callback redirects) to a
-// user-facing French message. Unknown codes fall back to a generic one
-// rather than silently swallowing the redirect.
+// Maps the ?error= query param to a user-facing French message. Sources :
+// - /auth/callback/route.ts (Supabase magic-link errors : missing-code, etc.)
+// - proxy.ts (account_disabled when a deactivated user gets signed out)
+// Unknown codes fall back to a generic message rather than swallowing the
+// redirect silently.
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'missing-code': 'Lien de connexion invalide ou expiré. Demande un nouveau lien ci-dessous.',
   'server_error': 'Une erreur serveur s\'est produite. Réessaie dans un instant.',
   'expired': 'Ce lien a expiré (validité 15 min). Demande un nouveau lien ci-dessous.',
   'access_denied': 'Accès refusé. Vérifie que le lien provient bien de Proprely.',
   'invalid_request': 'Lien de connexion mal formé. Demande un nouveau lien ci-dessous.',
+  'account_disabled':
+    'Ton compte a été désactivé par ton administrateur. Contacte-le pour qu\'il te réactive depuis Paramètres → Équipe.',
+  'supabase-not-configured':
+    'Service indisponible — réessaie dans quelques minutes. Si le problème persiste, contacte le support.',
+  'client-unavailable': 'Service indisponible — réessaie dans quelques minutes.',
 }
 
 function LoginContent() {
@@ -32,7 +39,9 @@ function LoginContent() {
   // react-hooks/set-state-in-effect lint.
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(() => {
     if (!errorCode) return null
-    const message = AUTH_ERROR_MESSAGES[errorCode] ?? 'Une erreur d\'authentification s\'est produite. Réessaie.'
+    const message =
+      AUTH_ERROR_MESSAGES[errorCode] ??
+      'Une erreur d\'authentification s\'est produite. Réessaie.'
     return { ok: false, message }
   })
   const { onInvalid, onInput } = useFrenchValidation()
@@ -96,6 +105,7 @@ function LoginContent() {
 
         {result && (
           <div
+            role="alert"
             className={`flex items-start gap-2 text-sm rounded-md px-3 py-2.5 ${
               result.ok
                 ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -103,9 +113,9 @@ function LoginContent() {
             }`}
           >
             {result.ok ? (
-              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
             ) : (
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
             )}
             <p>{result.message}</p>
           </div>

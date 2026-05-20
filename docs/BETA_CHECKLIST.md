@@ -94,6 +94,7 @@ externes avant d'ouvrir aux 60 users.
 | `DOCUSEAL_WEBHOOK_SECRET` | secret aléatoire | Générer un secret puis le coller côté Docuseal Dashboard → Webhooks → Secret |
 | `RESEND_API_KEY` | clé `re_…` | resend.com/api-keys |
 | `RESEND_FROM` | `Proprely <noreply@proprely.fr>` | **Domaine doit être vérifié** sur Resend |
+| `CRON_SECRET` | secret aléatoire (`openssl rand -hex 32`) | Toi — Vercel injecte automatiquement ce secret dans le header `Authorization: Bearer …` des crons définis dans `vercel.json` |
 | `NEXT_PUBLIC_SENTRY_DSN` | `https://xxx@sentry.io/yyy` | sentry.io → Settings → Client Keys |
 | `SENTRY_DSN` | même valeur | Idem |
 | `SENTRY_AUTH_TOKEN` | token | sentry.io → Settings → Auth Tokens (scope: `project:releases`) |
@@ -121,6 +122,35 @@ externes avant d'ouvrir aux 60 users.
   - Events : `submission.completed`
   - Secret : la même valeur que `DOCUSEAL_WEBHOOK_SECRET` côté Vercel.
 
+### Vercel — Cron jobs
+
+Les crons sont déclarés dans `vercel.json` à la racine. Au premier déploiement
+qui contient ce fichier, Vercel les enregistre automatiquement. Vérifier
+ensuite dans **Vercel Dashboard → Settings → Cron Jobs** que les 2 entrées
+suivantes apparaissent :
+
+| Path | Fréquence |
+|---|---|
+| `/api/cron/mission-alerts?mode=both` | `0 6 * * *` (06h00 UTC chaque jour) |
+| `/api/cron/recurrences` | `0 4 * * *` (04h00 UTC chaque jour) |
+
+> **Note plan Vercel** : la config actuelle est compatible Hobby (2 crons,
+> 1×/jour). Pour passer la détection late-alerts à `*/15 8-19 * * 1-6`
+> (toutes les 15 min en heures ouvrées), il faut le plan Pro — split alors
+> en deux entrées `mode=reminders` (`0 6 * * *`) + `mode=late` (`*/15 …`).
+
+Vercel injecte automatiquement `Authorization: Bearer ${CRON_SECRET}` sur
+ces URLs. Tester manuellement après déploiement :
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://app.proprely.fr/api/cron/mission-alerts?mode=both
+# attendu : 200 + JSON { remindersSent, alertsSent, durationMs }
+
+curl https://app.proprely.fr/api/cron/mission-alerts
+# attendu : 401 (pas de header)
+```
+
 ### Supabase — Migrations à appliquer en prod
 
 ```bash
@@ -133,7 +163,7 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-11 migrations idempotentes — safe à rejouer si déjà appliquées.
+20 migrations idempotentes — safe à rejouer si déjà appliquées.
 
 ### Vercel — Branch protection
 
@@ -275,18 +305,19 @@ Ces items n'ont pas été codés mais sont documentés dans le plan pour plus ta
 
 ## 🟡 Tests Playwright cassés pré-existants (hors scope de cette PR)
 
-Ces 4 tests étaient déjà rouges sur `main` avant l'audit QA — non causés
+Ces 3 tests étaient déjà rouges sur `main` avant l'audit QA — non causés
 par les changements de cette PR. À traiter dans une PR séparée :
 
 | Test | Problème | Action recommandée |
 |---|---|---|
-| `e2e/settings.spec.ts:30` "Rentabilité is hidden from sidebar" | Obsolète : `Rentabilité client` est dans `AppSidebar.tsx:81` (feature activée) | Supprimer ou inverser l'assertion |
 | `e2e/ux-additions.spec.ts:10` Cmd+K opens dialog | `GlobalSearch.tsx` existe mais le test timeout en dummy mode | Tester en mode authentifié seed Supabase |
 | `e2e/ux-additions.spec.ts:23` Cmd+K hint | Idem | Idem |
 | `e2e/ux-additions.spec.ts:64` Statut dropdown | `clients-sites` redirect en dummy mode (auth required) | Idem |
 
+> Note : le 4e fail listé précédemment (`settings.spec.ts:30` "Rentabilité is hidden") a été corrigé dans cette PR. La feature Rentabilité étant désormais live, le test a été inversé pour vérifier qu'elle EST bien visible pour le rôle owner.
+
 CI principal (`Lint · Typecheck · Test · Build`) passe en vert sur cette PR
-— ces 4 fails Playwright ne sont pas un blocker merge.
+— ces 3 fails Playwright restants ne sont pas un blocker merge.
 
 ## 📊 Métriques de référence (post-Sprint 1+2+3+V1+V2)
 

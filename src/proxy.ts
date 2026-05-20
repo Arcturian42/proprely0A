@@ -12,6 +12,8 @@ const PUBLIC_PATHS = [
   '/confidentialite',
   '/api/auth/signup',
   '/api/health',           // Public liveness probe — for uptime monitors
+  '/api/cron',             // Vercel cron — auth via verifyCronRequest in route handler
+  '/api/docuseal/webhook', // Docuseal callback — auth via HMAC signature in handler
   '/sentry-example-page',  // Sentry verification — public, not linked from UI
   '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
 ]
@@ -110,16 +112,15 @@ export async function proxy(request: NextRequest) {
       is_active: boolean
     }>()
 
-  // Deactivated members are signed out and bounced to /login with an error
-  // code (the login page maps `?error=access_denied` to "Accès refusé.
-  // Vérifie que le lien provient bien de Proprely." which doubles as a hint
-  // to contact their admin). We don't await signOut here because a stale
-  // session is harmless — the next request will hit this same gate.
+  // Compte désactivé : on sign out côté server et on renvoie sur /login avec
+  // ?error=account_disabled (mappé en FR explicite par la page login). On
+  // catch le signOut pour ne pas faire échouer la redirection si le call à
+  // Supabase plante — la session sera de toute façon refusée au prochain hit.
   if (profile && profile.is_active === false) {
     await supabase.auth.signOut().catch(() => undefined)
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.search = '?error=access_denied'
+    url.searchParams.set('error', 'account_disabled')
     return NextResponse.redirect(url)
   }
 

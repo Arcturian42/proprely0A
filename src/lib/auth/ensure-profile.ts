@@ -1,5 +1,6 @@
 'use server'
 
+import * as Sentry from '@sentry/nextjs'
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import type { Role } from './types'
 
@@ -117,7 +118,12 @@ export async function ensureProfileForCurrentUser(): Promise<EnsuredProfile | nu
     })
   if (profileErr) {
     // Roll back the just-created company so we don't leak an orphan row.
-    try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
+    try { await admin.from('companies').delete().eq('id', companyData.id) } catch (err) {
+      Sentry.captureException(err, {
+        tags: { action: 'ensureProfile.rollback' },
+        extra: { companyId: companyData.id, userId: user.id },
+      })
+    }
     return null
   }
 
@@ -130,12 +136,22 @@ export async function ensureProfileForCurrentUser(): Promise<EnsuredProfile | nu
         { company_id: companyData.id, step_1_completed_at: new Date().toISOString() },
         { onConflict: 'company_id' },
       )
-  } catch { /* best-effort */ }
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { action: 'ensureProfile.bootstrap', step: 'onboarding_status' },
+      extra: { companyId: companyData.id },
+    })
+  }
   try {
     await admin
       .from('company_pricing_settings')
       .upsert({ company_id: companyData.id }, { onConflict: 'company_id' })
-  } catch { /* best-effort */ }
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { action: 'ensureProfile.bootstrap', step: 'company_pricing_settings' },
+      extra: { companyId: companyData.id },
+    })
+  }
 
   return {
     userId: user.id,

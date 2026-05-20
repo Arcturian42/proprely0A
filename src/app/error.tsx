@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useState } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 
@@ -11,9 +12,19 @@ export default function ErrorBoundary({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
+  // useState initializer fires once per component instance — perfect for
+  // an error boundary. See RouteError for the full rationale.
+  const [sentryEventId] = useState(() => {
     console.error('App error boundary:', error)
-  }, [error])
+    return (
+      Sentry.captureException(error, {
+        tags: { boundary: 'app' },
+        extra: { digest: error.digest ?? null },
+      }) || null
+    )
+  })
+
+  const ref = sentryEventId ?? error.digest ?? null
 
   return (
     <div className="flex items-center justify-center h-screen bg-[#FBFBFA] p-6">
@@ -28,9 +39,9 @@ export default function ErrorBoundary({
           L&apos;application a rencontré un problème inattendu. Vous pouvez réessayer
           ou recharger la page.
         </p>
-        {error.digest && (
-          <p className="text-xs text-slate-400 font-mono mb-4">
-            Ref : {error.digest}
+        {ref && (
+          <p className="text-xs text-slate-400 font-mono mb-4 break-all">
+            Ref support : {ref}
           </p>
         )}
         <div className="flex gap-2 justify-center">

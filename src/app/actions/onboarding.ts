@@ -405,20 +405,41 @@ export async function setServices(formData: FormData): Promise<OnboardingActionR
   const admin = await createServiceRoleClient()
   if (!admin) return { ok: false, error: 'Service role indisponible.' }
 
-  const rows = parsed.data.services.map((s) => ({
-    company_id: ownerGate.companyId,
-    name: s.name.trim(),
-    description: s.description ?? null,
-    is_default: s.is_default ?? false,
-    is_active: true,
-    sort_order: s.sort_order ?? 0,
-    created_by: ownerGate.userId,
-  }))
+  // Dedupe within the payload (user might enter the same name twice) and
+  // against existing rows — there's no UNIQUE(company_id, name) at the DB
+  // level yet, so two near-concurrent step-3 submissions could otherwise
+  // insert duplicates. App-level filter is fine for an MVP.
+  const { data: existingRows } = await admin
+    .from('service_types')
+    .select('name')
+    .eq('company_id', ownerGate.companyId)
+    .returns<{ name: string }[]>()
+  const existingNames = new Set((existingRows ?? []).map(r => r.name.toLowerCase()))
 
-  const { error } = await admin.from('service_types').insert(rows)
-  if (error) {
-    console.error('[onboarding] service_types insert failed:', error)
-    return { ok: false, error: toUserMessage(error, 'Enregistrement des prestations impossible.') }
+  const seen = new Set<string>()
+  const rows = parsed.data.services
+    .map((s) => ({
+      company_id: ownerGate.companyId,
+      name: s.name.trim(),
+      description: s.description ?? null,
+      is_default: s.is_default ?? false,
+      is_active: true,
+      sort_order: s.sort_order ?? 0,
+      created_by: ownerGate.userId,
+    }))
+    .filter((r) => {
+      const key = r.name.toLowerCase()
+      if (!key || seen.has(key) || existingNames.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+  if (rows.length > 0) {
+    const { error } = await admin.from('service_types').insert(rows)
+    if (error) {
+      console.error('[onboarding] service_types insert failed:', error)
+      return { ok: false, error: toUserMessage(error, 'Enregistrement des prestations impossible.') }
+    }
   }
 
   const mark = await markOnboardingStep(ownerGate.companyId, 'step_3_services_completed_at')

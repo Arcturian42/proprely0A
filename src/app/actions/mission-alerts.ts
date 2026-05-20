@@ -113,7 +113,15 @@ export async function tickMissionReminders(): Promise<{ remindersSent: number }>
     agentsByMission.set(row.mission_id, list)
   }
 
-  let remindersSent = 0
+  // Flatten the (mission × agent) pairs into a single list of sends we can
+  // run in parallel. Without this the cron was O(missions × agents) sequential
+  // awaits — a single Resend hiccup compounded across every mission.
+  type ReminderSend = {
+    missionId: string
+    email: string
+    tpl: ReturnType<typeof missionReminderEmail>
+  }
+  const sends: ReminderSend[] = []
   for (const mission of missions) {
     const agents = agentsByMission.get(mission.id) ?? []
     if (agents.length === 0) continue
@@ -122,23 +130,44 @@ export async function tickMissionReminders(): Promise<{ remindersSent: number }>
 
     for (const agent of agents) {
       if (!agent.email) continue
-      const tpl = missionReminderEmail({
-        agentFirstName: agent.first_name ?? '',
-        clientName,
-        siteName,
-        scheduledDate: mission.scheduled_date,
-        startTime: mission.start_time,
-        plannedHours: mission.planned_hours ?? 0,
-        appUrl: getAppUrl(),
+      sends.push({
+        missionId: mission.id,
+        email: agent.email,
+        tpl: missionReminderEmail({
+          agentFirstName: agent.first_name ?? '',
+          clientName,
+          siteName,
+          scheduledDate: mission.scheduled_date,
+          startTime: mission.start_time,
+          plannedHours: mission.planned_hours ?? 0,
+          appUrl: getAppUrl(),
+        }),
       })
-      const res = await sendEmail({ to: agent.email, ...tpl })
-      if (res.ok) remindersSent += 1
     }
+  }
 
+  // Resend's free tier caps at ~10 rps. We send in chunks to stay well under
+  // any plausible quota and keep cron latency bounded even with hundreds of
+  // missions queued up.
+  const CHUNK = 25
+  let remindersSent = 0
+  for (let i = 0; i < sends.length; i += CHUNK) {
+    const chunk = sends.slice(i, i + CHUNK)
+    const results = await Promise.all(
+      chunk.map(s => sendEmail({ to: s.email, ...s.tpl })),
+    )
+    remindersSent += results.filter(r => r.ok).length
+  }
+
+  // Stamp every mission we actually had agents to remind, regardless of
+  // per-email success. The flag is idempotency, not delivery proof — operators
+  // see partial sends in Sentry / Resend dashboard.
+  const stampMissions = [...new Set(sends.map(s => s.missionId))]
+  if (stampMissions.length > 0) {
     await admin
       .from('missions')
       .update({ reminder_sent_at: new Date().toISOString() })
-      .eq('id', mission.id)
+      .in('id', stampMissions)
   }
 
   return { remindersSent }
@@ -221,29 +250,56 @@ export async function tickMissionLateAlerts(): Promise<{ alertsSent: number }> {
     agentsByMission.set(row.mission_id, list)
   }
 
-  let alertsSent = 0
+  // Build the send plan first, then fan out in parallel. Same shape as
+  // tickMissionReminders — fixes the per-mission sequential await that was
+  // capping cron throughput regardless of Resend latency.
+  type AlertSend = {
+    missionId: string
+    email: string
+    tpl: ReturnType<typeof missionLateAlertEmail>
+  }
+  const sends: AlertSend[] = []
   for (const mission of lateMissions) {
     const owner = ownerByCompany.get(mission.company_id)
     if (!owner?.email || !mission.start_time) continue
     const delayMinutes = cutoffMinutes - timeToMinutes(mission.start_time) + LATE_THRESHOLD_MINUTES
-    const tpl = missionLateAlertEmail({
-      managerFirstName: owner.first_name ?? '',
-      clientName: clientMap.get(mission.client_id ?? '') ?? 'Client',
-      siteName: siteMap.get(mission.site_id ?? '') ?? null,
-      scheduledDate: mission.scheduled_date,
-      startTime: mission.start_time.slice(0, 5),
-      agentNames: agentsByMission.get(mission.id) ?? [],
-      delayMinutes,
-      appUrl: getAppUrl(),
+    sends.push({
+      missionId: mission.id,
+      email: owner.email,
+      tpl: missionLateAlertEmail({
+        managerFirstName: owner.first_name ?? '',
+        clientName: clientMap.get(mission.client_id ?? '') ?? 'Client',
+        siteName: siteMap.get(mission.site_id ?? '') ?? null,
+        scheduledDate: mission.scheduled_date,
+        startTime: mission.start_time.slice(0, 5),
+        agentNames: agentsByMission.get(mission.id) ?? [],
+        delayMinutes,
+        appUrl: getAppUrl(),
+      }),
     })
-    const res = await sendEmail({ to: owner.email, ...tpl })
-    if (res.ok) {
-      alertsSent += 1
-      await admin
-        .from('missions')
-        .update({ late_alert_sent_at: new Date().toISOString() })
-        .eq('id', mission.id)
-    }
+  }
+
+  const CHUNK = 25
+  const stampMissions: string[] = []
+  let alertsSent = 0
+  for (let i = 0; i < sends.length; i += CHUNK) {
+    const chunk = sends.slice(i, i + CHUNK)
+    const results = await Promise.all(
+      chunk.map(s => sendEmail({ to: s.email, ...s.tpl })),
+    )
+    results.forEach((r, idx) => {
+      if (r.ok) {
+        alertsSent += 1
+        stampMissions.push(chunk[idx].missionId)
+      }
+    })
+  }
+
+  if (stampMissions.length > 0) {
+    await admin
+      .from('missions')
+      .update({ late_alert_sent_at: new Date().toISOString() })
+      .in('id', stampMissions)
   }
 
   return { alertsSent }

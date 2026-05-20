@@ -1,5 +1,6 @@
 'use server'
 
+import * as Sentry from '@sentry/nextjs'
 import { createServerClient, createServiceRoleClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 import { toUserMessage } from '@/lib/errors/user-message'
@@ -148,7 +149,15 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     .single()
   if (companyError || !companyData) {
     if (companyError) console.error('[signup] companies insert failed:', companyError)
-    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
+    try { await admin.auth.admin.deleteUser(userId) } catch (err) {
+      // Auth user is now orphaned — the user will hit signUpCompany again and
+      // either succeed (deleted in retry) or surface the duplicate-email path.
+      // Sentry alert lets ops clean up proactively.
+      Sentry.captureException(err, {
+        tags: { action: 'signUpCompany.rollback', step: 'delete_auth_user' },
+        extra: { userId, reason: 'companies_insert_failed' },
+      })
+    }
     return {
       ok: false,
       error: toUserMessage(companyError, 'Création de l\'entreprise impossible. Réessaie ou contacte le support.'),
@@ -169,8 +178,18 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     })
   if (profileError) {
     console.error('[signup] profiles insert failed:', profileError)
-    try { await admin.from('companies').delete().eq('id', companyData.id) } catch { /* best-effort */ }
-    try { await admin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
+    try { await admin.from('companies').delete().eq('id', companyData.id) } catch (err) {
+      Sentry.captureException(err, {
+        tags: { action: 'signUpCompany.rollback', step: 'delete_company' },
+        extra: { companyId: companyData.id, userId },
+      })
+    }
+    try { await admin.auth.admin.deleteUser(userId) } catch (err) {
+      Sentry.captureException(err, {
+        tags: { action: 'signUpCompany.rollback', step: 'delete_auth_user' },
+        extra: { userId, reason: 'profile_insert_failed' },
+      })
+    }
     return {
       ok: false,
       error: toUserMessage(profileError, 'Création du profil impossible. Réessaie ou contacte le support.'),

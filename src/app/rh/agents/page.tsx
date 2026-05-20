@@ -202,7 +202,28 @@ export default function AgentsPage() {
           onImport={async (rows) => {
             const now = new Date().toISOString()
             let inserted = 0
+            const skipped: string[] = []
             for (const row of rows) {
+              // Validate each row instead of silently coercing junk to 0/35.
+              // The operator sees a concrete count + reason rather than
+              // "imported X" hiding bad columns.
+              const hourlyRaw = row.data.hourly_cost
+              const hourly = hourlyRaw === '' || hourlyRaw == null ? 0 : Number(hourlyRaw)
+              const weeklyRaw = row.data.weekly_availability_hours
+              const weekly = weeklyRaw === '' || weeklyRaw == null ? 35 : Number(weeklyRaw)
+              const label = `${row.data.first_name ?? ''} ${row.data.last_name ?? ''}`.trim() || row.data.email || 'ligne sans nom'
+              if (!row.data.first_name || !row.data.last_name || !row.data.email) {
+                skipped.push(`${label} — prénom/nom/email manquant`)
+                continue
+              }
+              if (Number.isNaN(hourly) || hourly < 0) {
+                skipped.push(`${label} — coût horaire invalide (${hourlyRaw})`)
+                continue
+              }
+              if (Number.isNaN(weekly) || weekly < 0 || weekly > 80) {
+                skipped.push(`${label} — heures hebdo invalides (${weeklyRaw})`)
+                continue
+              }
               const newAgent: Agent = {
                 id: crypto.randomUUID(),
                 company_id: companyId,
@@ -212,8 +233,8 @@ export default function AgentsPage() {
                 phone: row.data.phone || null,
                 zone: row.data.zone || null,
                 contract_type: 'cdi',
-                hourly_cost: Number(row.data.hourly_cost) || 0,
-                weekly_availability_hours: Number(row.data.weekly_availability_hours) || 35,
+                hourly_cost: hourly,
+                weekly_availability_hours: weekly,
                 weekly_availability: { lundi: true, mardi: true, mercredi: true, jeudi: true, vendredi: true, samedi: false, dimanche: false },
                 skills: [],
                 specialty: null,
@@ -225,6 +246,11 @@ export default function AgentsPage() {
               }
               addAgent(newAgent)
               inserted += 1
+            }
+            if (skipped.length > 0) {
+              const preview = skipped.slice(0, 3).join(' ; ')
+              const suffix = skipped.length > 3 ? ` (+${skipped.length - 3} autres)` : ''
+              toast.warning(`${inserted} agent(s) importé(s), ${skipped.length} ignoré(s) : ${preview}${suffix}`, { duration: 8000 })
             }
             return { inserted }
           }}
@@ -520,15 +546,33 @@ export default function AgentsPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={!!confirmDelete}
-        onOpenChange={() => setConfirmDelete(null)}
-        title="Supprimer l'agent"
-        description="Cette action est irréversible."
-        confirmLabel="Supprimer"
-        variant="destructive"
-        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
-      />
+      {(() => {
+        const target = confirmDelete ? agents.find(a => a.id === confirmDelete) : null
+        const targetMissionCount = confirmDelete
+          ? missions.filter(m => m.agents?.some(a => a.id === confirmDelete)).length
+          : 0
+        const fullName = target
+          ? [target.first_name, target.last_name].filter(Boolean).join(' ') || 'cet agent'
+          : 'cet agent'
+        // Surface name + mission count so the operator has the context they
+        // need to confirm. "Cette action est irréversible." alone was generic
+        // enough that operators sometimes deleted the wrong row in QA.
+        const description =
+          targetMissionCount > 0
+            ? `${fullName} est lié à ${targetMissionCount} mission(s). La suppression sera bloquée. Désaffecte-le d'abord depuis le planning.`
+            : `${fullName} sera archivé. Tu pourras toujours retrouver son historique d'heures et de missions.`
+        return (
+          <ConfirmDialog
+            open={!!confirmDelete}
+            onOpenChange={() => setConfirmDelete(null)}
+            title={`Supprimer ${fullName}`}
+            description={description}
+            confirmLabel="Supprimer"
+            variant="destructive"
+            onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+          />
+        )
+      })()}
 
       <AgentProfilePanel
         agent={profileAgent ?? null}

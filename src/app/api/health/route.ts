@@ -43,12 +43,29 @@ export async function GET(req: NextRequest) {
     docuseal: Boolean(process.env.DOCUSEAL_API_KEY),
     docuseal_webhook_secret: Boolean(process.env.DOCUSEAL_WEBHOOK_SECRET),
     resend: Boolean(process.env.RESEND_API_KEY),
+    cron_secret: Boolean(process.env.CRON_SECRET),
     sentry: Boolean(process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN),
     app_url: process.env.NEXT_PUBLIC_APP_URL ?? null,
   }
   const tablesOk = supabaseOk ? await checkTables() : { onboarding_status: false }
-  const allHealthy =
-    integrations.supabase && integrations.docuseal && integrations.resend && tablesOk.onboarding_status
+
+  // Baseline = the original three (Supabase + Docuseal + Resend) plus the
+  // critical-table reachability check from P2 (catches missing migrations).
+  // In production we additionally require `docuseal_webhook_secret`
+  // (otherwise signed quotes never flip to `signe`) and `cron_secret`
+  // (otherwise rappels/alerts/recurrences crons 401). Dev/preview stays
+  // lenient on those two so local work without secrets keeps returning 200.
+  const isProd = process.env.NODE_ENV === 'production'
+  const baseHealthy =
+    integrations.supabase &&
+    integrations.docuseal &&
+    integrations.resend &&
+    tablesOk.onboarding_status
+  const prodHealthy =
+    baseHealthy &&
+    integrations.docuseal_webhook_secret &&
+    integrations.cron_secret
+  const allHealthy = isProd ? prodHealthy : baseHealthy
 
   return NextResponse.json(
     {

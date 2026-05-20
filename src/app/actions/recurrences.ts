@@ -27,12 +27,19 @@ const CreateRecurrenceSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
 })
 
-function parseJSONField<T>(raw: FormDataEntryValue | null): T | null {
-  if (!raw || typeof raw !== 'string') return null
+type ParseFieldResult<T> =
+  | { ok: true; value: T | null }
+  | { ok: false; error: string }
+
+function parseJSONField<T>(raw: FormDataEntryValue | null): ParseFieldResult<T> {
+  if (!raw || typeof raw !== 'string') return { ok: true, value: null }
   try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
+    return { ok: true, value: JSON.parse(raw) as T }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'JSON invalide',
+    }
   }
 }
 
@@ -111,8 +118,9 @@ export async function createRecurrence(formData: FormData): Promise<RecurrenceAc
   const gate = await requirePermission('mission:write')
   if (!gate.ok) return { ok: false, error: gate.error }
 
-  const payload = parseJSONField<Record<string, unknown>>(formData.get('payload'))
-  const parsed = CreateRecurrenceSchema.safeParse(payload ?? {})
+  const payloadResult = parseJSONField<Record<string, unknown>>(formData.get('payload'))
+  if (!payloadResult.ok) return { ok: false, error: `Payload JSON invalide : ${payloadResult.error}` }
+  const parsed = CreateRecurrenceSchema.safeParse(payloadResult.value ?? {})
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Récurrence invalide.' }
   }
@@ -302,12 +310,16 @@ export async function tickRecurrences(): Promise<{ generated: number }> {
   horizonDate.setUTCDate(horizonDate.getUTCDate() + 28)
   const horizon = horizonDate.toISOString().slice(0, 10)
 
+  // Hard cap to bound cron memory + Supabase response size. 1000 active
+  // recurrences across all tenants is already well above the beta target;
+  // beyond that we'd want to chunk by company_id and process in batches.
   const { data: recurrences } = await admin
     .from('mission_recurrences')
     .select(
       'id, company_id, site_id, service_type, planned_hours, start_time, default_agent_ids, frequency, weekday, day_of_month, starts_on, ends_on, last_generated_date',
     )
     .eq('is_active', true)
+    .limit(1000)
 
   let generated = 0
   for (const rec of recurrences ?? []) {

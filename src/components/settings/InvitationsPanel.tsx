@@ -17,9 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Mail, RotateCcw, X, Loader2, Send } from 'lucide-react'
-import { ROLE_LABELS } from '@/lib/auth'
+import { ROLE_LABELS, isOwnerOrAdmin, useCurrentRole } from '@/lib/auth'
 import { toast } from 'sonner'
-import { useCurrentRole } from '@/lib/auth'
 
 const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'admin', label: ROLE_LABELS.admin },
@@ -43,7 +42,7 @@ const STATUS_COLORS: Record<InvitationRow['status'], string> = {
 
 export function InvitationsPanel() {
   const role = useCurrentRole()
-  const canInvite = role === 'owner' || role === 'admin'
+  const canInvite = isOwnerOrAdmin(role)
   const [pending, startTransition] = useTransition()
   const [invitations, setInvitations] = useState<InvitationRow[]>([])
   const [seats, setSeats] = useState<SeatUsage>({ used: 0, max: 5, pending: 0, active: 0 })

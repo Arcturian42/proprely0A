@@ -1,5 +1,6 @@
 'use server'
 
+import * as Sentry from '@sentry/nextjs'
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/server-guard'
 import { isResendConfigured, sendEmail } from '@/lib/email/resend'
@@ -14,6 +15,11 @@ import type {
   Agent, Client, Lead, Mission, Opportunity, OperationalItem,
   Site, Sop, TimeEntry, ServiceType, Quote,
 } from '@/types'
+
+// Concrete Supabase client type returned by createServerClient (minus null).
+// Used by helpers below that take an already-authenticated client as input,
+// so we don't fall back to `any` and lose autocomplete on .from().select() chains.
+type ServerSupabaseClient = NonNullable<Awaited<ReturnType<typeof createServerClient>>>
 
 /**
  * Snapshot of all tenant-scoped business data, fetched in one parallel batch
@@ -197,14 +203,19 @@ async function upsert(
 
   // App-level validation before the DB sees the payload. Strips junk fields
   // and gives a clean French error instead of a Postgres CHECK violation.
+  // Tables without a schema are rejected outright: silent fall-through would
+  // let unvalidated payloads reach Supabase and rely on the DB CHECK constraints
+  // alone — fine in theory, but loses the typed contract the wrappers promise.
   const schema = getEntitySchema(table)
-  if (schema) {
-    const parsed = schema.safeParse(stripped)
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0]
-      const path = issue?.path?.join('.') || 'champ'
-      return { ok: false, error: `Données invalides (${path}) : ${issue?.message ?? 'format incorrect'}` }
-    }
+  if (!schema) {
+    console.error(`[data] upsert refused: no Zod schema registered for table "${table}"`)
+    return { ok: false, error: 'Table non supportée par l\'upsert générique.' }
+  }
+  const parsed = schema.safeParse(stripped)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    const path = issue?.path?.join('.') || 'champ'
+    return { ok: false, error: `Données invalides (${path}) : ${issue?.message ?? 'format incorrect'}` }
   }
 
   const payload = { ...stripped, company_id: guard.caller.companyId }
@@ -382,9 +393,16 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
     }
   }
 
-  // Best-effort notification email to newly assigned agents.
+  // Best-effort notification email to newly assigned agents. The mission
+  // itself is already saved, so we don't fail the request on email errors —
+  // but we DO surface them to Sentry so a Resend outage doesn't go unnoticed.
   if (newlyAssigned.length > 0 && isResendConfigured()) {
-    notifyNewlyAssigned(supabase, missionId, newlyAssigned).catch(() => undefined)
+    notifyNewlyAssigned(supabase, missionId, newlyAssigned).catch(err => {
+      Sentry.captureException(err, {
+        tags: { action: 'assignAgentsToMission.notify' },
+        extra: { missionId, newlyAssignedCount: newlyAssigned.length },
+      })
+    })
   }
 
   revalidatePath('/operations/cockpit')
@@ -398,8 +416,7 @@ export async function assignAgentsToMission(missionId: string, agentIds: string[
  * compute overlap in JS via the pure hasTimeOverlap helper.
  */
 async function detectAgentConflicts(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: ServerSupabaseClient,
   targetMissionId: string,
   targetDate: string,
   targetStartTime: string,
@@ -417,26 +434,32 @@ async function detectAgentConflicts(
 
   if (!rows || rows.length === 0) return null
 
+  type JoinedMission = { id: string; scheduled_date: string; start_time: string | null; planned_hours: number | null }
+  type JoinedAgent = { first_name: string | null; last_name: string | null }
+  // PostgREST returns joined rows as object OR array depending on FK shape, so
+  // we accept both and normalize via Array.isArray below.
   type Row = {
     agent_id: string
-    mission: { id: string; scheduled_date: string; start_time: string | null; planned_hours: number | null } | null
-    agent: { first_name: string | null; last_name: string | null } | null
+    mission: JoinedMission | JoinedMission[] | null
+    agent: JoinedAgent | JoinedAgent[] | null
   }
   const target = { start_time: targetStartTime, planned_hours: targetPlannedHours }
-  for (const row of rows as Row[]) {
-    if (!row.mission?.start_time || !row.mission.planned_hours) continue
+  for (const row of rows as unknown as Row[]) {
+    const mission = Array.isArray(row.mission) ? row.mission[0] : row.mission
+    const agent = Array.isArray(row.agent) ? row.agent[0] : row.agent
+    if (!mission?.start_time || !mission.planned_hours) continue
     const other = {
-      start_time: row.mission.start_time,
-      planned_hours: row.mission.planned_hours,
+      start_time: mission.start_time,
+      planned_hours: mission.planned_hours,
     }
     if (hasTimeOverlap(target, other)) {
       const name =
-        [row.agent?.first_name, row.agent?.last_name].filter(Boolean).join(' ') ||
+        [agent?.first_name, agent?.last_name].filter(Boolean).join(' ') ||
         'Un agent'
-      const fmtStart = row.mission.start_time.slice(0, 5)
+      const fmtStart = mission.start_time.slice(0, 5)
       const otherEnd =
-        timeToMinutes(row.mission.start_time) +
-        Math.round(row.mission.planned_hours * 60)
+        timeToMinutes(mission.start_time) +
+        Math.round(mission.planned_hours * 60)
       const fmtEnd = minutesToTime(otherEnd)
       return `${name} est déjà sur une mission le ${targetDate} de ${fmtStart} à ${fmtEnd}. Décale l'une des deux missions ou choisis un autre agent.`
     }
@@ -445,33 +468,59 @@ async function detectAgentConflicts(
 }
 
 async function notifyNewlyAssigned(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: ServerSupabaseClient,
   missionId: string,
   agentIds: string[],
 ): Promise<void> {
+  type MissionLookup = {
+    scheduled_date: string
+    start_time: string | null
+    planned_hours: number | null
+    clients: { name: string } | { name: string }[] | null
+    sites: { name: string } | { name: string }[] | null
+  }
   const { data: mission } = await supabase
     .from('missions')
     .select('scheduled_date, start_time, planned_hours, clients(name), sites(name)')
     .eq('id', missionId)
-    .single()
+    .single<MissionLookup>()
   if (!mission) return
+  // PostgREST may return joined rows as object or array depending on FK shape.
+  const client = Array.isArray(mission.clients) ? mission.clients[0] : mission.clients
+  const site = Array.isArray(mission.sites) ? mission.sites[0] : mission.sites
+
   const { data: agentRows } = await supabase
     .from('agents')
     .select('id, email, first_name')
     .in('id', agentIds)
-  for (const agent of (agentRows ?? []) as { email: string | null; first_name: string }[]) {
-    if (!agent.email) continue
-    const tpl = missionAssignedEmail({
-      agentFirstName: agent.first_name || 'agent',
-      clientName: mission.clients?.name ?? 'Client',
-      siteName: mission.sites?.name ?? null,
-      scheduledDate: mission.scheduled_date,
-      startTime: mission.start_time,
-      plannedHours: mission.planned_hours,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-    })
-    await sendEmail({ to: agent.email, ...tpl }).catch(() => undefined)
+    .returns<{ email: string | null; first_name: string }[]>()
+
+  // Fire all the emails in parallel — they're independent. allSettled means a
+  // single bad address doesn't block the rest, and we capture each rejection
+  // to Sentry so a Resend outage shows up as alerts rather than silence.
+  const results = await Promise.allSettled(
+    (agentRows ?? [])
+      .filter(a => Boolean(a.email))
+      .map(agent => {
+        const tpl = missionAssignedEmail({
+          agentFirstName: agent.first_name || 'agent',
+          clientName: client?.name ?? 'Client',
+          siteName: site?.name ?? null,
+          scheduledDate: mission.scheduled_date,
+          startTime: mission.start_time,
+          plannedHours: mission.planned_hours ?? 0,
+          appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+        })
+        return sendEmail({ to: agent.email as string, ...tpl })
+      }),
+  )
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      Sentry.captureException(r.reason, {
+        tags: { action: 'notifyNewlyAssigned.sendEmail' },
+        extra: { missionId },
+      })
+    }
   }
 }
 

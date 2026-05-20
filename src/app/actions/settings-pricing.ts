@@ -85,12 +85,23 @@ const ServiceTypeSchema = z.object({
   sort_order: z.number().int().optional(),
 })
 
-function parseJSONField<T>(raw: FormDataEntryValue | null): T | null {
-  if (!raw || typeof raw !== 'string') return null
+// Returning a discriminated result instead of `T | null` lets callers
+// distinguish "no payload" (treat as {}) from "malformed JSON" (reject with a
+// clear French error). The previous null-on-error path swallowed bad input,
+// then Zod validated an empty object, producing misleading success.
+type ParseFieldResult<T> =
+  | { ok: true; value: T | null }
+  | { ok: false; error: string }
+
+function parseJSONField<T>(raw: FormDataEntryValue | null): ParseFieldResult<T> {
+  if (!raw || typeof raw !== 'string') return { ok: true, value: null }
   try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
+    return { ok: true, value: JSON.parse(raw) as T }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'JSON invalide',
+    }
   }
 }
 
@@ -146,8 +157,9 @@ export async function updatePricingSettings(
 ): Promise<SettingsActionResult> {
   const gate = await requirePermission('company:write')
   if (!gate.ok) return { ok: false, error: gate.error }
-  const payload = parseJSONField<Record<string, unknown>>(formData.get('payload'))
-  const parsed = PricingSettingsSchema.safeParse(payload ?? {})
+  const payloadResult = parseJSONField<Record<string, unknown>>(formData.get('payload'))
+  if (!payloadResult.ok) return { ok: false, error: `Payload JSON invalide : ${payloadResult.error}` }
+  const parsed = PricingSettingsSchema.safeParse(payloadResult.value ?? {})
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Paramètres invalides.' }
   }
@@ -188,8 +200,9 @@ export async function upsertPricingRule(
 ): Promise<SettingsActionResult> {
   const gate = await requirePermission('company:write')
   if (!gate.ok) return { ok: false, error: gate.error }
-  const payload = parseJSONField<Record<string, unknown>>(formData.get('payload'))
-  const parsed = PricingRuleSchema.safeParse(payload ?? {})
+  const payloadResult = parseJSONField<Record<string, unknown>>(formData.get('payload'))
+  if (!payloadResult.ok) return { ok: false, error: `Payload JSON invalide : ${payloadResult.error}` }
+  const parsed = PricingRuleSchema.safeParse(payloadResult.value ?? {})
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Règle invalide.' }
   }
@@ -265,8 +278,9 @@ export async function upsertServiceType(
 ): Promise<SettingsActionResult> {
   const gate = await requirePermission('company:write')
   if (!gate.ok) return { ok: false, error: gate.error }
-  const payload = parseJSONField<Record<string, unknown>>(formData.get('payload'))
-  const parsed = ServiceTypeSchema.safeParse(payload ?? {})
+  const payloadResult = parseJSONField<Record<string, unknown>>(formData.get('payload'))
+  if (!payloadResult.ok) return { ok: false, error: `Payload JSON invalide : ${payloadResult.error}` }
+  const parsed = ServiceTypeSchema.safeParse(payloadResult.value ?? {})
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Prestation invalide.' }
   }
