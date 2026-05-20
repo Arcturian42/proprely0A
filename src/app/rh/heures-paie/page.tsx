@@ -16,8 +16,9 @@ import { useAppStore, useCompanyAgents, useCompanyTimeEntries } from '@/lib/stor
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
-import { CheckCircle2, Download } from 'lucide-react'
+import { CheckCircle2, Download, Clock as ClockIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { startOfWeek, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -261,6 +262,24 @@ export default function HeuresPaiePage() {
           </TabsList>
 
           <TabsContent value="detail">
+            {filtered.length === 0 ? (
+              // Empty state distinct selon le contexte : pas d'entrées du tout
+              // (workspace neuf) vs filtre trop restrictif (agent/statut/mois).
+              <EmptyState
+                icon={ClockIcon}
+                title={entries.length === 0 ? 'Aucune heure saisie' : 'Aucune entrée pour ce filtre'}
+                description={
+                  entries.length === 0
+                    ? 'Les heures se créent automatiquement quand une mission est planifiée puis validée.'
+                    : 'Élargis les filtres (agent, statut, mois) pour voir d\'autres entrées.'
+                }
+                actions={
+                  entries.length === 0
+                    ? [{ label: 'Planifier une mission', href: '/operations/planning', variant: 'outline' }]
+                    : []
+                }
+              />
+            ) : (
             <Card className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -321,16 +340,10 @@ export default function HeuresPaiePage() {
                       </TableRow>
                     )
                   })}
-                  {filtered.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-slate-500">
-                        Aucune entrée trouvée
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="weekly">
