@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { signInWithMagicLink } from '@/app/actions/auth'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -9,9 +10,31 @@ import { Label } from '@/components/ui/label'
 import { Mail, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
+// Maps the `?error=` query param the proxy/middleware appends when it
+// kicks a user out (deactivated account, Supabase misconfig, etc.) into a
+// French message displayed above the form. Keep keys in sync with the
+// values set in proxy.ts and auth/callback/route.ts.
+const ERROR_MESSAGES: Record<string, string> = {
+  account_disabled:
+    'Ton compte a été désactivé par ton administrateur. Contacte-le pour qu\'il te réactive depuis Paramètres → Équipe.',
+  'supabase-not-configured':
+    'Service indisponible — réessaie dans quelques minutes. Si le problème persiste, contacte le support.',
+  'missing-code':
+    'Lien de connexion invalide. Demande un nouveau magic link ci-dessous.',
+  'client-unavailable':
+    'Service indisponible — réessaie dans quelques minutes.',
+}
+
 export default function LoginPage() {
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const searchParams = useSearchParams()
+  const errorParam = searchParams.get('error')
+  // Unknown error params surface the raw value (likely a Supabase error message
+  // forwarded by /auth/callback/route.ts) rather than swallowing it silently.
+  const redirectError = errorParam
+    ? ERROR_MESSAGES[errorParam] ?? decodeURIComponent(errorParam)
+    : null
 
   // Safety net : si on atterrit ici via une redirection du proxy (session expirée)
   // sans passer par le bouton "Se déconnecter", on purge quand même le cache local.
@@ -39,6 +62,16 @@ export default function LoginPage() {
           Entre ton email — on t&apos;envoie un lien magique pour te connecter sans mot de passe.
         </p>
       </div>
+
+      {redirectError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-2 text-sm rounded-md px-3 py-2.5 bg-rose-50 text-rose-900 border border-rose-200"
+        >
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <p>{redirectError}</p>
+        </div>
+      )}
 
       <form action={handleSubmit} className="space-y-4 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div>

@@ -32,6 +32,7 @@ sinon 503. Plug une sonde uptime (Better Uptime / UptimeRobot) dessus.
 | `RESEND_API_KEY` | Email | Invitations fallback sur Supabase mail (basique) |
 | `RESEND_FROM` | Email | Délivrabilité dégradée (sandbox) |
 | `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` | Monitoring | Pas de trace en cas de crash |
+| `CRON_SECRET` | Vercel Cron | Crons retournent 401 → rappels J-1, alertes late, récurrences ne s'exécutent pas |
 
 ## Playbooks
 
@@ -103,10 +104,39 @@ rien".
 **Symptômes** : Membre marqué `is_active: false` arrive sur le dashboard.
 
 **Action** :
-- C'est un trou : `requirePermission` rejette le user désactivé pour les
-  server actions, mais le proxy/middleware ne check pas `is_active`.
-- À fixer immédiatement : ajouter le check `is_active` dans `proxy.ts`
-  avant le redirect dashboard. **(Ouvert : voir TODO V1.1 audit trail).**
+- Depuis le sprint pré-beta, `proxy.ts` charge `is_active` en même temps que
+  `role`/`company_id`. Si `is_active = false` → `auth.signOut()` côté serveur
+  + redirect `/login?error=account_disabled`. La page login affiche un
+  message FR clair via le map `ERROR_MESSAGES`.
+- Si malgré ça un user désactivé arrive sur le dashboard : vérifier que le
+  cookie Supabase a bien été dropé (`sb-access-token` absent dans les
+  cookies du navigateur). Si présent, vider manuellement et retester.
+- Vérifier que la modification `profiles.is_active` est bien commitée en
+  base — `revalidatePath('/parametres')` est appelé par `setMemberActive`,
+  mais le middleware lit la valeur fraîche à chaque requête, donc la
+  désactivation s'applique au prochain hit du middleware.
+
+### 6. Vercel Cron tombe en 401
+
+**Symptômes** : Dans Vercel Logs ou Sentry, requêtes `GET /api/cron/*`
+renvoient 401 — les rappels J-1 et alertes mission late ne partent pas, et
+les missions récurrentes ne se génèrent plus.
+
+**Action** :
+1. Vérifier que `CRON_SECRET` est set côté Vercel (Project Settings → Env Vars).
+2. Vérifier que `vercel.json` à la racine contient bien les 3 entrées sous
+   `crons` (mission-alerts × 2 + recurrences). Vercel passe automatiquement
+   `Authorization: Bearer ${CRON_SECRET}` aux URLs listées là, **pas
+   ailleurs**.
+3. Tester manuellement :
+   ```bash
+   curl -H "Authorization: Bearer $CRON_SECRET" \
+     https://app.proprely.fr/api/cron/mission-alerts?mode=both
+   ```
+   → doit retourner 200 + JSON `{remindersSent, alertsSent, durationMs}`.
+4. Si toujours 401 : `verifyBearer` short-circuite sur longueur différente.
+   Vérifier qu'il n'y a pas d'espace en trop dans la valeur stockée sur
+   Vercel.
 
 ## Backups & DR
 

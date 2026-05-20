@@ -94,6 +94,7 @@ externes avant d'ouvrir aux 60 users.
 | `DOCUSEAL_WEBHOOK_SECRET` | secret aléatoire | Générer un secret puis le coller côté Docuseal Dashboard → Webhooks → Secret |
 | `RESEND_API_KEY` | clé `re_…` | resend.com/api-keys |
 | `RESEND_FROM` | `Proprely <noreply@proprely.fr>` | **Domaine doit être vérifié** sur Resend |
+| `CRON_SECRET` | secret aléatoire (`openssl rand -hex 32`) | Toi — Vercel injecte automatiquement ce secret dans le header `Authorization: Bearer …` des crons définis dans `vercel.json` |
 | `NEXT_PUBLIC_SENTRY_DSN` | `https://xxx@sentry.io/yyy` | sentry.io → Settings → Client Keys |
 | `SENTRY_DSN` | même valeur | Idem |
 | `SENTRY_AUTH_TOKEN` | token | sentry.io → Settings → Auth Tokens (scope: `project:releases`) |
@@ -121,6 +122,31 @@ externes avant d'ouvrir aux 60 users.
   - Events : `submission.completed`
   - Secret : la même valeur que `DOCUSEAL_WEBHOOK_SECRET` côté Vercel.
 
+### Vercel — Cron jobs
+
+Les crons sont déclarés dans `vercel.json` à la racine. Au premier déploiement
+qui contient ce fichier, Vercel les enregistre automatiquement. Vérifier
+ensuite dans **Vercel Dashboard → Settings → Cron Jobs** que les 3 entrées
+suivantes apparaissent :
+
+| Path | Fréquence |
+|---|---|
+| `/api/cron/mission-alerts?mode=reminders` | `0 6 * * *` (06h00 UTC chaque jour) |
+| `/api/cron/mission-alerts?mode=late` | `*/15 8-19 * * 1-6` (toutes les 15 min, 8h-19h UTC, lun-sam) |
+| `/api/cron/recurrences` | `0 4 * * *` (04h00 UTC chaque jour) |
+
+Vercel injecte automatiquement `Authorization: Bearer ${CRON_SECRET}` sur
+ces URLs. Tester manuellement après déploiement :
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://app.proprely.fr/api/cron/mission-alerts?mode=both
+# attendu : 200 + JSON { remindersSent, alertsSent, durationMs }
+
+curl https://app.proprely.fr/api/cron/mission-alerts
+# attendu : 401 (pas de header)
+```
+
 ### Supabase — Migrations à appliquer en prod
 
 ```bash
@@ -133,7 +159,7 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-11 migrations idempotentes — safe à rejouer si déjà appliquées.
+20 migrations idempotentes — safe à rejouer si déjà appliquées.
 
 ### Vercel — Branch protection
 
