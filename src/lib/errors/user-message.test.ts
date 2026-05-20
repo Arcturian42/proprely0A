@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toUserMessage } from './user-message'
+import { isSchemaCacheError, toUserMessage } from './user-message'
 
 describe('toUserMessage', () => {
   it('hides "schema cache" / missing-table errors behind a generic FR message', () => {
@@ -55,5 +55,30 @@ describe('toUserMessage', () => {
   it('handles non-Error inputs', () => {
     expect(toUserMessage('JWT expired')).toMatch(/session expirée/i)
     expect(toUserMessage(undefined, 'Erreur par défaut')).toBe('Erreur par défaut')
+  })
+})
+
+describe('isSchemaCacheError', () => {
+  it('returns true for PostgREST schema-cache misses', () => {
+    expect(
+      isSchemaCacheError(new Error("Could not find the table 'public.onboarding_status' in the schema cache")),
+    ).toBe(true)
+    expect(isSchemaCacheError(new Error('relation "profiles" does not exist'))).toBe(true)
+    expect(
+      isSchemaCacheError(new Error('column "lost_reason" of relation "opportunities" does not exist')),
+    ).toBe(true)
+  })
+
+  it('returns false for non-schema errors', () => {
+    expect(isSchemaCacheError(new Error('JWT expired'))).toBe(false)
+    expect(isSchemaCacheError(new Error('fetch failed'))).toBe(false)
+    expect(isSchemaCacheError(new Error('duplicate key value violates unique constraint'))).toBe(false)
+  })
+
+  it('returns false for empty / unknown inputs', () => {
+    expect(isSchemaCacheError(null)).toBe(false)
+    expect(isSchemaCacheError(undefined)).toBe(false)
+    expect(isSchemaCacheError('')).toBe(false)
+    expect(isSchemaCacheError({ message: 'not an Error instance' })).toBe(false)
   })
 })

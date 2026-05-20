@@ -64,7 +64,9 @@ export default function SignupPage() {
             />
           </div>
           <div>
-            <Label htmlFor="owner_last_name">Nom</Label>
+            <Label htmlFor="owner_last_name">
+              Nom <span className="text-rose-500">*</span>
+            </Label>
             <Input
               id="owner_last_name"
               name="owner_last_name"
