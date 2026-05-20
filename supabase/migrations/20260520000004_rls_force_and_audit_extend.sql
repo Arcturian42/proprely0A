@@ -80,20 +80,20 @@ CREATE POLICY availability_blocks_tenant ON availability_blocks
   );
 
 -- ─── 3. Audit triggers sur les tables jointes ────────────────────────────
--- Réutilise la fonction `audit_trigger_fn()` déjà définie dans
+-- Réutilise la fonction `audit_log_trigger()` déjà définie dans
 -- 20260517000007_audit_logs.sql. Idempotent : DROP IF EXISTS puis CREATE.
 
 DROP TRIGGER IF EXISTS audit_mission_agents ON mission_agents;
 CREATE TRIGGER audit_mission_agents
   AFTER INSERT OR UPDATE OR DELETE ON mission_agents
-  FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+  FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 DROP TRIGGER IF EXISTS audit_agent_skills ON agent_skills;
 CREATE TRIGGER audit_agent_skills
   AFTER INSERT OR UPDATE OR DELETE ON agent_skills
-  FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+  FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 DROP TRIGGER IF EXISTS audit_availability_blocks ON availability_blocks;
 CREATE TRIGGER audit_availability_blocks
   AFTER INSERT OR UPDATE OR DELETE ON availability_blocks
-  FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+  FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
