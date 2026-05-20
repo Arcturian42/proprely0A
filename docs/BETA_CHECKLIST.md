@@ -126,14 +126,18 @@ externes avant d'ouvrir aux 60 users.
 
 Les crons sont déclarés dans `vercel.json` à la racine. Au premier déploiement
 qui contient ce fichier, Vercel les enregistre automatiquement. Vérifier
-ensuite dans **Vercel Dashboard → Settings → Cron Jobs** que les 3 entrées
+ensuite dans **Vercel Dashboard → Settings → Cron Jobs** que les 2 entrées
 suivantes apparaissent :
 
 | Path | Fréquence |
 |---|---|
-| `/api/cron/mission-alerts?mode=reminders` | `0 6 * * *` (06h00 UTC chaque jour) |
-| `/api/cron/mission-alerts?mode=late` | `*/15 8-19 * * 1-6` (toutes les 15 min, 8h-19h UTC, lun-sam) |
+| `/api/cron/mission-alerts?mode=both` | `0 6 * * *` (06h00 UTC chaque jour) |
 | `/api/cron/recurrences` | `0 4 * * *` (04h00 UTC chaque jour) |
+
+> **Note plan Vercel** : la config actuelle est compatible Hobby (2 crons,
+> 1×/jour). Pour passer la détection late-alerts à `*/15 8-19 * * 1-6`
+> (toutes les 15 min en heures ouvrées), il faut le plan Pro — split alors
+> en deux entrées `mode=reminders` (`0 6 * * *`) + `mode=late` (`*/15 …`).
 
 Vercel injecte automatiquement `Authorization: Bearer ${CRON_SECRET}` sur
 ces URLs. Tester manuellement après déploiement :

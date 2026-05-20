@@ -2,12 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/mission-alerts?mode=reminders",
+      "path": "/api/cron/mission-alerts?mode=both",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/mission-alerts?mode=late",
-      "schedule": "*/15 8-19 * * 1-6"
     },
     {
       "path": "/api/cron/recurrences",
