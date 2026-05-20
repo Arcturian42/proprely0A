@@ -15,6 +15,25 @@ const SCHEMA_PATTERNS = [
 ]
 
 /**
+ * Extracts a string message from any error shape we see in practice:
+ *   - JavaScript Error instances (regular throws)
+ *   - PostgrestError / AuthError from supabase-js (plain objects with .message,
+ *     NOT Error instances — instanceof Error returns false for them, which was
+ *     the original BUG-001 cover-up : every Supabase error fell through to the
+ *     generic fallback because we couldn't read its message)
+ *   - String errors (rare but happens with fetch / external APIs)
+ */
+function extractMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object') {
+    const candidate = (err as { message?: unknown }).message
+    if (typeof candidate === 'string') return candidate
+  }
+  return ''
+}
+
+/**
  * True when the underlying error looks like a PostgREST schema-cache miss
  * (table/column/function not found, schema cache stale). Used by callers that
  * want to tag observability events differently for ops-actionable issues vs
@@ -22,7 +41,7 @@ const SCHEMA_PATTERNS = [
  * two helpers can't drift.
  */
 export function isSchemaCacheError(err: unknown): boolean {
-  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  const raw = extractMessage(err)
   if (!raw) return false
   return SCHEMA_PATTERNS.some((p) => p.test(raw))
 }
@@ -36,7 +55,7 @@ const JWT_PATTERN = /jwt|invalid token|token expired|not authenticated/i
 const NETWORK_PATTERN = /fetch failed|network request failed|timeout|econnrefused|enotfound/i
 
 export function toUserMessage(err: unknown, fallback?: string): string {
-  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  const raw = extractMessage(err)
   if (!raw) return fallback ?? 'Une erreur est survenue. Réessaie.'
 
   if (SCHEMA_PATTERNS.some((p) => p.test(raw))) {
