@@ -313,7 +313,26 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   // 5. Envoie le magic link pour la première connexion. Le ?next=/onboarding/2
   // amène l'utilisateur directement sur l'étape 2 du wizard après confirmation
   // de l'email. Si ça plante, on garde le compte (réessai possible via /login).
-  const { error: linkError } = await admin.auth.signInWithOtp({
+  //
+  // IMPORTANT : on utilise createServerClient() (SSR + cookies), PAS le client
+  // admin. Le flow PKCE de Supabase génère un `code_verifier` à l'appel de
+  // signInWithOtp et l'envoie dans un cookie via l'adapter de @supabase/ssr ;
+  // au moment où le user clique le magic link, /auth/callback récupère ce
+  // cookie pour échanger le code contre une session. Le client admin (créé via
+  // @supabase/supabase-js direct depuis PR #40 pour ne pas hériter de cookies
+  // user/anon) n'a PAS d'adapter cookies, donc le verifier vit en mémoire de
+  // la server action puis disparaît → exchangeCodeForSession plante avec
+  // `otp_expired`. C'est ce qui causait l'erreur "Lien de connexion invalide
+  // ou expiré" sur /login pour chaque magic link cliqué.
+  const supabase = await createServerClient()
+  if (!supabase) {
+    return {
+      ok: true,
+      email: normalizedEmail,
+      message: 'Compte créé. Connecte-toi via /login pour recevoir le lien de connexion.',
+    }
+  }
+  const { error: linkError } = await supabase.auth.signInWithOtp({
     email: normalizedEmail,
     options: { emailRedirectTo: `${getOrigin()}/auth/callback?next=/onboarding/2` },
   })

@@ -62,10 +62,11 @@ vi.mock('@sentry/nextjs', () => ({
 }))
 
 import { signUpCompany } from './auth'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as Sentry from '@sentry/nextjs'
 
+const mockedCreateServer = vi.mocked(createServerClient)
 const mockedCreateServiceRole = vi.mocked(createServiceRoleClient)
 const mockedRateLimit = vi.mocked(rateLimit)
 const mockedSentryCapture = vi.mocked(Sentry.captureException)
@@ -227,8 +228,9 @@ describe('signUpCompany — already-registered auto-resend (G)', () => {
 
 describe('signUpCompany — create_user fatal step (A + B)', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() })
+    vi.resetAllMocks()
+    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
+    mockedSentryCapture.mockReturnValue('abcd1234-5678-90ab-cdef-1234567890ab')
   })
 
   it('Sentry-captures with the right step tag and surfaces the event id ref', async () => {
@@ -255,5 +257,86 @@ describe('signUpCompany — create_user fatal step (A + B)', () => {
         }),
       }),
     )
+  })
+})
+
+describe('signUpCompany — PKCE magic link via createServerClient (anti-régression otp_expired)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
+    mockedSentryCapture.mockReturnValue('abcd1234-5678-90ab-cdef-1234567890ab')
+  })
+
+  // Regression test for the PKCE flow bug : signUpCompany used to send the
+  // final magic link via the admin client (no cookie adapter), so the
+  // code_verifier wasn't persisted across the request boundary and
+  // /auth/callback's exchangeCodeForSession failed with otp_expired. The
+  // contract is that signInWithOtp MUST be called on the createServerClient
+  // (cookies-aware) instance, never on the admin one.
+  it('calls signInWithOtp on createServerClient, NOT on the admin (service_role) client', async () => {
+    const adminSignInWithOtp = vi.fn()
+    const ssrSignInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
+
+    mockedCreateServiceRole.mockResolvedValue({
+      auth: {
+        admin: {
+          createUser: vi.fn().mockResolvedValue({
+            data: { user: { id: 'user-uuid' } },
+            error: null,
+          }),
+          deleteUser: vi.fn(),
+        },
+        signInWithOtp: adminSignInWithOtp,
+      },
+      from: (table: string) => {
+        if (table === 'companies') return chain({ data: { id: 'company-uuid' }, error: null })
+        return chain({ data: null, error: null })
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithOtp: ssrSignInWithOtp },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const result = await signUpCompany(buildFormData())
+
+    expect(result.ok).toBe(true)
+    expect(ssrSignInWithOtp).toHaveBeenCalledTimes(1)
+    expect(adminSignInWithOtp).not.toHaveBeenCalled()
+    expect(ssrSignInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'alice@acme.fr',
+        options: expect.objectContaining({
+          emailRedirectTo: expect.stringMatching(/\/auth\/callback\?next=\/onboarding\/2$/),
+        }),
+      }),
+    )
+  })
+
+  it('still returns ok:true with a /login fallback message when createServerClient is unavailable', async () => {
+    mockedCreateServiceRole.mockResolvedValue({
+      auth: {
+        admin: {
+          createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u' } }, error: null }),
+          deleteUser: vi.fn(),
+        },
+        signInWithOtp: vi.fn(),
+      },
+      from: (table: string) =>
+        table === 'companies'
+          ? chain({ data: { id: 'c' }, error: null })
+          : chain({ data: null, error: null }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    mockedCreateServer.mockResolvedValue(null)
+
+    const result = await signUpCompany(buildFormData())
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.message).toMatch(/login/i)
+    }
   })
 })
