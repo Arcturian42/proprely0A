@@ -17,7 +17,7 @@ import { useAppStore, useCompanyMissions, useCompanyAgents } from '@/lib/store'
 import { useRealtimeMissions } from '@/lib/hooks/useRealtimeMissions'
 import { Mission, MissionStatus, MissionIssueCategory, MISSION_ISSUE_CATEGORY_LABELS } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { CheckCircle2, Clock, Users, MapPin, AlertTriangle, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { addDays, format, startOfWeek } from 'date-fns'
@@ -117,15 +117,46 @@ export default function MissionsDuJourPage() {
     setSelectedMission(null)
   }
 
-  const MissionCard = ({ mission }: { mission: Mission }) => (
-    <Card className={`${mission.status === 'probleme_signale' ? 'border-red-200 bg-red-50' : ''}`}>
+  const MissionCard = ({ mission }: { mission: Mission }) => {
+    // DM-03 (UAT) — pastille "En retard" : mission `prevue` dont l'heure de
+    // début est passée depuis >15 min sans avoir démarré, OU mission
+    // `en_cours` dont la fin estimée est dépassée de >15 min. Aligne le
+    // visuel des cartes sur ce que la cron mission-alerts détecte côté email.
+    const now = new Date()
+    const isToday = mission.scheduled_date === now.toISOString().split('T')[0]
+    let isLate = false
+    if (isToday && mission.start_time) {
+      const [h, m] = mission.start_time.split(':').map(Number)
+      const startMin = (h ?? 0) * 60 + (m ?? 0)
+      const nowMin = now.getHours() * 60 + now.getMinutes()
+      const endMin = startMin + Math.round((mission.planned_hours ?? 0) * 60)
+      if (mission.status === 'prevue' && nowMin > startMin + 15) {
+        isLate = true
+      } else if (mission.status === 'en_cours' && nowMin > endMin + 15) {
+        isLate = true
+      }
+    }
+
+    return (
+    <Card className={cn(
+      mission.status === 'probleme_signale' && 'border-red-200 bg-red-50',
+      isLate && 'border-amber-300 bg-amber-50/30',
+    )}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-slate-900">{mission.client?.name}</p>
             <p className="text-sm text-slate-500">{mission.site?.name}</p>
           </div>
-          <StatusBadge status={mission.status} />
+          <div className="flex flex-col items-end gap-1">
+            <StatusBadge status={mission.status} />
+            {isLate && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold">
+                <AlertTriangle className="w-3 h-3" />
+                En retard
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-3">
@@ -189,7 +220,8 @@ export default function MissionsDuJourPage() {
         </div>
       </CardContent>
     </Card>
-  )
+    )
+  }
 
   return (
     <AdminLayout>

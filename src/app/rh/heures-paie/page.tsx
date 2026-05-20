@@ -16,7 +16,7 @@ import { useAppStore, useCompanyAgents, useCompanyTimeEntries } from '@/lib/stor
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
-import { CheckCircle2, Download, Clock as ClockIcon } from 'lucide-react'
+import { CheckCircle2, Download, Clock as ClockIcon, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { startOfWeek, format } from 'date-fns'
@@ -299,8 +299,16 @@ export default function HeuresPaiePage() {
                 <TableBody>
                   {filtered.map(entry => {
                     const v = variancePct(entry.planned_hours, entry.validated_hours)
+                    // HRS-04 (UAT) — entry validée = ligne verrouillée. Le bouton
+                    // "Valider" disparaît déjà, ici on ajoute un signal visuel
+                    // explicite (icône cadenas + opacity) pour que le manager
+                    // sache que la saisie est fixée pour la paie.
+                    const isLocked = entry.status === 'validee'
                     return (
-                      <TableRow key={entry.id}>
+                      <TableRow
+                        key={entry.id}
+                        className={isLocked ? 'opacity-75 bg-slate-50/50' : undefined}
+                      >
                         <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -331,7 +339,14 @@ export default function HeuresPaiePage() {
                         </TableCell>
                         <TableCell><StatusBadge status={entry.status} /></TableCell>
                         <TableCell>
-                          {(entry.status === 'a_valider' || entry.status === 'prevue') && (
+                          {isLocked ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-xs text-slate-500"
+                              title="Entrée verrouillée pour la paie"
+                            >
+                              <Lock className="w-3 h-3" aria-hidden /> Verrouillé
+                            </span>
+                          ) : (entry.status === 'a_valider' || entry.status === 'prevue') && (
                             <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => handleValidate(entry)}>
                               <CheckCircle2 className="w-3 h-3 text-green-600" /> Valider
                             </Button>
