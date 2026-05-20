@@ -22,9 +22,10 @@ import {
   useCompanySops,
 } from '@/lib/store'
 import { Mission } from '@/types'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { Plus, ChevronLeft, ChevronRight, Clock, Users } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Clock, Users, Calendar as CalendarIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -207,36 +208,64 @@ export default function PlanningPage() {
         {/* List view below calendar */}
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">Toutes les missions</h2>
-          <Card>
-            <div className="divide-y divide-slate-100">
-              {missions
-                .filter(m => filterStatus === 'all' || m.status === filterStatus)
-                .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
-                .map(mission => (
-                  <div key={mission.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center min-w-[60px]">
-                        <p className="text-sm font-bold text-slate-900">{formatDate(mission.scheduled_date)}</p>
-                        {mission.start_time && <p className="text-xs text-slate-500">{mission.start_time}</p>}
+          {(() => {
+            const listMissions = missions
+              .filter(m => filterStatus === 'all' || m.status === filterStatus)
+              .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
+            if (listMissions.length === 0) {
+              // Empty state distinct entre "aucune mission de ce statut" et
+              // "aucune mission du tout" — le second cas oriente vers la
+              // création depuis le Cockpit (parcours métier normal).
+              const isFilterEmpty = missions.length > 0 && filterStatus !== 'all'
+              return (
+                <EmptyState
+                  icon={CalendarIcon}
+                  title={isFilterEmpty ? 'Aucune mission pour ce filtre' : 'Aucune mission planifiée'}
+                  description={
+                    isFilterEmpty
+                      ? 'Change le filtre de statut pour voir d\'autres missions.'
+                      : 'Crée une mission depuis le Cockpit (Won → Planning) ou directement ici.'
+                  }
+                  actions={
+                    isFilterEmpty
+                      ? []
+                      : [
+                          { label: 'Ouvrir le Cockpit', href: '/operations/cockpit', variant: 'outline' },
+                        ]
+                  }
+                />
+              )
+            }
+            return (
+              <Card>
+                <div className="divide-y divide-slate-100">
+                  {listMissions.map(mission => (
+                    <div key={mission.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                      <div className="flex items-center gap-4">
+                        <div className="text-center min-w-[60px]">
+                          <p className="text-sm font-bold text-slate-900">{formatDate(mission.scheduled_date)}</p>
+                          {mission.start_time && <p className="text-xs text-slate-500">{mission.start_time}</p>}
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">{mission.client?.name}</p>
+                          <p className="text-sm text-slate-500">{mission.site?.name}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{mission.client?.name}</p>
-                        <p className="text-sm text-slate-500">{mission.site?.name}</p>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                          <Clock className="w-3 h-3" /> {mission.planned_hours}h
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                          <Users className="w-3 h-3" /> {mission.agents?.length || 0}
+                        </div>
+                        <StatusBadge status={mission.status} />
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-sm text-slate-600">
-                        <Clock className="w-3 h-3" /> {mission.planned_hours}h
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-slate-600">
-                        <Users className="w-3 h-3" /> {mission.agents?.length || 0}
-                      </div>
-                      <StatusBadge status={mission.status} />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </Card>
+                  ))}
+                </div>
+              </Card>
+            )
+          })()}
         </div>
       </div>
 

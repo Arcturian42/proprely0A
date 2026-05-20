@@ -12,7 +12,9 @@ import {
   useCompanyClients,
   useCompanyAgents,
   useCompanyOperationalItems,
+  useCompanyOpportunities,
 } from '@/lib/store'
+import { useCurrentRole } from '@/lib/auth'
 import { useRealtimeMissions } from '@/lib/hooks/useRealtimeMissions'
 import { getCompanySeatUsage } from '@/app/actions/invitations'
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
@@ -40,6 +42,12 @@ export default function DashboardPage() {
   const clients = useCompanyClients()
   const agents = useCompanyAgents()
   const operationalItems = useCompanyOperationalItems()
+  const opportunities = useCompanyOpportunities()
+  const role = useCurrentRole()
+  // DSH-07 — un sales n'a pas de visibilité opérationnelle (mission:write,
+  // time:read). Son tableau de bord doit donc montrer du KPI pipeline, pas
+  // du KPI ops. Le proxy.ts gate déjà les agents avant d'arriver ici.
+  const isSales = role === 'sales'
 
   // hasInvitedMember dérive du compteur de sièges côté server (profiles actifs
   // hors owner + invitations pending). Fetch one-shot au mount — la checklist
@@ -69,6 +77,23 @@ export default function DashboardPage() {
     const startMin = (h ?? 0) * 60 + (mm ?? 0)
     return startMin <= cutoffMinutes && m.status !== 'en_cours' && m.status !== 'terminee'
   })
+
+  // DSH-02 (UAT) — alerte critique : missions de demain encore sans agent
+  // assigné. C'est ce qui sauve le manager du dimanche soir : « je vais
+  // arriver lundi matin avec une mission orpheline qui démarre dans 12h ».
+  // Status `terminee`/`annulee` exclus (déjà clos), `probleme_signale`
+  // exclu aussi (le problème est la raison du blocage, pas l'assignation).
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowISO = tomorrow.toISOString().split('T')[0]
+  const unassignedTomorrow = missions.filter(
+    m =>
+      m.scheduled_date === tomorrowISO &&
+      (!m.agents || m.agents.length === 0) &&
+      m.status !== 'terminee' &&
+      m.status !== 'annulee' &&
+      m.status !== 'probleme_signale',
+  )
 
   const isEmpty =
     missions.length === 0 && clients.length === 0 &&
@@ -109,44 +134,90 @@ export default function DashboardPage() {
           hasInvitedMember={hasInvitedMember}
         />
 
-        {/* KPI Cards */}
+        {/* KPI Cards — adaptés au rôle (DSH-07). Sales voit pipeline-only ;
+            owner/admin voient ops + commercial. */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="animate-fade-up animate-fade-up-1">
-            <StatCard
-              title="Missions aujourd'hui"
-              value={todayMissions.length}
-              description={`${todayMissions.filter(m => m.status === 'en_cours').length} en cours`}
-              icon={Sun}
-            />
-          </div>
-          <div className="animate-fade-up animate-fade-up-2">
-            <StatCard
-              title="Clients actifs"
-              value={clients.filter(c => c.status === 'actif').length}
-              description="contrats en cours"
-              icon={Users}
-            />
-          </div>
-          <div className="animate-fade-up animate-fade-up-3">
-            <StatCard
-              title="Agents disponibles"
-              value={agents.filter(a => a.status === 'disponible').length}
-              description={`sur ${agents.length} agents total`}
-              icon={UserCog}
-            />
-          </div>
-          <div className="animate-fade-up animate-fade-up-4">
-            <StatCard
-              title="À organiser"
-              value={pendingItems.length}
-              description="opérations en attente"
-              icon={AlertCircle}
-            />
-          </div>
+          {isSales ? (
+            <>
+              <div className="animate-fade-up animate-fade-up-1">
+                <StatCard
+                  title="Opportunités en cours"
+                  value={opportunities.filter(o => !['gagne', 'perdu'].includes(o.stage)).length}
+                  description="pipeline ouvert"
+                  icon={TrendingUp}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-2">
+                <StatCard
+                  title="Gagnées ce mois"
+                  value={opportunities.filter(o => o.stage === 'gagne' && (o.converted_at ?? o.updated_at)?.startsWith(today.slice(0, 7))).length}
+                  description="conversions du mois"
+                  icon={CheckCircle2}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-3">
+                <StatCard
+                  title="Valeur pipeline"
+                  value={
+                    opportunities
+                      .filter(o => !['gagne', 'perdu'].includes(o.stage))
+                      .reduce((sum, o) => sum + (o.estimated_amount ?? 0), 0)
+                      .toLocaleString('fr-FR') + ' €'
+                  }
+                  description="montants estimés"
+                  icon={TrendingUp}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-4">
+                <StatCard
+                  title="Clients actifs"
+                  value={clients.filter(c => c.status === 'actif').length}
+                  description="portefeuille"
+                  icon={Users}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="animate-fade-up animate-fade-up-1">
+                <StatCard
+                  title="Missions aujourd'hui"
+                  value={todayMissions.length}
+                  description={`${todayMissions.filter(m => m.status === 'en_cours').length} en cours`}
+                  icon={Sun}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-2">
+                <StatCard
+                  title="Clients actifs"
+                  value={clients.filter(c => c.status === 'actif').length}
+                  description="contrats en cours"
+                  icon={Users}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-3">
+                <StatCard
+                  title="Agents disponibles"
+                  value={agents.filter(a => a.status === 'disponible').length}
+                  description={`sur ${agents.length} agents total`}
+                  icon={UserCog}
+                />
+              </div>
+              <div className="animate-fade-up animate-fade-up-4">
+                <StatCard
+                  title="À organiser"
+                  value={pendingItems.length}
+                  description="opérations en attente"
+                  icon={AlertCircle}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Today's missions */}
+          {/* Today's missions — section ops cachée pour sales (DSH-07). */}
+          {!isSales && (
           <Card className="card-hover">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">Missions du jour</CardTitle>
@@ -185,9 +256,51 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
-          {/* Late missions alert */}
-          {lateMissions.length > 0 && (
+          {/* Unassigned tomorrow alert (DSH-02) — catch les missions qui
+              démarrent dans <24h sans agent. Vit AVANT l'alerte "late" parce
+              qu'elle est plus actionnable (le manager peut encore réassigner).
+              Cachée pour sales (alerte ops). */}
+          {!isSales && unassignedTomorrow.length > 0 && (
+            <Card className="card-hover border-amber-300 bg-amber-50/30">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2 text-amber-700">
+                  <AlertCircle className="w-4 h-4" />
+                  Missions de demain sans agent ({unassignedTomorrow.length})
+                </CardTitle>
+                <Link href="/operations/cockpit">
+                  <Button variant="ghost" size="sm" className="text-amber-700">
+                    Assigner <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {unassignedTomorrow.slice(0, 5).map(m => (
+                    <li key={m.id} className="flex items-center justify-between py-1.5 border-b border-amber-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-slate-900 truncate">
+                          {m.client?.name ?? '—'} {m.site?.name && `· ${m.site.name}`}
+                        </p>
+                        <p className="text-[11px] text-amber-700">
+                          Demain {m.start_time ?? '—'} · {m.planned_hours}h · aucun agent assigné
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {unassignedTomorrow.length > 5 && (
+                  <p className="text-[11px] text-slate-500 text-center pt-2">
+                    + {unassignedTomorrow.length - 5} autres
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Late missions alert — alerte ops, cachée pour sales. */}
+          {!isSales && lateMissions.length > 0 && (
             <Card className="card-hover border-rose-200 bg-rose-50/30">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base flex items-center gap-2 text-rose-700">
@@ -224,7 +337,8 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          {/* Pending operations */}
+          {/* Pending operations — cachée pour sales. */}
+          {!isSales && (
           <Card className="card-hover">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">Opérations à organiser</CardTitle>
@@ -257,6 +371,7 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Quick actions */}
           <Card className="card-hover">

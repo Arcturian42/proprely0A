@@ -3,6 +3,10 @@
 État au moment du commit `ceb98f7` sur `sprint/urgent-fixes` — branche prête
 à merger une fois la PR review faite.
 
+> **Mise à jour 2026-05-20** — Sprints 0+1+2+3 du plan d'audit UAT v1.0
+> livrés sur la branche `claude/audit-beta-preparation-TzNjj` (PR #36).
+> Voir section "Audit bêta 2026-05-20" en bas pour le détail.
+
 ## ✅ Ce qui est terminé (code mergé en attente)
 
 ### Sprint 1 — URGENT (sécurité + correctness)
@@ -335,3 +339,104 @@ CI principal (`Lint · Typecheck · Test · Build`) passe en vert sur cette PR
 | Audit trail | non | triggers PG sur 6 tables |
 | Analytics produit | non | PostHog opt-in |
 | Runbook ops | non | `docs/RUNBOOK.md` complet |
+
+---
+
+## 🆕 Audit bêta 2026-05-20 — Sprints 0+1+2+3 (PR #36)
+
+Branche `claude/audit-beta-preparation-TzNjj`. Plan d'audit UAT v1.0 exécuté
+en 4 sprints courts. Le détail des changements vit dans les commits ;
+résumé ici pour la traçabilité ops.
+
+### Sprint 0 — Stabilisation critique (`37e215c`)
+- Layout server `/rh/heures-paie` gate sur `time:read` (sales sans
+  permission → /forbidden, l'URL directe ne fuite plus la donnée paie).
+- Sidebar : flag `betaHidden: true` sur la section Rentabilité (V1
+  launch). Pages restent montées par URL directe pour itération.
+- Planning : `min={today}` sur le date picker + validation submit qui
+  refuse < today (PLN-07). Borne `planned_hours ∈ (0, 24]`.
+- Heures & Paie : refus des validations à 0h, refus des ratios
+  `validated > planned × 3` (HRS-07 — catch les typos manager).
+- Block delete cascade : clients/sites/sops/agents bloqués si missions
+  actives (statut ≠ `terminee` / `annulee`). CLI-04, SOP-04, AGT-05.
+
+### Sprint 1 — Core bêta fonctionnel (`fa28f86`)
+- Migration `20260520000002_notifications` : table + RLS scopée
+  `recipient_id = auth.uid()` + indexes unread/recent. NOT-01..06.
+- `src/app/actions/notifications.ts` : 5 actions (notifyUser,
+  notifyUserAsSystem, notifyTeamWithPermission, listNotifications,
+  markRead/markAllRead).
+- `<NotificationBell>` dans la sidebar : badge unread, dropdown,
+  subscribe `postgres_changes` sur `notifications` + poll fallback 60s.
+  Hidden en dummy mode (pas de promesse non-tenue).
+- `useRealtimeMissions` hook : subscribe `postgres_changes` sur
+  `missions`, mute le store Zustand. Wired dashboard + cockpit +
+  missions-du-jour. DM-08, COC-01.
+- Migration `20260520000003_mission_issue_and_lost_reason` : ajout
+  des colonnes `issue_category` (enum check), `issue_description`,
+  `issue_photo_url`, `issue_reported_at` sur `missions`, et
+  `lost_reason` + `lost_at` sur `opportunities`.
+- Dialog issue report (DM-04) : catégorie obligatoire + description
+  ≥ 10 caractères. `reportMissionIssue` store → notif `critical`
+  fan-out aux `mission:write` via `notifyTeamWithPermission`.
+- Dialog lost reason (CRM-05) : drag vers `perdu` OU bouton stage
+  ouvrent un dialog (raison ≥ 5 caractères).
+- Heures & Paie : nouvelle colonne "Écart" avec color-coding (vert/
+  orange/rouge sur seuils 10%/20%), toast warning si |variance| ≥ 20%
+  à la validation (HRS-05). Nouvel onglet "Vue semaine" : pivot
+  (agent, ISO week) → planned/validated/cost/à valider (HRS-03).
+- QuoteFlow : refus de création draft si `margin_rate ≤ 0` (QUO-03).
+
+### Sprint 2 — Tenant isolation hardening (`d5ca232`)
+- **Risque critique fermé** : `loadCompanyData()` était identique pour
+  tous les rôles → un agent connecté voyait `hourly_cost` de tous ses
+  collègues, le pipeline, les devis, les heures-paie via Zustand.
+  Maintenant trois snapshots distincts :
+  - `loadFullSnapshot` (owner/admin) : inchangé.
+  - `loadSalesSnapshot` : pas de `time_entries`, agents redactés de
+    `hourly_cost`, `pricingSettings.hourly_labor_cost = null`.
+  - `loadAgentSnapshot` : missions filtrées via `mission_agents` inner
+    join, time_entries scopées self, annuaire avec
+    `hourly_cost`/`notes`/`business_registration_number` redactés sauf
+    pour soi.
+- Layouts server protégés via `requirePagePermission()` helper :
+  `/commercial` (opportunity:read), `/operations` (mission:read),
+  `/rh` (agent:read), `/rh/heures-paie` (time:read), `/rentabilite`
+  (analytics:read). Ferme l'angle URL-directe que le proxy n'attrape pas.
+- Migration `20260520000004_rls_force_and_audit_extend` :
+  `FORCE ROW LEVEL SECURITY` sur 22 tables (un service_role oublié ne
+  bypass plus RLS), RLS explicite sur `agent_skills`/
+  `agent_certifications`/`availability_blocks`, audit triggers étendus
+  à `mission_agents` + `agent_skills` + `availability_blocks`.
+
+### Sprint 3 — UX qualité bêta (`d318100`)
+- `<PageSkeleton variant=…>` partagé + 7 `loading.tsx` one-liner
+  (pipeline, clients-sites, planning, missions-du-jour, sop, agents,
+  heures-paie). Variants : table, kanban, calendar, cards.
+- Empty state Planning : composant `<EmptyState>` distinct selon
+  contexte (aucune mission → CTA Cockpit / filtre trop strict → guidance).
+- Empty state Heures & Paie : table fallback "Aucune entrée" promu en
+  `<EmptyState>` au-dessus de la Card avec CTA Planning si neuf.
+
+### Sprint 4 — QA final & doc (`cette PR`)
+- `docs/BETA_SCENARIOS.md` : 5 scénarios QA bout-en-bout couvrant
+  Onboarding, Devis signé, Mission cycle complet, Issue notif, Tenant
+  isolation. Checklist de sortie avant ouverture.
+- `e2e/beta-features.spec.ts` : tests dummy mode sur les features
+  Sprint 0+1 + smoke régression sur les 7 routes nouvelles avec
+  `loading.tsx`.
+- `/api/health` : `checkTables()` couvre désormais aussi
+  `notifications` (catch les preview branches sans migration).
+
+### Reste à faire avant ouverture aux 15 sociétés
+| # | Tâche | Type | Responsable |
+|---|---|---|---|
+| 1 | Appliquer les 3 nouvelles migrations Supabase en preview puis prod | Ops | DBA |
+| 2 | Vérifier que Realtime est activé sur `missions` + `notifications` (Supabase Dashboard → Database → Replication) | Ops | DBA |
+| 3 | Préparer 2 comptes seed (companies A + B) pour test isolation tenant | Ops | DBA |
+| 4 | Activer Resend domain vérifié pour `RESEND_FROM` | Ops | Owner |
+| 5 | Définir `HEALTH_SECRET` pour les sondes uptime authentifiées | Ops | DevOps |
+| 6 | Exécuter les 5 scénarios de `BETA_SCENARIOS.md` sur la preview | QA | Owner |
+| 7 | Configurer Sentry alerts (Slack/email) | Ops | Owner |
+| 8 | Confirmer PostHog event tracking (`signup_completed`) | Analytics | Owner |
+| 9 | Communiquer le périmètre bêta aux 15 sociétés (features cachées) | Comm | Owner |
