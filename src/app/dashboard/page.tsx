@@ -13,6 +13,7 @@ import {
   useCompanyAgents,
   useCompanyOperationalItems,
 } from '@/lib/store'
+import { useRealtimeMissions } from '@/lib/hooks/useRealtimeMissions'
 import { getCompanySeatUsage } from '@/app/actions/invitations'
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import { formatDate } from '@/lib/utils'
@@ -30,6 +31,10 @@ import Link from 'next/link'
 
 export default function DashboardPage() {
   useEffect(() => { document.title = 'Tableau de bord — Proprely' }, [])
+  // DM-08 / DSH-04 — souscrit aux changements de missions pour que les KPI
+  // ("missions aujourd'hui", "en cours", late detection) reflètent en temps
+  // réel l'activité des agents sur le terrain.
+  useRealtimeMissions()
   // Scoped + memoized — only re-renders when the relevant slice changes.
   const missions = useCompanyMissions()
   const clients = useCompanyClients()

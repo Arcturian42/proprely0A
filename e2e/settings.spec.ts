@@ -21,16 +21,17 @@ test.describe('settings + error pages (dummy mode)', () => {
     ).toBeVisible()
   })
 
-  // Used to be "Rentabilité is hidden" back when the section was gated
-  // behind an "À venir" flag. Feature is live since the pre-beta sprint —
-  // we now assert the opposite : owner role (dummy mode default) sees the
-  // section in the sidebar. See AppSidebar.tsx "Pilotage rentabilité".
-  test('Rentabilité is visible in sidebar for owner role', async ({ page }) => {
+  // Sprint 0 (audit bêta) — la section "Pilotage rentabilité" est masquée
+  // dans la sidebar (flag `betaHidden` sur les items dans AppSidebar.tsx).
+  // Les pages restent accessibles par URL directe pour qu'on continue à
+  // itérer dessus, mais on ne les surface plus aux beta-testers. Le test
+  // précédent (sur le tab Tarification) couvre la partie settings.
+  test('Rentabilité is hidden from sidebar during private beta', async ({ page }) => {
     await page.goto('/dashboard')
     const sidebar = page.locator('aside')
     await expect(sidebar).toBeVisible()
-    await expect(sidebar.getByText(/rentabilité client/i)).toBeVisible()
-    await expect(sidebar.getByText(/analyse des heures/i)).toBeVisible()
+    await expect(sidebar.getByText(/rentabilité client/i)).toHaveCount(0)
+    await expect(sidebar.getByText(/analyse des heures/i)).toHaveCount(0)
   })
 
   test('/this-route-does-not-exist renders the custom 404', async ({ page }) => {

@@ -17,11 +17,14 @@ import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { ProspectingFlow } from './_components/ProspectingFlow'
 import { Opportunity, OpportunityStage } from '@/types'
 import { OPPORTUNITY_STAGE_LABELS, NEXT_ACTION_TYPE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, MapPin, Calendar, CheckCircle2 } from 'lucide-react'
+import { Plus, MapPin, Calendar, CheckCircle2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { CardDetailPanel } from '@/components/commercial/CardDetailPanel'
 import { NewOpportunityFlow } from './_components/NewOpportunityFlow'
@@ -339,7 +342,7 @@ export default function PipelinePage() {
     document.title = 'Pipeline — Proprely'
   }, [])
 
-  const { opportunities, deleteOpportunity, winOpportunity, moveOpportunity } =
+  const { opportunities, deleteOpportunity, winOpportunity, moveOpportunity, loseOpportunity } =
     useAppStore()
 
   const [showForm, setShowForm] = useState(false)
@@ -347,6 +350,9 @@ export default function PipelinePage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<OpportunityStage | null>(null)
+  // CRM-05 — lost reason dialog : on capture l'id à perdre + raison saisie.
+  const [pendingLoseOppId, setPendingLoseOppId] = useState<string | null>(null)
+  const [lostReason, setLostReason] = useState('')
 
   // Delay-based activation: quick tap (< 200ms) → onClick fires normally.
   // Hold (≥ 200ms) → drag starts. No conflict between click and drag.
@@ -390,10 +396,28 @@ export default function PipelinePage() {
       toast.success('🎉 Opportunité gagnée ! Client et site créés automatiquement.', {
         duration: 5000,
       })
+    } else if (targetStage === 'perdu') {
+      // CRM-05 — pas de transition silencieuse en perdu : on demande la raison
+      // avant. Si le sales annule le dialog, l'opp reste dans son stage initial.
+      setPendingLoseOppId(opportunityId)
+      setLostReason('')
     } else {
       moveOpportunity(opportunityId, targetStage)
       toast.success(`Déplacé en ${OPPORTUNITY_STAGE_LABELS[targetStage]}`)
     }
+  }
+
+  const handleConfirmLose = () => {
+    if (!pendingLoseOppId) return
+    const trimmed = lostReason.trim()
+    if (trimmed.length < 5) {
+      toast.error('Indique une raison (5 caractères min)')
+      return
+    }
+    loseOpportunity(pendingLoseOppId, trimmed)
+    toast.success('Opportunité marquée perdue')
+    setPendingLoseOppId(null)
+    setLostReason('')
   }
 
   // ── Create / delete ────────────────────────────────────────────────────────
@@ -499,8 +523,54 @@ export default function PipelinePage() {
             setSelectedOpp(null)
           }}
           onWin={handleWin}
+          onLose={(id) => {
+            setPendingLoseOppId(id)
+            setLostReason('')
+            setSelectedOpp(null)
+          }}
         />
       )}
+
+      {/* Lost reason dialog (CRM-05) */}
+      <Dialog
+        open={!!pendingLoseOppId}
+        onOpenChange={(o) => { if (!o) { setPendingLoseOppId(null); setLostReason('') } }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="w-4 h-4 text-red-600" /> Marquer comme perdue
+            </DialogTitle>
+            <DialogDescription>
+              Indique la raison pour aider l&apos;équipe à analyser les pertes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Raison *</Label>
+            <Textarea
+              rows={4}
+              value={lostReason}
+              onChange={e => setLostReason(e.target.value)}
+              placeholder="Ex. : prix trop élevé, concurrent retenu, projet abandonné…"
+              maxLength={2000}
+            />
+            <p className="text-[11px] text-slate-400">
+              {lostReason.length}/2000 caractères · 5 caractères minimum
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setPendingLoseOppId(null); setLostReason('') }}
+            >
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmLose}>
+              Confirmer le perdu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New opportunity 3-step wizard */}
       <NewOpportunityFlow open={showForm} onOpenChange={setShowForm} />

@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore, useCompanyMissions, useCompanyAgents } from '@/lib/store'
-import { Mission, MissionStatus } from '@/types'
+import { useRealtimeMissions } from '@/lib/hooks/useRealtimeMissions'
+import { Mission, MissionStatus, MissionIssueCategory, MISSION_ISSUE_CATEGORY_LABELS } from '@/types'
 import { MISSION_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { CheckCircle2, Clock, Users, MapPin, AlertTriangle, BookOpen } from 'lucide-react'
@@ -23,11 +25,18 @@ import { fr } from 'date-fns/locale'
 
 export default function MissionsDuJourPage() {
   useEffect(() => { document.title = 'Missions du Jour — Proprely' }, [])
+  // DM-08 (UAT) — synchro live des statuts entre agents mobile et manager
+  // desktop, sans rechargement de la page.
+  useRealtimeMissions()
   const missions = useCompanyMissions()
   const agents = useCompanyAgents()
   const updateMissionStatus = useAppStore(s => s.updateMissionStatus)
+  const reportMissionIssue = useAppStore(s => s.reportMissionIssue)
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [validationHours, setValidationHours] = useState('')
+  const [issueMission, setIssueMission] = useState<Mission | null>(null)
+  const [issueCategory, setIssueCategory] = useState<MissionIssueCategory | ''>('')
+  const [issueDescription, setIssueDescription] = useState('')
   const [filterAgent, setFilterAgent] = useState('all')
   const [filterStatus, setFilterStatus] = useState<'all' | MissionStatus>('all')
   const [search, setSearch] = useState('')
@@ -65,10 +74,35 @@ export default function MissionsDuJourPage() {
       // "Valider" button: open dialog to confirm hours
       setSelectedMission(mission)
       setValidationHours(mission.planned_hours.toString())
+    } else if (status === 'probleme_signale') {
+      // DM-04 — pas de transition directe : capture la catégorie et la
+      // description avant. Le store fait l'update + notif manager une fois
+      // que le dialog est confirmé (cf. handleConfirmIssue).
+      setIssueMission(mission)
+      setIssueCategory(mission.issue_category ?? '')
+      setIssueDescription(mission.issue_description ?? '')
     } else {
       updateMissionStatus(mission.id, status)
       toast.success(`Mission : ${MISSION_STATUS_LABELS[status]}`)
     }
+  }
+
+  const handleConfirmIssue = () => {
+    if (!issueMission) return
+    if (!issueCategory) {
+      toast.error('Sélectionne une catégorie')
+      return
+    }
+    const description = issueDescription.trim()
+    if (description.length < 10) {
+      toast.error('Décris le problème en quelques mots (10 caractères min)')
+      return
+    }
+    reportMissionIssue(issueMission.id, { category: issueCategory, description })
+    toast.success('Problème signalé. Le manager va être prévenu.')
+    setIssueMission(null)
+    setIssueCategory('')
+    setIssueDescription('')
   }
 
   const handleValidate = () => {
@@ -285,6 +319,62 @@ export default function MissionsDuJourPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedMission(null)}>Annuler</Button>
             <Button onClick={handleValidate}>Valider</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue report dialog (DM-04) */}
+      <Dialog open={!!issueMission} onOpenChange={(o) => { if (!o) setIssueMission(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600" /> Signaler un problème
+            </DialogTitle>
+            <DialogDescription>
+              Le manager d&apos;opérations sera prévenu immédiatement.
+            </DialogDescription>
+          </DialogHeader>
+          {issueMission && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                <p className="font-medium">{issueMission.client?.name}</p>
+                <p className="text-slate-500">{issueMission.site?.name}</p>
+              </div>
+              <div>
+                <Label>Catégorie *</Label>
+                <Select
+                  value={issueCategory}
+                  onValueChange={(v) => setIssueCategory(v as MissionIssueCategory)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Choisir une catégorie…" /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(MISSION_ISSUE_CATEGORY_LABELS) as MissionIssueCategory[]).map(k => (
+                      <SelectItem key={k} value={k}>{MISSION_ISSUE_CATEGORY_LABELS[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Description *</Label>
+                <Textarea
+                  rows={3}
+                  value={issueDescription}
+                  onChange={e => setIssueDescription(e.target.value)}
+                  placeholder="Décris ce qui s'est passé (accès, matériel, sécurité…)"
+                  maxLength={2000}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {issueDescription.length}/2000 caractères
+                </p>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                L&apos;upload de photo arrive prochainement.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueMission(null)}>Annuler</Button>
+            <Button variant="destructive" onClick={handleConfirmIssue}>Signaler</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

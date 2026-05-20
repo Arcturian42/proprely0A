@@ -304,3 +304,63 @@ export async function tickMissionLateAlerts(): Promise<{ alertsSent: number }> {
 
   return { alertsSent }
 }
+
+/**
+ * DM-04 — quand un agent signale un problème, on prévient tous les membres
+ * de l'entreprise qui ont la permission `mission:write` (= managers ops, owner,
+ * admin). On exclut l'acteur si on peut l'identifier (l'agent qui reporte ne
+ * va pas s'auto-notifier). La notif a severity 'critical' pour qu'elle saute
+ * aux yeux dans le bell dropdown.
+ *
+ * On ne fait PAS d'email ici — c'est volontaire pour la bêta. Si un manager
+ * n'a pas l'app ouverte, le badge bell sera là à son retour. La V1 ajoutera
+ * un email parallèle pour les incidents critical.
+ */
+export async function notifyManagersOfMissionIssue(
+  missionId: string,
+  category: import('@/types').MissionIssueCategory,
+  description: string,
+): Promise<{ notified: number }> {
+  if (!isSupabaseConfigured()) return { notified: 0 }
+  const admin = await createServiceRoleClient()
+  if (!admin) return { notified: 0 }
+
+  // Récupère mission + contexte client/site pour titre lisible
+  const { data: m } = await admin
+    .from('missions')
+    .select('id, company_id, client_id, site_id, scheduled_date')
+    .eq('id', missionId)
+    .maybeSingle<{ id: string; company_id: string; client_id: string; site_id: string; scheduled_date: string }>()
+  if (!m) return { notified: 0 }
+
+  const [{ data: client }, { data: site }] = await Promise.all([
+    admin.from('clients').select('name').eq('id', m.client_id).maybeSingle<{ name: string }>(),
+    admin.from('sites').select('name').eq('id', m.site_id).maybeSingle<{ name: string }>(),
+  ])
+
+  // Identifier l'acteur (si la session existe — quand l'action est appelée
+  // depuis le store côté client, le cookie est propagé via les server actions).
+  const { createServerClient } = await import('@/lib/supabase/server')
+  const supabase = await createServerClient()
+  const actor = supabase ? (await supabase.auth.getUser()).data.user : null
+
+  const { MISSION_ISSUE_CATEGORY_LABELS } = await import('@/types')
+  const { notifyTeamWithPermission } = await import('@/app/actions/notifications')
+
+  const sent = await notifyTeamWithPermission(
+    m.company_id,
+    'mission:write',
+    {
+      kind: 'mission_issue_reported',
+      severity: 'critical',
+      title: `Problème signalé — ${client?.name ?? 'mission'}`,
+      body: `${MISSION_ISSUE_CATEGORY_LABELS[category]} · ${site?.name ?? ''}\n${description}`.trim(),
+      linkPath: '/operations/missions-du-jour',
+      relatedEntityType: 'mission',
+      relatedEntityId: missionId,
+      metadata: { category, scheduled_date: m.scheduled_date },
+    },
+    { excludeUserId: actor?.id },
+  )
+  return { notified: sent }
+}

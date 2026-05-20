@@ -160,6 +160,10 @@ export interface Opportunity {
   status: string
   converted_to_client: boolean
   converted_at: string | null
+  // CRM-05 — capture la raison du perdu (audit + analyse future). Renseigné
+  // uniquement quand stage transitionne vers 'perdu'.
+  lost_reason?: string | null
+  lost_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -263,6 +267,14 @@ export interface OperationalItem {
   site?: Site
 }
 
+export type MissionIssueCategory =
+  | 'acces_refuse'
+  | 'materiel_manquant'
+  | 'client_absent'
+  | 'site_non_conforme'
+  | 'incident_agent'
+  | 'autre'
+
 export interface Mission {
   id: string
   company_id: string
@@ -293,12 +305,27 @@ export interface Mission {
   // Audit léger
   contact_name?: string | null
   contact_phone?: string | null
+  // Issue report (DM-04). Tous nullable : on ne capture la catégorie/description
+  // qu'au moment où l'agent passe le statut à `probleme_signale`.
+  issue_category?: MissionIssueCategory | null
+  issue_description?: string | null
+  issue_photo_url?: string | null
+  issue_reported_at?: string | null
   created_at: string
   updated_at: string
   client?: Client
   site?: Site
   agents?: Agent[]
   sop?: Sop
+}
+
+export const MISSION_ISSUE_CATEGORY_LABELS: Record<MissionIssueCategory, string> = {
+  acces_refuse: 'Accès refusé / clé manquante',
+  materiel_manquant: 'Matériel manquant',
+  client_absent: 'Client absent',
+  site_non_conforme: 'Site non conforme',
+  incident_agent: 'Incident agent (santé / sécurité)',
+  autre: 'Autre',
 }
 
 export interface MissionAgent {
@@ -492,4 +519,31 @@ export interface Quote {
   client_email: string | null
   created_at: string
   updated_at: string
+}
+
+export type NotificationSeverity = 'info' | 'warn' | 'critical'
+
+export type NotificationKind =
+  | 'mission_issue_reported'
+  | 'mission_unassigned'
+  | 'opportunity_followup_overdue'
+  | 'mission_late'
+  | 'time_entry_variance'
+  | 'invitation_accepted'
+  | 'generic'
+
+export interface AppNotification {
+  id: string
+  company_id: string
+  recipient_id: string
+  kind: NotificationKind
+  severity: NotificationSeverity
+  title: string
+  body: string | null
+  link_path: string | null
+  related_entity_type: string | null
+  related_entity_id: string | null
+  metadata: Record<string, unknown> | null
+  read_at: string | null
+  created_at: string
 }

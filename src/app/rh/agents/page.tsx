@@ -149,9 +149,21 @@ export default function AgentsPage() {
   }
 
   const handleDelete = (id: string) => {
-    const hasActiveMissions = missions.some(m => m.agents?.some(a => a.id === id))
-    if (hasActiveMissions) {
-      toast.error('Impossible de supprimer cet agent : il est affecté à des missions actives.')
+    // AGT-05 (UAT) : on ne bloque pas sur les missions terminées (sinon un
+    // agent qui quitte l'entreprise ne pourrait JAMAIS être archivé) —
+    // seulement sur les missions encore en jeu (prévues, en cours, à valider,
+    // problème signalé). Le manager doit les réassigner avant désactivation.
+    const blocking = missions.filter(
+      m =>
+        m.agents?.some(a => a.id === id) &&
+        m.status !== 'terminee' &&
+        m.status !== 'annulee',
+    )
+    if (blocking.length > 0) {
+      toast.error(
+        `Impossible de supprimer : ${blocking.length} mission(s) active(s). ` +
+        `Réassigne-les ou termine-les avant d'archiver l'agent.`,
+      )
       setConfirmDelete(null)
       return
     }

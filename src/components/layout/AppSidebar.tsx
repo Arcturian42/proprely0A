@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 interface NavItem {
   label: string
@@ -38,6 +39,12 @@ interface NavItem {
   badge?: string
   /** Permission required to see this item — undefined = visible to everyone. */
   permission?: Permission
+  /**
+   * Hidden during private beta. Set to `true` for routes that exist in the
+   * codebase but aren't ready for first users (V1 launch). The page itself is
+   * left intact so engineers can still hit the URL directly while iterating.
+   */
+  betaHidden?: boolean
 }
 
 interface NavSection {
@@ -76,10 +83,14 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    // Pilotage rentabilité — V1 launch, masqué pendant la bêta privée.
+    // Le code des pages reste en place (audit a confirmé qu'elles compilent et
+    // fetchent les bonnes données), mais on ne les surface pas aux beta-testers
+    // pour ne pas créer d'attentes sur des features que la donnée alimente mal.
     title: 'Pilotage rentabilité',
     items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, permission: 'analytics:read' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, permission: 'analytics:read' },
+      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, permission: 'analytics:read', betaHidden: true },
+      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, permission: 'analytics:read', betaHidden: true },
     ],
   },
   {
@@ -105,7 +116,9 @@ export function AppSidebar() {
     () => navSections
       .map(section => ({
         ...section,
-        items: section.items.filter(i => !i.permission || roleCan(role, i.permission)),
+        items: section.items.filter(i =>
+          !i.betaHidden && (!i.permission || roleCan(role, i.permission)),
+        ),
       }))
       .filter(section => section.items.length > 0),
     [role],
@@ -113,14 +126,15 @@ export function AppSidebar() {
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
-      {/* Logo */}
-      <div className="h-14 flex items-center px-5 border-b border-[rgba(0,0,0,0.08)]">
-        <div className="flex items-center gap-2.5">
+      {/* Logo + notification bell */}
+      <div className="h-14 flex items-center justify-between px-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="flex items-center gap-2.5 pl-2">
           <div className="w-7 h-7 bg-[#111] rounded-lg flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-semibold text-[15px] tracking-tight text-[#111]">Proprely</span>
         </div>
+        <NotificationBell />
       </div>
 
       {/* Navigation */}

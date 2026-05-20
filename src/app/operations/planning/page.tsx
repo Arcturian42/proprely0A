@@ -64,6 +64,20 @@ export default function PlanningPage() {
       toast.error('Client, site et date requis')
       return
     }
+    // Refus de planifier dans le passé. PLN-07 (UAT) + sanity métier : une
+    // mission planifiée hier n'a plus aucune utilité opérationnelle (la
+    // génération de time entries planifiées non plus). Le min= côté input
+    // empêche le picker, ce check ferme le cas saisie clavier ou paste.
+    const today = new Date().toISOString().slice(0, 10)
+    if (form.scheduled_date < today) {
+      toast.error('Impossible de planifier dans le passé')
+      return
+    }
+    const plannedHours = parseFloat(form.planned_hours)
+    if (!Number.isFinite(plannedHours) || plannedHours <= 0 || plannedHours > 24) {
+      toast.error('Durée invalide (entre 0 et 24 heures)')
+      return
+    }
     const missionAgents = agents.filter(a => selectedAgents.includes(a.id))
     const client = clients.find(c => c.id === form.client_id)
     const site = sites.find(s => s.id === form.site_id)
@@ -254,7 +268,12 @@ export default function PlanningPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Date *</Label>
-                <Input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} />
+                <Input
+                  type="date"
+                  min={new Date().toISOString().slice(0, 10)}
+                  value={form.scheduled_date}
+                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                />
               </div>
               <div>
                 <Label>Heure</Label>

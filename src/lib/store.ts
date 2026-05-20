@@ -128,6 +128,12 @@ interface AppStore {
   updateOpportunity: (id: string, data: Partial<Opportunity>) => void
   deleteOpportunity: (id: string) => void
   winOpportunity: (id: string) => void
+  /**
+   * CRM-05 — transition vers stage 'perdu' avec capture obligatoire de la
+   * raison (audit + analyse future). Le caller (pipeline UI) gère le dialog
+   * de saisie ; ce store action est la couche persistance + sync Supabase.
+   */
+  loseOpportunity: (id: string, reason: string) => void
   moveOpportunity: (id: string, stage: OpportunityStage) => void
 
   // Missions
@@ -135,6 +141,15 @@ interface AppStore {
   updateMission: (id: string, data: Partial<Mission>) => void
   deleteMission: (id: string) => void
   updateMissionStatus: (id: string, status: MissionStatus, validatedHours?: number) => void
+  /**
+   * DM-04 — pas juste un changement de statut : capture la catégorie et la
+   * description avant de basculer la mission en `probleme_signale`. Crée
+   * aussi une notification critique pour les managers (cf. notifications.ts).
+   */
+  reportMissionIssue: (
+    id: string,
+    payload: { category: import('@/types').MissionIssueCategory; description: string },
+  ) => void
   updateMissionOperationalStatus: (id: string, status: OperationalMissionStatus) => void
   assignAgentsToMission: (missionId: string, agentIds: string[]) => void
   signOpportunityContract: (opportunityId: string) => string | null // returns new mission id
@@ -344,6 +359,30 @@ export const useAppStore = create<AppStore>()(
         }))
         if (next) syncToSupabase('opportunité', () => _upsertOpportunity({ ...next, stage, updated_at: now }))
       },
+      loseOpportunity: (id, reason) => {
+        const now = new Date().toISOString()
+        const cleaned = reason.trim()
+        const next = get().opportunities.find(o => o.id === id)
+        if (!next) return
+        set(s => ({
+          opportunities: s.opportunities.map(o =>
+            o.id === id ? {
+              ...o,
+              stage: 'perdu' as OpportunityStage,
+              lost_reason: cleaned,
+              lost_at: now,
+              updated_at: now,
+            } : o
+          ),
+        }))
+        syncToSupabase('opportunité', () => _upsertOpportunity({
+          ...next,
+          stage: 'perdu',
+          lost_reason: cleaned,
+          lost_at: now,
+          updated_at: now,
+        }))
+      },
       winOpportunity: (id) => {
         const state = get()
         const opp = state.opportunities.find(o => o.id === id)
@@ -464,6 +503,40 @@ export const useAppStore = create<AppStore>()(
             get().timeEntries
               .filter(te => te.mission_id === id)
               .forEach(te => syncToSupabase('heures', () => _upsertTimeEntry(te)))
+          }
+        }
+      },
+      reportMissionIssue: (id, payload) => {
+        const now = new Date().toISOString()
+        const before = get().missions.find(m => m.id === id)
+        set(s => ({
+          missions: s.missions.map(m => m.id === id ? {
+            ...m,
+            status: 'probleme_signale' as MissionStatus,
+            operational_status: 'incident' as OperationalMissionStatus,
+            issue_category: payload.category,
+            issue_description: payload.description,
+            issue_reported_at: now,
+            updated_at: now,
+          } : m),
+        }))
+        if (before) {
+          const next: Mission = {
+            ...before,
+            status: 'probleme_signale',
+            operational_status: 'incident',
+            issue_category: payload.category,
+            issue_description: payload.description,
+            issue_reported_at: now,
+            updated_at: now,
+          }
+          syncToSupabase('mission', () => _upsertMission(next))
+          // Notif manager : fire-and-forget. Lazy import pour ne pas tirer
+          // les server actions dans le bundle client à l'init du store.
+          if (isSupabaseClient()) {
+            void import('@/app/actions/mission-alerts').then(mod => {
+              void mod.notifyManagersOfMissionIssue(id, payload.category, payload.description)
+            }).catch(err => console.error('[store] notify issue failed', err))
           }
         }
       },
