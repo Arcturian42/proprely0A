@@ -48,7 +48,21 @@ export default function HeuresPaiePage() {
   const handleConfirmValidation = () => {
     if (!selectedEntry) return
     const hours = parseFloat(validatedHours)
-    if (isNaN(hours) || hours < 0 || hours > 12) { toast.error('Les heures doivent être entre 0 et 12h'); return }
+    // HRS-07 (UAT) : pas d'heures négatives, pas de 0 (validation à 0 = pas de
+    // travail, c'est `annulee` qui doit être utilisé), pas plus de 12h pour
+    // bloquer les fautes de frappe (15 au lieu de 1.5 par exemple).
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 12) {
+      toast.error('Les heures doivent être entre 0 et 12h')
+      return
+    }
+    // Garde-fou sur ratio prévu/validé : un agent qui aurait travaillé >3× la
+    // durée prévue est probablement un typo manager. On bloque pour forcer une
+    // double saisie. Le seuil 3× est généreux (variance attendue ~20%, cf.
+    // HRS-05) tout en restant strict sur les valeurs aberrantes.
+    if (selectedEntry.planned_hours > 0 && hours > selectedEntry.planned_hours * 3) {
+      toast.error(`Saisie suspecte : ${hours}h pour ${selectedEntry.planned_hours}h prévues. Vérifie.`)
+      return
+    }
     const cost = (entry => entry ? (entry.hourly_cost || 0) * hours : 0)(selectedEntry)
     updateTimeEntry(selectedEntry.id, {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,

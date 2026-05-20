@@ -22,7 +22,7 @@ import { toast } from 'sonner'
 export default function SopPage() {
   const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'SOPs — Proprely' }, [])
-  const { sops, addSop, updateSop, deleteSop, sites } = useAppStore()
+  const { sops, addSop, updateSop, deleteSop, sites, missions } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [selectedSop, setSelectedSop] = useState<Sop | null>(null)
@@ -89,6 +89,21 @@ export default function SopPage() {
   }
 
   const handleDelete = (id: string) => {
+    // SOP-04 (UAT) : un protocole utilisé par des missions planifiées ne doit
+    // pas pouvoir être supprimé. Sans ça les missions affichent un sop_id
+    // orphelin et l'agent ne retrouve pas ses étapes sur le terrain. Statuts
+    // bloquants = tout sauf terminé/annulé.
+    const blockingMissions = missions.filter(
+      m => m.sop_id === id && m.status !== 'terminee' && m.status !== 'annulee',
+    )
+    if (blockingMissions.length > 0) {
+      toast.error(
+        `Impossible de supprimer : ${blockingMissions.length} mission(s) active(s) utilisent ce protocole. ` +
+        `Détache-les ou termine-les d'abord.`,
+      )
+      setConfirmDelete(null)
+      return
+    }
     deleteSop(id)
     toast.success('Protocole supprimé')
     setConfirmDelete(null)

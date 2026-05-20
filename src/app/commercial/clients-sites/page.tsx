@@ -29,7 +29,7 @@ import { formatServiceType, formatFrequency } from '@/lib/constants'
 export default function ClientsSitesPage() {
   const companyId = useCurrentCompanyId()
   useEffect(() => { document.title = 'Clients & Sites — Proprely' }, [])
-  const { clients, sites, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
+  const { clients, sites, missions, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useAppStore()
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -88,6 +88,23 @@ export default function ClientsSitesPage() {
   }
 
   const handleDeleteClient = (id: string) => {
+    // CLI-04 (UAT) : ne pas archiver un client s'il a des missions en cours ou
+    // futures. Soft-delete cascade le supprimerait des listes mais laisserait
+    // les missions orphelines visibles dans Cockpit/Planning, ce qui rendrait
+    // les opérations confuses. On compte tout ce qui n'est pas terminée/annulee
+    // (statuts terminaux). Les missions passées « non terminées » bloquent aussi
+    // — c'est volontaire : un manager doit les régler avant d'archiver.
+    const blockingMissions = missions.filter(
+      m => m.client_id === id && m.status !== 'terminee' && m.status !== 'annulee',
+    )
+    if (blockingMissions.length > 0) {
+      toast.error(
+        `Impossible de supprimer : ${blockingMissions.length} mission(s) active(s). ` +
+        `Termine ou annule-les avant d'archiver le client.`,
+      )
+      setConfirmDeleteClient(null)
+      return
+    }
     const siteCount = sites.filter(s => s.client_id === id).length
     deleteClient(id)
     toast.success(`Client supprimé${siteCount > 0 ? ` (${siteCount} site(s) associé(s) supprimé(s))` : ''}`)
@@ -134,6 +151,20 @@ export default function ClientsSitesPage() {
   }
 
   const handleDeleteSite = (id: string) => {
+    // Même garde-fou que pour les clients (CLI-04) — un site avec missions
+    // actives ne doit pas disparaître silencieusement, sinon les missions
+    // restent affichées dans Cockpit/Planning avec un site_id orphelin.
+    const blockingMissions = missions.filter(
+      m => m.site_id === id && m.status !== 'terminee' && m.status !== 'annulee',
+    )
+    if (blockingMissions.length > 0) {
+      toast.error(
+        `Impossible de supprimer : ${blockingMissions.length} mission(s) active(s). ` +
+        `Termine ou annule-les avant d'archiver le site.`,
+      )
+      setConfirmDeleteSite(null)
+      return
+    }
     deleteSite(id)
     toast.success('Site supprimé')
     setConfirmDeleteSite(null)

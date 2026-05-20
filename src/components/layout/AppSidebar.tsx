@@ -38,6 +38,12 @@ interface NavItem {
   badge?: string
   /** Permission required to see this item — undefined = visible to everyone. */
   permission?: Permission
+  /**
+   * Hidden during private beta. Set to `true` for routes that exist in the
+   * codebase but aren't ready for first users (V1 launch). The page itself is
+   * left intact so engineers can still hit the URL directly while iterating.
+   */
+  betaHidden?: boolean
 }
 
 interface NavSection {
@@ -76,10 +82,14 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    // Pilotage rentabilité — V1 launch, masqué pendant la bêta privée.
+    // Le code des pages reste en place (audit a confirmé qu'elles compilent et
+    // fetchent les bonnes données), mais on ne les surface pas aux beta-testers
+    // pour ne pas créer d'attentes sur des features que la donnée alimente mal.
     title: 'Pilotage rentabilité',
     items: [
-      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, permission: 'analytics:read' },
-      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, permission: 'analytics:read' },
+      { label: 'Rentabilité client', href: '/rentabilite/rentabilite-client', icon: BarChart3, permission: 'analytics:read', betaHidden: true },
+      { label: 'Analyse des heures', href: '/rentabilite/analyse-heures', icon: PieChart, permission: 'analytics:read', betaHidden: true },
     ],
   },
   {
@@ -105,7 +115,9 @@ export function AppSidebar() {
     () => navSections
       .map(section => ({
         ...section,
-        items: section.items.filter(i => !i.permission || roleCan(role, i.permission)),
+        items: section.items.filter(i =>
+          !i.betaHidden && (!i.permission || roleCan(role, i.permission)),
+        ),
       }))
       .filter(section => section.items.length > 0),
     [role],
