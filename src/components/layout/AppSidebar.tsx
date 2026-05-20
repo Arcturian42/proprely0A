@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 interface NavItem {
   label: string
@@ -125,14 +126,15 @@ export function AppSidebar() {
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-[rgba(0,0,0,0.08)] flex flex-col">
-      {/* Logo */}
-      <div className="h-14 flex items-center px-5 border-b border-[rgba(0,0,0,0.08)]">
-        <div className="flex items-center gap-2.5">
+      {/* Logo + notification bell */}
+      <div className="h-14 flex items-center justify-between px-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="flex items-center gap-2.5 pl-2">
           <div className="w-7 h-7 bg-[#111] rounded-lg flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-semibold text-[15px] tracking-tight text-[#111]">Proprely</span>
         </div>
+        <NotificationBell />
       </div>
 
       {/* Navigation */}

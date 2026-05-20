@@ -13,6 +13,7 @@ import {
   useCompanyMissions,
   useCompanyOpportunities,
 } from '@/lib/store'
+import { useRealtimeMissions } from '@/lib/hooks/useRealtimeMissions'
 import { Mission, OperationalMissionStatus } from '@/types'
 import { cn, getOperationalStatus } from '@/lib/utils'
 import {
@@ -31,6 +32,8 @@ import { toast } from 'sonner'
 
 export default function CockpitPage() {
   useEffect(() => { document.title = 'Cockpit — Proprely' }, [])
+  // Realtime — voir les missions bouger (statut, assignations) en live.
+  useRealtimeMissions()
 
   const missions = useCompanyMissions()
   const agents = useCompanyAgents()

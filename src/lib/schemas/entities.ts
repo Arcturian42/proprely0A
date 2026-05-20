@@ -76,6 +76,8 @@ export const OpportunitySchema = z.object({
   status: z.string().max(50),
   converted_to_client: z.boolean(),
   converted_at: Iso.nullable().optional(),
+  lost_reason: ShortText(2000),
+  lost_at: Iso.nullable().optional(),
   created_at: Iso.optional(),
   updated_at: Iso.optional(),
 }).passthrough()
@@ -176,6 +178,13 @@ export const MissionSchema = z.object({
   organization_step: z.number().int().min(0).max(10).optional(),
   contact_name: ShortText(200),
   contact_phone: ShortText(50),
+  issue_category: z
+    .enum(['acces_refuse', 'materiel_manquant', 'client_absent', 'site_non_conforme', 'incident_agent', 'autre'])
+    .nullable()
+    .optional(),
+  issue_description: ShortText(2000),
+  issue_photo_url: ShortText(2000),
+  issue_reported_at: Iso.nullable().optional(),
   created_at: Iso.optional(),
   updated_at: Iso.optional(),
 }).passthrough()

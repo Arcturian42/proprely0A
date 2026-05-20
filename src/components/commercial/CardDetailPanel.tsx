@@ -24,6 +24,12 @@ interface Props {
   onClose: () => void
   onDelete: (id: string) => void
   onWin: (id: string) => void
+  /**
+   * CRM-05 — handled au niveau de la page parente : le dialog de saisie de
+   * raison vit là-bas (état partagé entre drag + click) et appelle
+   * loseOpportunity du store une fois confirmé.
+   */
+  onLose: (id: string) => void
 }
 
 const STAGES: OpportunityStage[] = ['ouvert', 'decouverte', 'proposition', 'negociation', 'gagne', 'perdu']
@@ -37,7 +43,7 @@ const STAGE_COLORS: Record<OpportunityStage, string> = {
   perdu: 'bg-red-100 text-red-700',
 }
 
-export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props) {
+export function CardDetailPanel({ opportunity, onClose, onDelete, onWin, onLose }: Props) {
   const { updateOpportunity, moveOpportunity, quotes } = useAppStore()
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({
@@ -70,6 +76,10 @@ export function CardDetailPanel({ opportunity, onClose, onDelete, onWin }: Props
   const handleStageChange = (stage: OpportunityStage) => {
     if (stage === 'gagne') {
       onWin(opportunity.id)
+    } else if (stage === 'perdu') {
+      // CRM-05 — délègue au parent pour ouvrir le dialog "raison du perdu"
+      // (l'état est centralisé pour rester cohérent avec le drag-and-drop).
+      onLose(opportunity.id)
     } else {
       moveOpportunity(opportunity.id, stage)
       toast.success(`Déplacé en ${OPPORTUNITY_STAGE_LABELS[stage]}`)

@@ -159,6 +159,20 @@ describe('mission schema rejects', () => {
     const r = MissionSchema.safeParse({ ...validMission, planned_hours: -1 })
     expect(r.success).toBe(false)
   })
+  // Sprint 1 — issue report fields (DM-04)
+  it('invalid issue_category', () => {
+    const r = MissionSchema.safeParse({ ...validMission, issue_category: 'pas_une_categorie' })
+    expect(r.success).toBe(false)
+  })
+  it('accepts known issue_category', () => {
+    const r = MissionSchema.safeParse({
+      ...validMission,
+      issue_category: 'acces_refuse',
+      issue_description: 'Clé introuvable',
+      issue_reported_at: '2026-05-20T10:00:00Z',
+    })
+    expect(r.success).toBe(true)
+  })
 })
 
 describe('time_entry schema rejects', () => {

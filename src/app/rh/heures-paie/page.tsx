@@ -11,12 +11,40 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAppStore, useCompanyAgents, useCompanyTimeEntries } from '@/lib/store'
 import { TimeEntry, TimeEntryStatus } from '@/types'
 import { TIME_ENTRY_STATUS_LABELS } from '@/lib/constants'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, cn } from '@/lib/utils'
 import { CheckCircle2, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import { startOfWeek, format } from 'date-fns'
+import { fr } from 'date-fns/locale'
+
+// HRS-05 (UAT) — variance considérée significative à partir de 20 % d'écart.
+// Au-dessus on highlight en rouge ; entre 10 et 20 % en orange pour avertir
+// sans alarmer.
+const VARIANCE_WARNING_PCT = 0.1
+const VARIANCE_ALERT_PCT = 0.2
+
+function variancePct(planned: number, validated: number | null | undefined): number | null {
+  if (!validated || !planned || planned <= 0) return null
+  return (validated - planned) / planned
+}
+
+function varianceClass(v: number | null): string {
+  if (v === null) return ''
+  const abs = Math.abs(v)
+  if (abs >= VARIANCE_ALERT_PCT) return 'text-red-600 font-medium'
+  if (abs >= VARIANCE_WARNING_PCT) return 'text-amber-600'
+  return 'text-green-600'
+}
+
+function formatPct(v: number | null): string {
+  if (v === null) return '—'
+  const sign = v > 0 ? '+' : ''
+  return `${sign}${(v * 100).toFixed(0)}%`
+}
 
 export default function HeuresPaiePage() {
   useEffect(() => { document.title = 'Heures & Paie — Proprely' }, [])
@@ -40,6 +68,57 @@ export default function HeuresPaiePage() {
   const totalValidated = filtered.reduce((sum, e) => sum + (e.validated_hours || 0), 0)
   const totalCost = filtered.reduce((sum, e) => sum + (e.total_cost || 0), 0)
 
+  // HRS-03 — agrégation hebdomadaire par agent. Permet au manager de voir
+  // "Florent a fait 35h prévues vs 41h validées cette semaine, écart +17 %"
+  // sans devoir cliquer ligne par ligne. La semaine ISO démarre le lundi
+  // (cohérent avec le Planning et l'usage français). Pas de useMemo manuel :
+  // React Compiler optimise déjà cette dérivation et ne peut pas préserver
+  // une mémo dont la dep est un array recalculé à chaque render.
+  type WeeklyBucket = {
+    agentId: string
+    agentName: string
+    weekStartIso: string
+    weekLabel: string
+    planned: number
+    validated: number
+    cost: number
+    entriesCount: number
+    pendingCount: number
+  }
+  const weeklyAggregates: WeeklyBucket[] = (() => {
+    const map = new Map<string, WeeklyBucket>()
+    for (const e of filtered) {
+      if (!e.agent_id) continue
+      const weekStart = startOfWeek(new Date(`${e.date}T12:00:00`), { weekStartsOn: 1 })
+      const weekIso = format(weekStart, 'yyyy-MM-dd')
+      const key = `${e.agent_id}__${weekIso}`
+      const existing = map.get(key)
+      if (existing) {
+        existing.planned += e.planned_hours
+        existing.validated += e.validated_hours ?? 0
+        existing.cost += e.total_cost ?? 0
+        existing.entriesCount += 1
+        if (e.status !== 'validee') existing.pendingCount += 1
+      } else {
+        map.set(key, {
+          agentId: e.agent_id,
+          agentName: e.agent ? `${e.agent.first_name} ${e.agent.last_name}` : '—',
+          weekStartIso: weekIso,
+          weekLabel: format(weekStart, "'Semaine du' d MMM yyyy", { locale: fr }),
+          planned: e.planned_hours,
+          validated: e.validated_hours ?? 0,
+          cost: e.total_cost ?? 0,
+          entriesCount: 1,
+          pendingCount: e.status !== 'validee' ? 1 : 0,
+        })
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.weekStartIso !== b.weekStartIso) return b.weekStartIso.localeCompare(a.weekStartIso)
+      return a.agentName.localeCompare(b.agentName)
+    })
+  })()
+
   const handleValidate = (entry: TimeEntry) => {
     setSelectedEntry(entry)
     setValidatedHours(entry.planned_hours.toString())
@@ -57,8 +136,7 @@ export default function HeuresPaiePage() {
     }
     // Garde-fou sur ratio prévu/validé : un agent qui aurait travaillé >3× la
     // durée prévue est probablement un typo manager. On bloque pour forcer une
-    // double saisie. Le seuil 3× est généreux (variance attendue ~20%, cf.
-    // HRS-05) tout en restant strict sur les valeurs aberrantes.
+    // double saisie.
     if (selectedEntry.planned_hours > 0 && hours > selectedEntry.planned_hours * 3) {
       toast.error(`Saisie suspecte : ${hours}h pour ${selectedEntry.planned_hours}h prévues. Vérifie.`)
       return
@@ -68,7 +146,17 @@ export default function HeuresPaiePage() {
       validated_hours: hours, total_cost: cost, status: 'validee' as TimeEntryStatus,
       validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
-    toast.success(`${hours}h validées – coût: ${formatCurrency(cost)}`)
+    // HRS-05 — écart > 20 % entre prévu et validé : on prévient le manager
+    // au moment de la validation pour qu'il voie tout de suite si c'est
+    // attendu ou s'il y a un dérive à creuser.
+    const v = variancePct(selectedEntry.planned_hours, hours)
+    if (v !== null && Math.abs(v) >= VARIANCE_ALERT_PCT) {
+      toast.warning(
+        `Écart de ${formatPct(v)} entre prévu (${selectedEntry.planned_hours}h) et validé (${hours}h). À vérifier.`,
+      )
+    } else {
+      toast.success(`${hours}h validées – coût: ${formatCurrency(cost)}`)
+    }
     setSelectedEntry(null)
   }
 
@@ -165,70 +253,139 @@ export default function HeuresPaiePage() {
           />
         </div>
 
-        {/* Table */}
-        <Card className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead>Client / Site</TableHead>
-                <TableHead>Prévu</TableHead>
-                <TableHead>Validé</TableHead>
-                <TableHead>Coût/h</TableHead>
-                <TableHead>Coût total</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(entry => (
-                <TableRow key={entry.id}>
-                  <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
-                        {entry.agent?.first_name?.[0]}
-                      </div>
-                      <span className="text-sm">{entry.agent?.first_name} {entry.agent?.last_name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-sm font-medium">{entry.client?.name}</p>
-                    <p className="text-xs text-slate-500">{entry.site?.name}</p>
-                  </TableCell>
-                  <TableCell className="text-sm">{entry.planned_hours}h</TableCell>
-                  <TableCell className="text-sm">
-                    {entry.validated_hours ? (
-                      <span className={entry.validated_hours !== entry.planned_hours ? 'text-amber-600 font-medium' : 'text-green-600'}>
-                        {entry.validated_hours}h
-                      </span>
-                    ) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm">{entry.hourly_cost ? `${entry.hourly_cost} €` : '—'}</TableCell>
-                  <TableCell className="text-sm font-medium">
-                    {entry.total_cost != null ? formatCurrency(entry.total_cost) : '0,00 €'}
-                  </TableCell>
-                  <TableCell><StatusBadge status={entry.status} /></TableCell>
-                  <TableCell>
-                    {(entry.status === 'a_valider' || entry.status === 'prevue') && (
-                      <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => handleValidate(entry)}>
-                        <CheckCircle2 className="w-3 h-3 text-green-600" /> Valider
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-slate-500">
-                    Aucune entrée trouvée
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+        {/* Tabs : Détail ligne par ligne OU agrégation hebdomadaire (HRS-03) */}
+        <Tabs defaultValue="detail">
+          <TabsList className="mb-3">
+            <TabsTrigger value="detail">Détail ({filtered.length})</TabsTrigger>
+            <TabsTrigger value="weekly">Vue semaine ({weeklyAggregates.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="detail">
+            <Card className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Client / Site</TableHead>
+                    <TableHead>Prévu</TableHead>
+                    <TableHead>Validé</TableHead>
+                    <TableHead>Écart</TableHead>
+                    <TableHead>Coût/h</TableHead>
+                    <TableHead>Coût total</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(entry => {
+                    const v = variancePct(entry.planned_hours, entry.validated_hours)
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                              {entry.agent?.first_name?.[0]}
+                            </div>
+                            <span className="text-sm">{entry.agent?.first_name} {entry.agent?.last_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm font-medium">{entry.client?.name}</p>
+                          <p className="text-xs text-slate-500">{entry.site?.name}</p>
+                        </TableCell>
+                        <TableCell className="text-sm">{entry.planned_hours}h</TableCell>
+                        <TableCell className="text-sm">
+                          {entry.validated_hours != null ? (
+                            <span className={cn('font-medium', varianceClass(v))}>
+                              {entry.validated_hours}h
+                            </span>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className={cn('text-sm', varianceClass(v))}>
+                          {formatPct(v)}
+                        </TableCell>
+                        <TableCell className="text-sm">{entry.hourly_cost ? `${entry.hourly_cost} €` : '—'}</TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {entry.total_cost != null ? formatCurrency(entry.total_cost) : '0,00 €'}
+                        </TableCell>
+                        <TableCell><StatusBadge status={entry.status} /></TableCell>
+                        <TableCell>
+                          {(entry.status === 'a_valider' || entry.status === 'prevue') && (
+                            <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => handleValidate(entry)}>
+                              <CheckCircle2 className="w-3 h-3 text-green-600" /> Valider
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center py-8 text-slate-500">
+                        Aucune entrée trouvée
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="weekly">
+            <Card className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Semaine</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Missions</TableHead>
+                    <TableHead>Prévu</TableHead>
+                    <TableHead>Validé</TableHead>
+                    <TableHead>Écart</TableHead>
+                    <TableHead>Coût</TableHead>
+                    <TableHead>À valider</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {weeklyAggregates.map(w => {
+                    const v = variancePct(w.planned, w.validated)
+                    return (
+                      <TableRow key={`${w.agentId}-${w.weekStartIso}`}>
+                        <TableCell className="text-sm">{w.weekLabel}</TableCell>
+                        <TableCell className="text-sm font-medium">{w.agentName}</TableCell>
+                        <TableCell className="text-sm">{w.entriesCount}</TableCell>
+                        <TableCell className="text-sm">{w.planned.toFixed(1)}h</TableCell>
+                        <TableCell className={cn('text-sm font-medium', varianceClass(v))}>
+                          {w.validated.toFixed(1)}h
+                        </TableCell>
+                        <TableCell className={cn('text-sm', varianceClass(v))}>
+                          {formatPct(v)}
+                        </TableCell>
+                        <TableCell className="text-sm">{formatCurrency(w.cost)}</TableCell>
+                        <TableCell className="text-sm">
+                          {w.pendingCount > 0 ? (
+                            <span className="text-amber-600 font-medium">{w.pendingCount}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {weeklyAggregates.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        Aucune semaine à afficher (ajuste les filtres).
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Validation dialog */}

@@ -191,6 +191,18 @@ export function QuoteFlow({ opportunity, onQuoteSent }: QuoteFlowProps) {
   // string if the server call fails so the user can still draft (the number
   // will be re-stamped on send/sign via the same RPC).
   const handleCreateDraft = useCallback(async () => {
+    // QUO-03 (UAT) — marge nulle ou négative = save bloqué. Sans ça on pourrait
+    // accidentellement envoyer un devis qui coûte plus que ce qu'on facture,
+    // ce qui plombe la rentabilité sans alerte. La V1 ajoutera un override
+    // owner ; pour la bêta on bloque tout court avec un message explicite.
+    const costsPreview = aggregatedCosts()
+    if (costsPreview.price_ht > 0 && costsPreview.margin_rate <= 0) {
+      toast.error(
+        'Marge nulle ou négative. Ajuste les prix ou les quantités avant d\'enregistrer.',
+      )
+      return
+    }
+
     const result = await generateQuoteNumber()
     const quoteNumber = result.ok
       ? result.number
