@@ -22,8 +22,10 @@ test.describe('onboarding wizard (dummy mode)', () => {
 
   test('/login uses the updated copy', async ({ page }) => {
     await page.goto('/login')
+    // Copy mise à jour avec PR #44 (migration magic link → email+password).
+    // Le CTA principal est désormais "Se connecter".
     await expect(
-      page.getByRole('button', { name: /recevoir mon lien de connexion/i }),
+      page.getByRole('button', { name: /se connecter/i }),
     ).toBeVisible()
     await expect(page.getByRole('link', { name: /créer mon entreprise/i })).toBeVisible()
   })
