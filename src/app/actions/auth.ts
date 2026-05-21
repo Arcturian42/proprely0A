@@ -183,11 +183,19 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
       // déjà dans auth.users — ensureProfileForCurrentUser() complétera la
       // setup au prochain hit côté serveur si profiles manque. Pas de
       // régression vie privée : le message disclose déjà l'existence du compte.
+      //
+      // IMPORTANT : on passe par createServerClient() (SSR + cookies) et non
+      // par le client admin, pour la même raison que le primary path en bas
+      // de cette fonction — le code_verifier PKCE doit être posé en cookie
+      // pour que /auth/callback puisse échanger le code.
       try {
-        await admin.auth.signInWithOtp({
-          email: normalizedEmail,
-          options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
-        })
+        const supabase = await createServerClient()
+        if (supabase) {
+          await supabase.auth.signInWithOtp({
+            email: normalizedEmail,
+            options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
+          })
+        }
       } catch (err) {
         // Log only — l'utilisateur a toujours le path /login pour redemander.
         console.warn('[signup] auto-resend magic link failed:', err)

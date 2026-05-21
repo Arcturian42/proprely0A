@@ -170,8 +170,9 @@ describe('signUpCompany — already-registered auto-resend (G)', () => {
     mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() })
   })
 
-  it('triggers signInWithOtp and returns "Vérifie ta boîte de réception" on duplicate email', async () => {
-    const signInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
+  it('triggers signInWithOtp via SSR client and returns "Vérifie ta boîte de réception" on duplicate email', async () => {
+    const ssrSignInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
+    const adminSignInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
     const createUser = vi.fn().mockResolvedValue({
       data: { user: null },
       error: { message: 'A user with this email address has already been registered' },
@@ -180,10 +181,14 @@ describe('signUpCompany — already-registered auto-resend (G)', () => {
     mockedCreateServiceRole.mockResolvedValue({
       auth: {
         admin: { createUser, deleteUser: vi.fn() },
-        signInWithOtp,
+        signInWithOtp: adminSignInWithOtp,
       },
       // existingProfile lookup: no row, no error (i.e. profiles row got deleted but auth.users still has it).
       from: () => chain({ data: null, error: null }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithOtp: ssrSignInWithOtp },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
@@ -193,17 +198,19 @@ describe('signUpCompany — already-registered auto-resend (G)', () => {
       expect(result.error).toMatch(/déjà enregistrée/i)
       expect(result.error).toMatch(/vérifie ta boîte de réception/i)
     }
-    expect(signInWithOtp).toHaveBeenCalledTimes(1)
-    expect(signInWithOtp).toHaveBeenCalledWith(
+    // MUST be on the SSR client (cookies → PKCE verifier stored), NOT admin.
+    expect(ssrSignInWithOtp).toHaveBeenCalledTimes(1)
+    expect(ssrSignInWithOtp).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'alice@acme.fr' }),
     )
+    expect(adminSignInWithOtp).not.toHaveBeenCalled()
     // Sentry should NOT be called for the "already registered" path — it's a
     // user-facing condition, not an infra error.
     expect(mockedSentryCapture).not.toHaveBeenCalled()
   })
 
   it('still returns the FR message even when the auto-resend itself fails', async () => {
-    const signInWithOtp = vi.fn().mockRejectedValue(new Error('Resend SMTP down'))
+    const ssrSignInWithOtp = vi.fn().mockRejectedValue(new Error('Resend SMTP down'))
     const createUser = vi.fn().mockResolvedValue({
       data: { user: null },
       error: { message: 'User already registered' },
@@ -212,9 +219,13 @@ describe('signUpCompany — already-registered auto-resend (G)', () => {
     mockedCreateServiceRole.mockResolvedValue({
       auth: {
         admin: { createUser, deleteUser: vi.fn() },
-        signInWithOtp,
+        signInWithOtp: vi.fn(),
       },
       from: () => chain({ data: null, error: null }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithOtp: ssrSignInWithOtp },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
