@@ -60,6 +60,7 @@ describe('useAppStore — mutations', () => {
       leads: [], opportunities: [baseOpp],
       missions: [], operationalItems: [], sops: [],
       timeEntries: [], serviceTypes: [], quotes: [],
+      companyInfo: null,
       pricingSettings: { hourly_labor_cost: null },
     })
   })

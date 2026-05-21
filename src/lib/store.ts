@@ -836,11 +836,22 @@ export const useAppStore = create<AppStore>()(
         timeEntries: data.timeEntries,
         serviceTypes: data.serviceTypes,
         quotes: data.quotes,
-        // Mirror the DB pricing settings into the companySettings slice so
-        // time-entry total_cost computation (BUG-MAJ-05) has a fallback to
-        // the company default when te.hourly_cost is null.
+        // Mirror the DB pricing settings + companies row into the
+        // companySettings slice. Before this hydration was added the slice
+        // kept its module-level defaults (`Proprely Nettoyage Pro`,
+        // `contact@proprely.fr`...) forever and Paramètres > Mon entreprise
+        // affichait des données de test à chaque utilisateur réel. When
+        // companyInfo is null (no row visible, dummy mode, etc.) we keep the
+        // existing slice so we don't blank out values the user just saved.
         companySettings: {
           ...s.companySettings,
+          ...(data.companyInfo ? {
+            name: data.companyInfo.name,
+            email: data.companyInfo.email ?? '',
+            phone: data.companyInfo.phone ?? '',
+            address: data.companyInfo.address ?? '',
+            logo_url: data.companyInfo.logo_url ?? undefined,
+          } : {}),
           hourly_labor_cost: data.pricingSettings?.hourly_labor_cost ?? null,
         },
       })),
