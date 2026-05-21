@@ -43,6 +43,13 @@ describe('toUserMessage', () => {
     expect(toUserMessage(new Error('fetch failed'))).toMatch(/réseau/i)
   })
 
+  it('maps Supabase Auth built-in rate-limit messages to French', () => {
+    expect(
+      toUserMessage(new Error('For security purposes, you can only request this after 34 seconds.')),
+    ).toMatch(/trop de tentatives/i)
+    expect(toUserMessage({ message: 'over_email_send_rate_limit', code: '429' })).toMatch(/trop de tentatives/i)
+  })
+
   it('passes through short French messages', () => {
     expect(toUserMessage(new Error('Email invalide'))).toBe('Email invalide')
   })
