@@ -57,10 +57,25 @@ export type ActionResult =
   | { ok: true; message?: string; redirectTo?: string }
   | { ok: false; error: string }
 
-// BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the magic-link
-// callback as "//auth/callback" — works but isn't clean. Strip it once here.
+// BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the auth callback
+// as "//auth/callback" — works but isn't clean. Strip it once here.
+//
+// Production guard : if NEXT_PUBLIC_APP_URL is missing in prod, the reset /
+// signup magic-link callbacks would point to http://localhost:3000 — emails
+// would arrive but the link would 404 the user. We log a Sentry warning so
+// ops sees it on the first email send, without crashing the request (the
+// next() param fallback can still get the user back to /dashboard).
 function getOrigin(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const url = process.env.NEXT_PUBLIC_APP_URL
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      Sentry.captureMessage('NEXT_PUBLIC_APP_URL missing in production — auth-callback links will point to localhost', {
+        level: 'warning',
+        tags: { module: 'auth', issue: 'missing-app-url' },
+      })
+    }
+    return 'http://localhost:3000'
+  }
   return url.replace(/\/+$/, '')
 }
 
@@ -136,9 +151,13 @@ export async function signInWithPassword(formData: FormData): Promise<ActionResu
     // server-side, so the FR copy nudges toward "Mot de passe oublié" which
     // also acts as the migration path.
     if (/invalid login credentials|invalid.*email.*password/i.test(error.message)) {
+      // Supabase retourne le même "Invalid login credentials" pour
+      // "email inconnu", "mauvais mot de passe", et "user existe sans
+      // password" (cas des comptes legacy magic-link). On ne peut pas
+      // distinguer → message générique qui couvre les 3.
       return {
         ok: false,
-        error: 'Email ou mot de passe incorrect. Si tu n\'as jamais défini de mot de passe, utilise « Mot de passe oublié ».',
+        error: 'Email ou mot de passe incorrect. Essaie « Mot de passe oublié » si besoin.',
       }
     }
     return {

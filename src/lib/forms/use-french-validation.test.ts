@@ -42,6 +42,15 @@ describe('useFrenchValidation _messageFor', () => {
       .toBe('Prénom est requis.')
     expect(_messageFor(stub({ name: 'company_name', validity: { valueMissing: true } })))
       .toBe("Nom de l'entreprise est requis.")
+    expect(_messageFor(stub({ name: 'password', validity: { valueMissing: true } })))
+      .toBe('Mot de passe est requis.')
+    expect(_messageFor(stub({ name: 'confirm_password', validity: { valueMissing: true } })))
+      .toBe('Confirmation du mot de passe est requis.')
+  })
+
+  it('returns the password label on tooShort (was "Ce champ" before the label was added)', () => {
+    expect(_messageFor(stub({ name: 'password', minLength: 6, validity: { tooShort: true } })))
+      .toBe('Mot de passe doit contenir au moins 6 caractères.')
   })
 
   it('falls back to "Ce champ" for unknown field names', () => {
