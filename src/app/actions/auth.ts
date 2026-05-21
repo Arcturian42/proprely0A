@@ -7,19 +7,49 @@ import { isSchemaCacheError, toUserMessage } from '@/lib/errors/user-message'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 
+// Password : bcrypt limit = 72 bytes. We cap at 72 chars (good enough for the
+// vast majority of UTF-8 inputs) so Supabase doesn't silently reject the password
+// without an actionable error.
+const PasswordSchema = z
+  .string()
+  .min(6, '6 caractères minimum')
+  .max(72, 'Maximum 72 caractères')
+
 const LoginSchema = z.object({
-  email: z.string().email("Email invalide"),
+  email: z.string().email('Email invalide'),
+  password: PasswordSchema,
 })
 
-const SignupSchema = z.object({
-  email: z.string().email("Email invalide"),
-  owner_first_name: z.string().min(1, "Prénom requis").max(100),
-  owner_last_name: z.string().min(1, "Nom requis").max(100),
-  company_name: z.string().min(2, "Nom d'entreprise requis").max(200),
+const SignupSchema = z
+  .object({
+    email: z.string().email('Email invalide'),
+    password: PasswordSchema,
+    confirm_password: z.string(),
+    owner_first_name: z.string().min(1, 'Prénom requis').max(100),
+    owner_last_name: z.string().min(1, 'Nom requis').max(100),
+    company_name: z.string().min(2, "Nom d'entreprise requis").max(200),
+  })
+  .refine((d) => d.password === d.confirm_password, {
+    path: ['confirm_password'],
+    message: 'Les mots de passe ne correspondent pas',
+  })
+
+const ResetRequestSchema = z.object({
+  email: z.string().email('Email invalide'),
 })
+
+const UpdatePasswordSchema = z
+  .object({
+    password: PasswordSchema,
+    confirm_password: z.string(),
+  })
+  .refine((d) => d.password === d.confirm_password, {
+    path: ['confirm_password'],
+    message: 'Les mots de passe ne correspondent pas',
+  })
 
 export type ActionResult =
-  | { ok: true; message?: string; email?: string }
+  | { ok: true; message?: string; redirectTo?: string }
   | { ok: false; error: string }
 
 // BUG-008 : trailing slash on NEXT_PUBLIC_APP_URL leaks into the magic-link
@@ -29,10 +59,9 @@ function getOrigin(): string {
   return url.replace(/\/+$/, '')
 }
 
-// BUG-001 reocurrence : we now Sentry-capture every fatal signup step and
-// surface the event id to the user. Support can grep Sentry by the 8-char
-// prefix shown in the UI (`réf. support : xxxxxxxx`) and find the exact
-// session that failed — instead of asking the user to re-describe the error.
+// BUG-001 reocurrence : we Sentry-capture every fatal signup step and surface
+// the event id to the user. Support can grep Sentry by the 8-char prefix shown
+// in the UI (`réf. support : xxxxxxxx`) and find the exact session that failed.
 function friendlySignupError(err: unknown, eventId: string | undefined, fallback: string): string {
   const base = toUserMessage(err, fallback)
   if (!eventId) return base
@@ -50,17 +79,29 @@ function captureSignupFailure(err: unknown, step: string, extra: Record<string, 
   })
 }
 
-export async function signInWithMagicLink(formData: FormData): Promise<ActionResult> {
-  const parsed = LoginSchema.safeParse({ email: formData.get('email') })
+/**
+ * Email + password login. Replaces the previous magic-link flow entirely
+ * (kept only for accept-invitation which has its own code path via
+ * `admin.auth.admin.generateLink('magiclink')` in invitations.ts).
+ *
+ * Cookies-aware via createServerClient() : the session JWT is posted into the
+ * Set-Cookie response header by the SSR adapter, so the next navigation lands
+ * on a protected route with an active session.
+ */
+export async function signInWithPassword(formData: FormData): Promise<ActionResult> {
+  const parsed = LoginSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Email invalide' }
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide' }
   }
 
-  // Rate-limit : 5 magic-link tentatives / 10 min par email pour éviter le
-  // spam (en plus du rate-limit Supabase interne). Empêche aussi un user de
-  // crasher accidentellement sa propre boîte mail.
+  // Rate-limit : 5 tentatives / 10 min par email pour ralentir une attaque
+  // brute-force. Identique à l'ancienne limite magic-link, juste sous une
+  // nouvelle clé pour ne pas hériter d'un compteur d'une autre intention.
   const email = parsed.data.email.toLowerCase().trim()
-  const rl = await rateLimit(`magic-link:${email}`, 5, 10 * 60 * 1000)
+  const rl = await rateLimit(`login:${email}`, 5, 10 * 60 * 1000)
   if (!rl.allowed) {
     return {
       ok: false,
@@ -71,28 +112,46 @@ export async function signInWithMagicLink(formData: FormData): Promise<ActionRes
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
-      error: "Auth Supabase non configurée (variables d'environnement manquantes). En dev, utilise le CompanySwitcher en haut à droite.",
+      error: "Auth Supabase non configurée. Contacte le support.",
     }
   }
 
   const supabase = await createServerClient()
   if (!supabase) return { ok: false, error: 'Erreur interne (client Supabase indisponible).' }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
+    password: parsed.data.password,
   })
 
   if (error) {
-    console.error('[login] signInWithOtp failed:', error)
-    return { ok: false, error: toUserMessage(error, 'Envoi du lien impossible. Réessaie dans quelques instants.') }
+    console.error('[login] signInWithPassword failed:', error)
+    // Supabase returns "Invalid login credentials" for both wrong-password
+    // AND no-password-set (legacy magic-link-only users). We can't distinguish
+    // server-side, so the FR copy nudges toward "Mot de passe oublié" which
+    // also acts as the migration path.
+    if (/invalid login credentials|invalid.*email.*password/i.test(error.message)) {
+      return {
+        ok: false,
+        error: 'Email ou mot de passe incorrect. Si tu n\'as jamais défini de mot de passe, utilise « Mot de passe oublié ».',
+      }
+    }
+    return {
+      ok: false,
+      error: toUserMessage(error, 'Connexion impossible. Réessaie dans quelques instants.'),
+    }
   }
-  return { ok: true, message: 'Email envoyé. Consulte ta boîte de réception (et les indésirables) pour finaliser la connexion.' }
+
+  const next = formData.get('next')
+  const redirectTo = typeof next === 'string' && next.startsWith('/') ? next : '/dashboard'
+  return { ok: true, redirectTo }
 }
 
 export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   const parsed = SignupSchema.safeParse({
     email: formData.get('email'),
+    password: formData.get('password'),
+    confirm_password: formData.get('confirm_password'),
     owner_first_name: formData.get('owner_first_name'),
     owner_last_name: formData.get('owner_last_name'),
     company_name: formData.get('company_name'),
@@ -103,10 +162,9 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
 
   const normalizedEmail = parsed.data.email.toLowerCase().trim()
 
-  // Rate-limit : 3 tentatives de création / 1h par email. Parité avec
-  // signInWithMagicLink (5/10min) — le signup est plus coûteux côté DB donc
-  // on serre la fenêtre. Protège contre signup-spam qui peut faire échouer
-  // l'infra et déclencher le message "Service temporairement indisponible".
+  // Rate-limit : 3 tentatives de création / 1h par email. Le signup est
+  // coûteux côté DB et chaque tentative peut laisser des orphelins si une
+  // étape échoue au milieu (mitigé par les rollbacks mais autant éviter).
   const rl = await rateLimit(`signup:${normalizedEmail}`, 3, 60 * 60 * 1000)
   if (!rl.allowed) {
     return {
@@ -125,17 +183,12 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   const admin = await createServiceRoleClient()
   if (!admin) return { ok: false, error: 'Service role indisponible (SUPABASE_SERVICE_ROLE_KEY manquante).' }
 
-  // Pre-flight: réjete tout email déjà attaché à un profil existant. Sans ça,
-  // createUser ci-dessous échoue avec "User already registered" mais peut
-  // laisser un état partiel (auth.users orphelin si profile insert échoue
-  // ensuite). On veut un message FR clair à l'utilisateur en amont.
-  // listUsers accepte un filter `email.eq.` via une page paginée — ici on
-  // ne s'appuie pas dessus (pas exposé dans tous les SDK), donc on regarde
-  // côté profiles (notre source de vérité). Si un profil existe déjà avec
-  // cet email, le user a déjà un compte (et est associé à une company).
-  // .eq() (et pas .ilike()) : les emails sont normalisés en lowercase au
-  // stockage, et ilike interprète `_` et `%` comme wildcards SQL — un
-  // `john_smith@example.com` matchait n'importe quel `johnXsmith@…`.
+  // Pre-flight : rejette tout email déjà attaché à un profil existant. Sans
+  // ça, createUser ci-dessous échoue avec "User already registered" mais
+  // peut laisser un état partiel (auth.users orphelin si profile insert
+  // échoue ensuite).
+  // .eq() (et pas .ilike()) : ilike interprète `_` et `%` comme wildcards
+  // SQL — un `john_smith@example.com` matchait n'importe quel `johnXsmith@…`.
   const { data: existingProfile, error: existingErr } = await admin
     .from('profiles')
     .select('id')
@@ -158,14 +211,21 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
   if (existingProfile) {
     return {
       ok: false,
-      error: 'Cette adresse est déjà associée à un compte Proprely. Connecte-toi avec le magic link via /login.',
+      error: 'Cette adresse est déjà associée à un compte Proprely. Connecte-toi avec ton mot de passe ou utilise « Mot de passe oublié ».',
     }
   }
 
-  // 1. Crée le compte auth.users (sans email confirmé — magic link s'en charge)
+  // 1. Crée le compte auth.users AVEC password + email auto-confirmé.
+  // email_confirm: true : le user a fourni email+password en même temps. On
+  // skip l'étape de confirmation (qui demandait un click email avant) pour
+  // permettre un login immédiat sans round-trip PKCE — c'était la racine
+  // des bugs des PRs #38-#43. Trade-off : on perd la preuve de propriété de
+  // l'email (mais c'était déjà le cas avec l'ancien flow magic link où
+  // n'importe quel scanner email pouvait "consommer" le lien).
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email: normalizedEmail,
-    email_confirm: false,
+    password: parsed.data.password,
+    email_confirm: true,
     user_metadata: {
       first_name: parsed.data.owner_first_name,
       last_name: parsed.data.owner_last_name,
@@ -173,28 +233,12 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     },
   })
   if (userError || !userData.user) {
-    // Cas typique : email présent dans auth.users mais pas dans profiles
-    // (un signup précédent a foiré au milieu). On signale clairement plutôt
-    // que de laisser l'erreur Supabase opaque atteindre l'utilisateur.
     const msg = userError?.message ?? ''
     if (msg) console.error('[signup] createUser failed:', userError)
     if (/already.*(registered|exists)/i.test(msg)) {
-      // Best-effort : renvoie automatiquement un magic link. Le compte existe
-      // déjà dans auth.users — ensureProfileForCurrentUser() complétera la
-      // setup au prochain hit côté serveur si profiles manque. Pas de
-      // régression vie privée : le message disclose déjà l'existence du compte.
-      try {
-        await admin.auth.signInWithOtp({
-          email: normalizedEmail,
-          options: { emailRedirectTo: `${getOrigin()}/auth/callback` },
-        })
-      } catch (err) {
-        // Log only — l'utilisateur a toujours le path /login pour redemander.
-        console.warn('[signup] auto-resend magic link failed:', err)
-      }
       return {
         ok: false,
-        error: 'Cette adresse est déjà enregistrée. Vérifie ta boîte de réception — un lien de connexion vient de t\'être renvoyé.',
+        error: 'Cette adresse est déjà enregistrée. Connecte-toi avec ton mot de passe ou utilise « Mot de passe oublié ».',
       }
     }
     const eventId = captureSignupFailure(userError ?? new Error('createUser returned no user'), 'create_user', {
@@ -224,9 +268,6 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
       company_name: parsed.data.company_name,
     })
     try { await admin.auth.admin.deleteUser(userId) } catch (err) {
-      // Auth user is now orphaned — the user will hit signUpCompany again and
-      // either succeed (deleted in retry) or surface the duplicate-email path.
-      // Sentry alert lets ops clean up proactively.
       Sentry.captureException(err, {
         tags: { action: 'signUpCompany.rollback', step: 'delete_auth_user' },
         extra: { userId, reason: 'companies_insert_failed' },
@@ -282,12 +323,8 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     }
   }
 
-  // 4. Initialise les tables d'onboarding. Si l'une échoue, on garde malgré
-  // tout le compte (auth.user + profil + company) : la fonction
-  // ensureProfileForCurrentUser() agit en filet de sécurité au prochain
-  // appel server-action, et le middleware ré-évalue le statut onboarding à
-  // chaque requête. Mieux vaut un signup "partiellement initialisé" qu'un
-  // rollback complet qui efface un compte valide à cause d'un blip réseau.
+  // 4. Tables d'onboarding (non-fatal — la fonction ensureProfileForCurrentUser
+  // les recrée à la demande si besoin).
   const { error: onboardingError } = await admin
     .from('onboarding_status')
     .upsert(
@@ -298,8 +335,6 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
       { onConflict: 'company_id' },
     )
   if (onboardingError) {
-    // Log for ops, but don't fail the signup — onboarding rows are recreated
-    // on demand by ensureProfileForCurrentUser() / wizard layout.
     console.error('[signup] onboarding_status insert failed (non-fatal):', onboardingError)
   }
 
@@ -310,57 +345,122 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     console.error('[signup] company_pricing_settings insert failed (non-fatal):', pricingSettingsError)
   }
 
-  // 5. Envoie le magic link pour la première connexion. Le ?next=/onboarding/2
-  // amène l'utilisateur directement sur l'étape 2 du wizard après confirmation
-  // de l'email. Si ça plante, on garde le compte (réessai possible via /login).
-  //
-  // IMPORTANT : on utilise createServerClient() (SSR + cookies), PAS le client
-  // admin. Le flow PKCE de Supabase génère un `code_verifier` à l'appel de
-  // signInWithOtp et l'envoie dans un cookie via l'adapter de @supabase/ssr ;
-  // au moment où le user clique le magic link, /auth/callback récupère ce
-  // cookie pour échanger le code contre une session. Le client admin (créé via
-  // @supabase/supabase-js direct depuis PR #40 pour ne pas hériter de cookies
-  // user/anon) n'a PAS d'adapter cookies, donc le verifier vit en mémoire de
-  // la server action puis disparaît → exchangeCodeForSession plante avec
-  // `otp_expired`. C'est ce qui causait l'erreur "Lien de connexion invalide
-  // ou expiré" sur /login pour chaque magic link cliqué.
+  // 5. Établit la session via signInWithPassword sur le client SSR (cookies).
+  // C'est ce qui pose le sb-…-auth-token cookie côté browser et permet au
+  // user d'atterrir directement sur /onboarding/2 sans passer par /login.
   const supabase = await createServerClient()
   if (!supabase) {
     return {
       ok: true,
-      email: normalizedEmail,
-      message: 'Compte créé. Connecte-toi via /login pour recevoir le lien de connexion.',
+      message: 'Compte créé. Connecte-toi via /login.',
+      redirectTo: '/login',
     }
   }
-  const { error: linkError } = await supabase.auth.signInWithOtp({
+  const { error: signInError } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
-    options: { emailRedirectTo: `${getOrigin()}/auth/callback?next=/onboarding/2` },
+    password: parsed.data.password,
   })
-  if (linkError) {
+  if (signInError) {
+    // Le compte est créé mais le sign-in auto a foiré — pas critique, l'utilisateur
+    // peut se connecter manuellement.
+    console.error('[signup] auto sign-in failed (non-fatal):', signInError)
     return {
       ok: true,
-      email: normalizedEmail,
-      message: `Compte créé, mais l'envoi du magic link a échoué (${linkError.message}). Connecte-toi via /login pour recevoir un nouveau lien.`,
+      message: 'Compte créé. Connecte-toi avec ton mot de passe.',
+      redirectTo: '/login',
     }
   }
 
   return {
     ok: true,
-    email: normalizedEmail,
-    message: 'Compte créé. Consulte ta boîte de réception pour le lien de connexion.',
+    redirectTo: '/onboarding/2',
   }
 }
 
 /**
- * Used by the post-signup confirmation page when the user clicks "Renvoyer
- * le lien". Validates the email and re-issues the magic link without
- * recreating the account. Falls back to signInWithMagicLink semantics so
- * existing rate-limiting still applies.
+ * Envoie un email de réinitialisation. Toujours renvoie ok:true (anti-énumération
+ * de comptes) sauf si on est rate-limité — auquel cas le user voit un message
+ * neutre l'invitant à attendre.
+ *
+ * Le lien reset pointe vers /auth/callback?next=/reset-password/update. Le
+ * callback échange le code contre une session puis redirige sur la page
+ * d'update où le user choisit son nouveau mot de passe.
  */
-export async function resendSignupLink(email: string): Promise<ActionResult> {
-  const fd = new FormData()
-  fd.set('email', email)
-  return signInWithMagicLink(fd)
+export async function requestPasswordReset(formData: FormData): Promise<ActionResult> {
+  const parsed = ResetRequestSchema.safeParse({ email: formData.get('email') })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Email invalide' }
+  }
+
+  const email = parsed.data.email.toLowerCase().trim()
+  const rl = await rateLimit(`password-reset:${email}`, 3, 15 * 60 * 1000)
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      error: 'Trop de demandes de réinitialisation. Réessaie dans quelques minutes.',
+    }
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: 'Auth Supabase non configurée. Contacte le support.' }
+  }
+
+  const supabase = await createServerClient()
+  if (!supabase) return { ok: false, error: 'Erreur interne (client Supabase indisponible).' }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${getOrigin()}/auth/callback?next=/reset-password/update`,
+  })
+
+  if (error) {
+    // On log côté serveur mais on ne fuite pas l'erreur au client — un user
+    // mal-intentionné pourrait sinon distinguer "email existe" / "email
+    // n'existe pas" via le message d'erreur.
+    console.error('[reset-password] resetPasswordForEmail failed:', error)
+  }
+
+  return {
+    ok: true,
+    message: 'Si un compte existe pour cette adresse, un email vient d\'être envoyé.',
+  }
+}
+
+/**
+ * Met à jour le mot de passe de l'utilisateur courant. Appelée depuis
+ * /reset-password/update APRÈS que le callback PKCE ait posé une session
+ * via le lien reçu par email.
+ */
+export async function updatePassword(formData: FormData): Promise<ActionResult> {
+  const parsed = UpdatePasswordSchema.safeParse({
+    password: formData.get('password'),
+    confirm_password: formData.get('confirm_password'),
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide' }
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: 'Auth Supabase non configurée. Contacte le support.' }
+  }
+
+  const supabase = await createServerClient()
+  if (!supabase) return { ok: false, error: 'Erreur interne (client Supabase indisponible).' }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return {
+      ok: false,
+      error: 'Session expirée. Recommence depuis « Mot de passe oublié » sur /login.',
+    }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
+  if (error) {
+    console.error('[update-password] updateUser failed:', error)
+    return { ok: false, error: toUserMessage(error, 'Mise à jour du mot de passe impossible. Réessaie.') }
+  }
+
+  return { ok: true, redirectTo: '/dashboard' }
 }
 
 export async function signOut() {

@@ -6,8 +6,6 @@ import { toUserMessage } from '@/lib/errors/user-message'
  *  - The raw "Could not find the table 'public.onboarding_status' in the
  *    schema cache" Postgres error must NEVER reach the signup UI as-is.
  *  - The mapped message must be in French and not mention "schema".
- *
- * These two assertions are the contract between the auth action and the UI.
  */
 describe('auth action error contract (BUG-001 / BUG-015)', () => {
   it('the audit\'s exact schema-cache error is replaced with a French user-friendly message', () => {
@@ -19,7 +17,6 @@ describe('auth action error contract (BUG-001 / BUG-015)', () => {
   })
 
   it('the "Profil introuvable" recovery error stays helpful (not technical)', () => {
-    // The new error string when ensureProfileForCurrentUser returns null
     const fromGuard = 'Compte non finalisé — termine ton inscription depuis la page d\'accueil ou contacte le support.'
     expect(fromGuard).not.toContain('schema')
     expect(fromGuard).not.toContain('cache')
@@ -36,16 +33,8 @@ describe('auth action error contract (BUG-001 / BUG-015)', () => {
 })
 
 // ────────────────────────────────────────────────────────────────────────
-// signUpCompany integration tests — BUG-001 reocurrence (20 mai 2026)
+// Integration tests — password auth + forgot-password (replaces magic link)
 // ────────────────────────────────────────────────────────────────────────
-//
-// We mock the three external boundaries (Supabase admin client, rate-limit,
-// Sentry) and drive specific failure scenarios through signUpCompany. The
-// goal is to lock the new contract:
-//   - Rate-limit blocks before any Supabase call
-//   - Existing-profile lookup errors no longer fail silently
-//   - "already registered" auto-resends a magic link
-//   - Every fatal step surfaces a Sentry event id in the user message
 
 vi.mock('@/lib/supabase/server', () => ({
   isSupabaseConfigured: vi.fn(() => true),
@@ -61,7 +50,12 @@ vi.mock('@sentry/nextjs', () => ({
   captureException: vi.fn(() => 'abcd1234-5678-90ab-cdef-1234567890ab'),
 }))
 
-import { signUpCompany } from './auth'
+import {
+  signInWithPassword,
+  signUpCompany,
+  requestPasswordReset,
+  updatePassword,
+} from './auth'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as Sentry from '@sentry/nextjs'
@@ -71,18 +65,36 @@ const mockedCreateServiceRole = vi.mocked(createServiceRoleClient)
 const mockedRateLimit = vi.mocked(rateLimit)
 const mockedSentryCapture = vi.mocked(Sentry.captureException)
 
-// Build a FormData with the 4 required signup fields.
-function buildFormData(overrides: Partial<{ email: string; first: string; last: string; company: string }> = {}): FormData {
+// Build a FormData with the 6 required signup fields (4 user-info + password + confirm).
+function buildSignupFormData(
+  overrides: Partial<{
+    email: string
+    first: string
+    last: string
+    company: string
+    password: string
+    confirm: string
+  }> = {},
+): FormData {
   const fd = new FormData()
   fd.set('email', overrides.email ?? 'alice@acme.fr')
   fd.set('owner_first_name', overrides.first ?? 'Alice')
   fd.set('owner_last_name', overrides.last ?? 'Martin')
   fd.set('company_name', overrides.company ?? 'ACME Cleaning')
+  fd.set('password', overrides.password ?? 'pass1234')
+  fd.set('confirm_password', overrides.confirm ?? overrides.password ?? 'pass1234')
   return fd
 }
 
-// Tiny chainable mock of a Supabase query builder. Resolves to the given
-// result on terminal methods (maybeSingle / single).
+function buildLoginFormData(overrides: Partial<{ email: string; password: string; next: string }> = {}): FormData {
+  const fd = new FormData()
+  fd.set('email', overrides.email ?? 'alice@acme.fr')
+  fd.set('password', overrides.password ?? 'pass1234')
+  if (overrides.next) fd.set('next', overrides.next)
+  return fd
+}
+
+// Tiny chainable mock of a Supabase query builder.
 type QueryResult = { data: unknown; error: unknown }
 function chain(result: QueryResult): Record<string, unknown> {
   const proxy: Record<string, unknown> = {
@@ -94,44 +106,137 @@ function chain(result: QueryResult): Record<string, unknown> {
     ilike: () => proxy,
     maybeSingle: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
-    then: (resolve: (r: QueryResult) => void) => resolve(result), // for `await admin.from('x').upsert(...)`
+    then: (resolve: (r: QueryResult) => void) => resolve(result),
   }
   return proxy
 }
 
-describe('signUpCompany — rate-limit (F)', () => {
+// ─── signInWithPassword ───────────────────────────────────────────────────
+describe('signInWithPassword', () => {
   beforeEach(() => {
-    // resetAllMocks() clears both call history AND queued mockResolvedValueOnce
-    // returns, so values from a previous test don't leak into this one.
+    vi.resetAllMocks()
+    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
+  })
+
+  it('blocks when rate-limit is exceeded, before hitting Supabase', async () => {
+    mockedRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: Date.now() })
+    const result = await signInWithPassword(buildLoginFormData())
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/trop de tentatives/i)
+    expect(mockedCreateServer).not.toHaveBeenCalled()
+  })
+
+  it('uses the lowercased email as the rate-limit key', async () => {
+    mockedRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: Date.now() })
+    await signInWithPassword(buildLoginFormData({ email: 'Alice@ACME.fr' }))
+    expect(mockedRateLimit).toHaveBeenCalledWith('login:alice@acme.fr', 5, 10 * 60 * 1000)
+  })
+
+  it('returns "oublié" hint when Supabase says invalid credentials', async () => {
+    const signInWithPassword_ = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'Invalid login credentials' },
+    })
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithPassword: signInWithPassword_ },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const result = await signInWithPassword(buildLoginFormData())
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toMatch(/email ou mot de passe incorrect/i)
+      expect(result.error).toMatch(/mot de passe oublié/i)
+    }
+  })
+
+  it('returns ok:true with redirectTo on success', async () => {
+    const signInWithPassword_ = vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithPassword: signInWithPassword_ },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const result = await signInWithPassword(buildLoginFormData())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.redirectTo).toBe('/dashboard')
+  })
+
+  it('honors the next param when it starts with /', async () => {
+    const signInWithPassword_ = vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithPassword: signInWithPassword_ },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const result = await signInWithPassword(buildLoginFormData({ next: '/onboarding/3' }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.redirectTo).toBe('/onboarding/3')
+  })
+
+  it('rejects an open-redirect attempt in the next param', async () => {
+    const signInWithPassword_ = vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    mockedCreateServer.mockResolvedValue({
+      auth: { signInWithPassword: signInWithPassword_ },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const result = await signInWithPassword(buildLoginFormData({ next: 'https://evil.com/' }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.redirectTo).toBe('/dashboard')
+  })
+})
+
+// ─── signUpCompany — rate-limit + existingProfile checks ─────────────────
+describe('signUpCompany — rate-limit', () => {
+  beforeEach(() => {
     vi.resetAllMocks()
     mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
     mockedSentryCapture.mockReturnValue('abcd1234-5678-90ab-cdef-1234567890ab')
   })
 
-  it('blocks the attempt when rateLimit returns allowed=false', async () => {
+  it('blocks when rateLimit returns allowed=false', async () => {
     mockedRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: Date.now() + 60 * 60 * 1000 })
-
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error).toMatch(/trop de tentatives/i)
       expect(result.error).toMatch(/1 heure/i)
     }
-    // Must short-circuit BEFORE touching Supabase.
     expect(mockedCreateServiceRole).not.toHaveBeenCalled()
   })
 
   it('uses the lowercased email as the rate-limit key', async () => {
     mockedRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: Date.now() })
-    await signUpCompany(buildFormData({ email: 'Alice@ACME.fr' }))
+    await signUpCompany(buildSignupFormData({ email: 'Alice@ACME.fr' }))
     expect(mockedRateLimit).toHaveBeenCalledWith('signup:alice@acme.fr', 3, 60 * 60 * 1000)
+  })
+})
+
+describe('signUpCompany — password schema', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
+  })
+
+  it('rejects when passwords do not match', async () => {
+    const result = await signUpCompany(buildSignupFormData({ password: 'pass1234', confirm: 'mismatch' }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/ne correspondent pas/i)
+  })
+
+  it('rejects when password is too short', async () => {
+    const result = await signUpCompany(buildSignupFormData({ password: 'short', confirm: 'short' }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/6 caract/i)
   })
 })
 
 describe('signUpCompany — existingProfile lookup error (E)', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() })
+    mockedSentryCapture.mockReturnValue('abcd1234-5678-90ab-cdef-1234567890ab')
   })
 
   it('returns a FR message + Sentry event id ref when the profiles SELECT fails (schema-cache style)', async () => {
@@ -141,12 +246,9 @@ describe('signUpCompany — existingProfile lookup error (E)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      // The user-facing message:
-      // - in French (no "schema" leak)
-      // - shows the support ref so ops can grep Sentry
       expect(result.error).not.toContain('schema')
       expect(result.error).toMatch(/temporairement indisponible|impossible|réessaie/i)
       expect(result.error).toMatch(/réf\. support : abcd1234/)
@@ -164,65 +266,35 @@ describe('signUpCompany — existingProfile lookup error (E)', () => {
   })
 })
 
-describe('signUpCompany — already-registered auto-resend (G)', () => {
+describe('signUpCompany — already-registered branch', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() })
   })
 
-  it('triggers signInWithOtp and returns "Vérifie ta boîte de réception" on duplicate email', async () => {
-    const signInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
+  it('returns a clear FR message pointing to password + reset, without sending any email', async () => {
     const createUser = vi.fn().mockResolvedValue({
       data: { user: null },
       error: { message: 'A user with this email address has already been registered' },
     })
-
+    const adminSignInWithOtp = vi.fn() // must NOT be called — no more magic link auto-resend
     mockedCreateServiceRole.mockResolvedValue({
       auth: {
         admin: { createUser, deleteUser: vi.fn() },
-        signInWithOtp,
+        signInWithOtp: adminSignInWithOtp,
       },
-      // existingProfile lookup: no row, no error (i.e. profiles row got deleted but auth.users still has it).
       from: () => chain({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error).toMatch(/déjà enregistrée/i)
-      expect(result.error).toMatch(/vérifie ta boîte de réception/i)
+      expect(result.error).toMatch(/mot de passe oublié/i)
     }
-    expect(signInWithOtp).toHaveBeenCalledTimes(1)
-    expect(signInWithOtp).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'alice@acme.fr' }),
-    )
-    // Sentry should NOT be called for the "already registered" path — it's a
-    // user-facing condition, not an infra error.
+    expect(adminSignInWithOtp).not.toHaveBeenCalled()
     expect(mockedSentryCapture).not.toHaveBeenCalled()
-  })
-
-  it('still returns the FR message even when the auto-resend itself fails', async () => {
-    const signInWithOtp = vi.fn().mockRejectedValue(new Error('Resend SMTP down'))
-    const createUser = vi.fn().mockResolvedValue({
-      data: { user: null },
-      error: { message: 'User already registered' },
-    })
-
-    mockedCreateServiceRole.mockResolvedValue({
-      auth: {
-        admin: { createUser, deleteUser: vi.fn() },
-        signInWithOtp,
-      },
-      from: () => chain({ data: null, error: null }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)
-
-    const result = await signUpCompany(buildFormData())
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toMatch(/déjà enregistrée/i)
-    }
   })
 })
 
@@ -238,16 +310,14 @@ describe('signUpCompany — create_user fatal step (A + B)', () => {
     const createUser = vi.fn().mockResolvedValue({ data: { user: null }, error: schemaErr })
 
     mockedCreateServiceRole.mockResolvedValue({
-      auth: { admin: { createUser, deleteUser: vi.fn() }, signInWithOtp: vi.fn() },
+      auth: { admin: { createUser, deleteUser: vi.fn() } },
       from: () => chain({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData())
     expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toMatch(/réf\. support : abcd1234/)
-    }
+    if (!result.ok) expect(result.error).toMatch(/réf\. support : abcd1234/)
     expect(mockedSentryCapture).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -260,69 +330,56 @@ describe('signUpCompany — create_user fatal step (A + B)', () => {
   })
 })
 
-describe('signUpCompany — PKCE magic link via createServerClient (anti-régression otp_expired)', () => {
+describe('signUpCompany — session creation via signInWithPassword', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
     mockedSentryCapture.mockReturnValue('abcd1234-5678-90ab-cdef-1234567890ab')
   })
 
-  // Regression test for the PKCE flow bug : signUpCompany used to send the
-  // final magic link via the admin client (no cookie adapter), so the
-  // code_verifier wasn't persisted across the request boundary and
-  // /auth/callback's exchangeCodeForSession failed with otp_expired. The
-  // contract is that signInWithOtp MUST be called on the createServerClient
-  // (cookies-aware) instance, never on the admin one.
-  it('calls signInWithOtp on createServerClient, NOT on the admin (service_role) client', async () => {
-    const adminSignInWithOtp = vi.fn()
-    const ssrSignInWithOtp = vi.fn().mockResolvedValue({ data: null, error: null })
+  // Anti-regression : signUpCompany used to send a magic link via the admin
+  // client (no cookies). Now it MUST sign the new user in via signInWithPassword
+  // on the SSR client, so the session cookie is posted to the browser and the
+  // user lands directly on /onboarding/2 with an active session.
+  it('calls signInWithPassword on createServerClient with the user-typed password', async () => {
+    const ssrSignInWithPassword = vi.fn().mockResolvedValue({ data: { user: { id: 'u' } }, error: null })
 
     mockedCreateServiceRole.mockResolvedValue({
       auth: {
         admin: {
-          createUser: vi.fn().mockResolvedValue({
-            data: { user: { id: 'user-uuid' } },
-            error: null,
-          }),
+          createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-uuid' } }, error: null }),
           deleteUser: vi.fn(),
         },
-        signInWithOtp: adminSignInWithOtp,
       },
-      from: (table: string) => {
-        if (table === 'companies') return chain({ data: { id: 'company-uuid' }, error: null })
-        return chain({ data: null, error: null })
-      },
+      from: (table: string) =>
+        table === 'companies'
+          ? chain({ data: { id: 'company-uuid' }, error: null })
+          : chain({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     mockedCreateServer.mockResolvedValue({
-      auth: { signInWithOtp: ssrSignInWithOtp },
+      auth: { signInWithPassword: ssrSignInWithPassword },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData({ password: 'mypass1234', confirm: 'mypass1234' }))
 
     expect(result.ok).toBe(true)
-    expect(ssrSignInWithOtp).toHaveBeenCalledTimes(1)
-    expect(adminSignInWithOtp).not.toHaveBeenCalled()
-    expect(ssrSignInWithOtp).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: 'alice@acme.fr',
-        options: expect.objectContaining({
-          emailRedirectTo: expect.stringMatching(/\/auth\/callback\?next=\/onboarding\/2$/),
-        }),
-      }),
-    )
+    if (result.ok) expect(result.redirectTo).toBe('/onboarding/2')
+    expect(ssrSignInWithPassword).toHaveBeenCalledWith({
+      email: 'alice@acme.fr',
+      password: 'mypass1234',
+    })
   })
 
-  it('still returns ok:true with a /login fallback message when createServerClient is unavailable', async () => {
+  it('still returns ok:true with /login fallback when SSR client is unavailable', async () => {
     mockedCreateServiceRole.mockResolvedValue({
       auth: {
         admin: {
           createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u' } }, error: null }),
           deleteUser: vi.fn(),
         },
-        signInWithOtp: vi.fn(),
       },
       from: (table: string) =>
         table === 'companies'
@@ -330,13 +387,114 @@ describe('signUpCompany — PKCE magic link via createServerClient (anti-régres
           : chain({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
-
     mockedCreateServer.mockResolvedValue(null)
 
-    const result = await signUpCompany(buildFormData())
+    const result = await signUpCompany(buildSignupFormData())
     expect(result.ok).toBe(true)
     if (result.ok) {
+      expect(result.redirectTo).toBe('/login')
       expect(result.message).toMatch(/login/i)
     }
+  })
+})
+
+// ─── requestPasswordReset ─────────────────────────────────────────────────
+describe('requestPasswordReset', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockedRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })
+  })
+
+  it('returns the neutral success message even when the email does not exist (anti-enumeration)', async () => {
+    const resetPasswordForEmail = vi.fn().mockResolvedValue({ data: null, error: { message: 'User not found' } })
+    mockedCreateServer.mockResolvedValue({
+      auth: { resetPasswordForEmail },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const fd = new FormData()
+    fd.set('email', 'unknown@example.com')
+    const result = await requestPasswordReset(fd)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toMatch(/si un compte existe/i)
+  })
+
+  it('passes the correct redirectTo to Supabase', async () => {
+    const resetPasswordForEmail = vi.fn().mockResolvedValue({ data: null, error: null })
+    mockedCreateServer.mockResolvedValue({
+      auth: { resetPasswordForEmail },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const fd = new FormData()
+    fd.set('email', 'user@example.com')
+    await requestPasswordReset(fd)
+    expect(resetPasswordForEmail).toHaveBeenCalledWith(
+      'user@example.com',
+      expect.objectContaining({
+        redirectTo: expect.stringMatching(/\/auth\/callback\?next=\/reset-password\/update$/),
+      }),
+    )
+  })
+
+  it('rate-limits with explicit FR message when too many attempts', async () => {
+    mockedRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: Date.now() })
+    const fd = new FormData()
+    fd.set('email', 'user@example.com')
+    const result = await requestPasswordReset(fd)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/trop de demandes/i)
+  })
+})
+
+// ─── updatePassword ───────────────────────────────────────────────────────
+describe('updatePassword', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('rejects when the user is not authenticated', async () => {
+    mockedCreateServer.mockResolvedValue({
+      auth: {
+        getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+        updateUser: vi.fn(),
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const fd = new FormData()
+    fd.set('password', 'newpass1234')
+    fd.set('confirm_password', 'newpass1234')
+    const result = await updatePassword(fd)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/session expirée/i)
+  })
+
+  it('rejects when passwords do not match', async () => {
+    const fd = new FormData()
+    fd.set('password', 'newpass1234')
+    fd.set('confirm_password', 'mismatch1234')
+    const result = await updatePassword(fd)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/ne correspondent pas/i)
+  })
+
+  it('updates the password and returns redirectTo /dashboard on success', async () => {
+    const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    mockedCreateServer.mockResolvedValue({
+      auth: {
+        getUser: () => Promise.resolve({ data: { user: { id: 'u1' } }, error: null }),
+        updateUser,
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const fd = new FormData()
+    fd.set('password', 'newpass1234')
+    fd.set('confirm_password', 'newpass1234')
+    const result = await updatePassword(fd)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.redirectTo).toBe('/dashboard')
+    expect(updateUser).toHaveBeenCalledWith({ password: 'newpass1234' })
   })
 })

@@ -1,23 +1,22 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Auth form smoke tests — dummy mode (no Supabase env vars), so the magic
- * link / signup server actions short-circuit with the "Supabase non
- * configurée" error. That's exactly what we want to assert : the form
- * plumbing (server action wired up, Zod validation runs, error reaches the
- * UI) works end-to-end in the dev server.
+ * Auth form smoke tests — dummy mode (no Supabase env vars), so the password
+ * / signup server actions short-circuit with the "Supabase non configurée"
+ * error. That's exactly what we want to assert : the form plumbing (server
+ * action wired up, Zod validation runs, error reaches the UI) works end-to-end
+ * in the dev server.
  *
- * Full signup → magic link → dashboard requires a seeded Supabase preview
- * project (tracked as H4 in docs/BETA_CHECKLIST.md).
+ * Full signup → password → dashboard requires a seeded Supabase preview
+ * project.
  */
 
 test.describe('login form', () => {
   test('rejects an invalid email format', async ({ page }) => {
     await page.goto('/login')
-    const emailInput = page.getByLabel(/email/i).first()
+    const emailInput = page.locator('#email')
     await emailInput.fill('not-an-email')
-    // Browser's native HTML5 validation blocks the submit before the server
-    // action is even called. We assert the input is marked invalid.
+    await page.locator('#password').fill('pass1234')
     const isValid = await emailInput.evaluate((el: HTMLInputElement) => el.validity.valid)
     expect(isValid).toBe(false)
   })
@@ -26,8 +25,8 @@ test.describe('login form', () => {
   // replaces the browser-locale tooltip text with French via setCustomValidity().
   test('empty submit yields a French validation message', async ({ page }) => {
     await page.goto('/login')
-    const emailInput = page.getByLabel(/email/i).first()
-    await page.getByRole('button', { name: /recevoir.*lien|connexion/i }).first().click()
+    const emailInput = page.locator('#email')
+    await page.getByRole('button', { name: /se connecter|connexion/i }).first().click()
     const msg = await emailInput.evaluate((el: HTMLInputElement) => el.validationMessage)
     expect(msg).toMatch(/requis/i)
     expect(msg).not.toMatch(/please|fill out/i)
@@ -38,55 +37,85 @@ test.describe('login form', () => {
     await expect(page.getByText(/invalide ou expir/i)).toBeVisible()
   })
 
-  test('valid email submits and surfaces the dummy-mode error', async ({ page }) => {
+  test('valid credentials submit and surface the dummy-mode error', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel(/email/i).first().fill('test@proprely.fr')
-    await page.getByRole('button', { name: /recevoir.*lien|connexion/i }).first().click()
+    await page.locator('#email').fill('test@proprely.fr')
+    await page.locator('#password').fill('mypassword')
+    await page.getByRole('button', { name: /se connecter|connexion/i }).first().click()
     // In dummy mode the server action returns "Auth Supabase non configurée"
     // (or rate-limit if the test ran multiple times). Either proves the
-    // action ran end-to-end. Scope to .first() because the same wording
-    // ("trop de tentatives") also appears in the FAQ details panel.
+    // action ran end-to-end.
     await expect(
-      page.getByText(/non configurée|trop de tentatives|email envoyé/i).first(),
+      page.getByText(/non configurée|trop de tentatives|incorrect/i).first(),
     ).toBeVisible({ timeout: 10_000 })
   })
 
-  // P1.5 — Support email visible in the FAQ details panel. The footer also
-  // exposes the same mailto link, so we scope the visibility check to the
-  // FAQ's <details> element to avoid a strict-mode collision.
   test('shows the support email in the FAQ details', async ({ page }) => {
     await page.goto('/login')
-    await page.getByText(/n'as pas reçu/i).click() // expands <details>
+    await page.getByText(/n'arrives pas à te connecter/i).click() // expands <details>
     const faqMailto = page.locator('details a[href="mailto:support@proprely.fr"]')
     await expect(faqMailto).toBeVisible()
+  })
+
+  test('has a visible "Mot de passe oublié ?" link pointing to /reset-password', async ({ page }) => {
+    await page.goto('/login')
+    const forgot = page.getByRole('link', { name: /mot de passe oublié/i }).first()
+    await expect(forgot).toBeVisible()
+    await expect(forgot).toHaveAttribute('href', '/reset-password')
   })
 })
 
 test.describe('signup form', () => {
   test('blocks submission with missing required fields', async ({ page }) => {
     await page.goto('/signup')
-    // Click submit without filling — HTML5 required validation fires.
     const submit = page.getByRole('button', { name: /créer|signup|inscription/i }).first()
     await submit.click()
-    // Email input remains focused as the first invalid required field;
-    // page didn't navigate.
     await expect(page).toHaveURL(/\/signup/)
   })
 
   test('accepts a fully filled form (dummy-mode error reached)', async ({ page }) => {
     await page.goto('/signup')
-    // Selectors by input id — labels collide ("Nom" vs "Nom de l'entreprise"
-    // vs "Prénom" all contain "nom" as a substring, so regex match by label
-    // text picks the wrong field). Each <Input> has an `id` we can target.
     await page.locator('#owner_first_name').fill('Alice')
     await page.locator('#owner_last_name').fill('Martin')
     await page.locator('#company_name').fill('ACME Cleaning')
     await page.locator('#email').fill('owner@example.fr')
+    await page.locator('#password').fill('pass1234')
+    await page.locator('#confirm_password').fill('pass1234')
     await page.getByRole('button', { name: /créer|signup|inscription/i }).first().click()
-    // In dummy mode the action returns a configuration error,
-    // which is enough to prove the form posted + action ran.
     await expect(
-      page.getByText(/non configurée|email envoyé|déjà|trop de tentatives/i),
+      page.getByText(/non configurée|déjà|trop de tentatives|incorrect/i),
+    ).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('rejects when passwords do not match (Zod refine)', async ({ page }) => {
+    await page.goto('/signup')
+    await page.locator('#owner_first_name').fill('Alice')
+    await page.locator('#owner_last_name').fill('Martin')
+    await page.locator('#company_name').fill('ACME')
+    await page.locator('#email').fill('mismatch@example.fr')
+    await page.locator('#password').fill('pass1234')
+    await page.locator('#confirm_password').fill('different')
+    await page.getByRole('button', { name: /créer/i }).first().click()
+    await expect(page.getByText(/ne correspondent pas/i)).toBeVisible({ timeout: 10_000 })
+  })
+})
+
+test.describe('reset password flow', () => {
+  test('/reset-password renders the email form', async ({ page }) => {
+    await page.goto('/reset-password')
+    await expect(page.locator('#email')).toBeVisible()
+    await expect(page.getByRole('button', { name: /envoyer le lien|envoi en cours/i })).toBeVisible()
+  })
+
+  test('/reset-password submission shows the neutral confirmation message', async ({ page }) => {
+    await page.goto('/reset-password')
+    await page.locator('#email').fill('whoever@example.com')
+    await page.getByRole('button', { name: /envoyer le lien/i }).click()
+    // dummy mode returns "Auth Supabase non configurée" ; production / preview
+    // returns the always-positive "Si un compte existe…" message. Either is
+    // proof the action ran.
+    await expect(
+      page.getByText(/si un compte existe|non configurée|trop de demandes/i).first(),
     ).toBeVisible({ timeout: 10_000 })
   })
 })

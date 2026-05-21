@@ -25,10 +25,11 @@ export default function SignupPage() {
         track('signup_completed', {
           company_name: formData.get('company_name'),
         })
-        // Redirect to the dedicated "check your inbox" confirmation page so
-        // the user has a clear next step + a way to resend the magic link.
-        const email = res.email ?? String(formData.get('email') ?? '')
-        router.push(`/signup/confirmation?email=${encodeURIComponent(email)}`)
+        // Session was set in the server action via signInWithPassword on the
+        // SSR client (cookies adapter posted sb-…-auth-token). router.refresh
+        // forces the proxy to see the new cookie before the navigation runs.
+        router.push(res.redirectTo ?? '/onboarding/2')
+        router.refresh()
       } else {
         setError(res.error)
         track('signup_failed', { error: res.error })
@@ -113,6 +114,45 @@ export default function SignupPage() {
             onInvalid={onInvalid}
             onInput={onInput}
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="password">
+              Mot de passe <span className="text-rose-500">*</span>
+            </Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={6}
+              maxLength={72}
+              autoComplete="new-password"
+              placeholder="6 caractères minimum"
+              disabled={pending}
+              onInvalid={onInvalid}
+              onInput={onInput}
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirm_password">
+              Confirmer <span className="text-rose-500">*</span>
+            </Label>
+            <Input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              required
+              minLength={6}
+              maxLength={72}
+              autoComplete="new-password"
+              placeholder="Re-saisis le mot de passe"
+              disabled={pending}
+              onInvalid={onInvalid}
+              onInput={onInput}
+            />
+          </div>
         </div>
 
         <p className="text-[11px] text-slate-500">
