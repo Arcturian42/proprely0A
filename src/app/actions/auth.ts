@@ -20,11 +20,16 @@ const LoginSchema = z.object({
   password: PasswordSchema,
 })
 
+// confirm_password : on exige min 1 char pour que Zod sorte "Confirmation
+// requise" en cas de soumission programmatique sans `required` HTML5. Évite
+// aussi le `'foo' === undefined` non-déterministe dans le `.refine()` ci-dessous.
+const ConfirmPasswordSchema = z.string().min(1, 'Confirmation requise').max(72)
+
 const SignupSchema = z
   .object({
     email: z.string().email('Email invalide'),
     password: PasswordSchema,
-    confirm_password: z.string(),
+    confirm_password: ConfirmPasswordSchema,
     owner_first_name: z.string().min(1, 'Prénom requis').max(100),
     owner_last_name: z.string().min(1, 'Nom requis').max(100),
     company_name: z.string().min(2, "Nom d'entreprise requis").max(200),
@@ -41,7 +46,7 @@ const ResetRequestSchema = z.object({
 const UpdatePasswordSchema = z
   .object({
     password: PasswordSchema,
-    confirm_password: z.string(),
+    confirm_password: ConfirmPasswordSchema,
   })
   .refine((d) => d.password === d.confirm_password, {
     path: ['confirm_password'],
