@@ -14,7 +14,6 @@ const PUBLIC_PATHS = [
   '/api/health',           // Public liveness probe — for uptime monitors
   '/api/cron',             // Vercel cron — auth via verifyCronRequest in route handler
   '/api/docuseal/webhook', // Docuseal callback — auth via HMAC signature in handler
-  '/sentry-example-page',  // Sentry verification — public, not linked from UI
   '/monitoring/tunnel',    // Sentry tunnel route (CSP-friendly proxy)
 ]
 

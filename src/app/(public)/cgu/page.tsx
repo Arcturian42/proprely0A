@@ -53,10 +53,12 @@ export default function CGUPage() {
       <h2 className="text-lg font-semibold mt-6">4. Inscription et compte</h2>
       <p>
         L&apos;inscription au Service requiert la fourniture d&apos;une adresse email
-        professionnelle valide. L&apos;authentification s&apos;effectue via un lien magique
-        (sans mot de passe). L&apos;owner est seul responsable de la confidentialité de
-        son accès et de la véracité des informations communiquées. L&apos;owner s&apos;engage
-        à invalider sans délai tout accès collaborateur qui ne devrait plus être actif.
+        professionnelle valide et la définition d&apos;un mot de passe d&apos;au moins
+        6 caractères. La récupération d&apos;un mot de passe oublié s&apos;effectue par
+        l&apos;envoi d&apos;un lien sécurisé à usage unique à l&apos;adresse email du Compte.
+        L&apos;owner est seul responsable de la confidentialité de son accès et de la
+        véracité des informations communiquées. L&apos;owner s&apos;engage à invalider sans
+        délai tout accès collaborateur qui ne devrait plus être actif.
       </p>
 
       <h2 className="text-lg font-semibold mt-6">5. Tarification et facturation</h2>
