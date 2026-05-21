@@ -29,6 +29,8 @@ const FIELD_LABELS: Record<string, string> = {
   owner_first_name: 'Prénom',
   owner_last_name: 'Nom',
   company_name: "Nom de l'entreprise",
+  password: 'Mot de passe',
+  confirm_password: 'Confirmation du mot de passe',
 }
 
 function labelFor(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string {

@@ -5,7 +5,7 @@ import { computeNextIncompleteStep, isOnboardingComplete } from '@/lib/onboardin
 const PUBLIC_PATHS = [
   '/login',
   '/signup',
-  '/signup/confirmation',  // Post-signup "check your inbox" page (P1.3)
+  '/reset-password',       // Forgot-password request form + /reset-password/update
   '/auth/callback',
   '/accept-invitation',
   '/cgu',
