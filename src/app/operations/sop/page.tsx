@@ -181,7 +181,10 @@ export default function SopPage() {
             <div className="col-span-3 text-center py-16 text-slate-500">
               <BookOpen className="w-16 h-16 mx-auto text-slate-200 mb-4" />
               <p className="text-lg font-medium">Aucun protocole</p>
-              <p className="text-sm">Créez votre premier protocole SOP</p>
+              <p className="text-sm mb-4">Créez votre premier protocole SOP pour standardiser vos missions.</p>
+              <Button onClick={handleOpenCreate} className="gap-2">
+                <Plus className="w-4 h-4" /> Créer un protocole
+              </Button>
             </div>
           )}
         </div>

@@ -40,6 +40,16 @@ export interface CompanyDataSnapshot {
   timeEntries: TimeEntry[]
   serviceTypes: ServiceType[]
   quotes: Quote[]
+  // Identité entreprise — `null` quand la ligne `companies` n'est pas lisible
+  // (cas pathologique, l'utilisateur appartient à une company orpheline). Le
+  // store conserve ses defaults dans ce cas plutôt que d'écraser avec du vide.
+  companyInfo: {
+    name: string
+    email: string | null
+    phone: string | null
+    address: string | null
+    logo_url: string | null
+  } | null
   // Subset of company_pricing_settings consumed by the store at hydrate time.
   // We don't expose the full row to keep this snapshot focused; full settings
   // are loaded by the /parametres page on demand.
@@ -52,7 +62,16 @@ const EMPTY: CompanyDataSnapshot = {
   agents: [], clients: [], sites: [], leads: [], opportunities: [],
   missions: [], operationalItems: [], sops: [], timeEntries: [],
   serviceTypes: [], quotes: [],
+  companyInfo: null,
   pricingSettings: { hourly_labor_cost: null },
+}
+
+type CompanyInfoRow = {
+  name: string
+  email: string | null
+  phone: string | null
+  address: string | null
+  logo_url: string | null
 }
 
 export async function loadCompanyData(): Promise<CompanyDataSnapshot | null> {
@@ -105,7 +124,7 @@ async function loadFullSnapshot(supabase: ServerSupabaseClient): Promise<Company
   const [
     agents, clients, sites, leads, opportunities,
     missions, operationalItems, sops, timeEntries,
-    serviceTypes, quotes, pricingSettingsRow,
+    serviceTypes, quotes, pricingSettingsRow, companyRow,
   ] = await Promise.all([
     supabase.from('agents').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     supabase.from('clients').select('*').is('archived_at', null).order('created_at', { ascending: false }),
@@ -135,6 +154,9 @@ async function loadFullSnapshot(supabase: ServerSupabaseClient): Promise<Company
     supabase.from('company_pricing_settings')
       .select('hourly_labor_cost')
       .maybeSingle<{ hourly_labor_cost: number | null }>(),
+    supabase.from('companies')
+      .select('name, email, phone, address, logo_url')
+      .maybeSingle<CompanyInfoRow>(),
   ])
 
   return enrichSnapshot({
@@ -149,6 +171,7 @@ async function loadFullSnapshot(supabase: ServerSupabaseClient): Promise<Company
     timeEntries: (timeEntries.data ?? []) as TimeEntry[],
     serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
     quotes: (quotes.data ?? []) as Quote[],
+    companyInfo: companyRow.data ?? null,
     pricingSettings: {
       hourly_labor_cost: pricingSettingsRow.data?.hourly_labor_cost ?? null,
     },
@@ -168,7 +191,7 @@ async function loadSalesSnapshot(supabase: ServerSupabaseClient): Promise<Compan
 
   const [
     agents, clients, sites, leads, opportunities,
-    missions, operationalItems, sops, serviceTypes, quotes,
+    missions, operationalItems, sops, serviceTypes, quotes, companyRow,
   ] = await Promise.all([
     supabase.from('agents').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     supabase.from('clients').select('*').is('archived_at', null).order('created_at', { ascending: false }),
@@ -183,6 +206,9 @@ async function loadSalesSnapshot(supabase: ServerSupabaseClient): Promise<Compan
     supabase.from('sops').select('*').order('created_at', { ascending: false }),
     supabase.from('service_types').select('*').order('created_at', { ascending: false }),
     supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(QUOTES_LIMIT),
+    supabase.from('companies')
+      .select('name, email, phone, address, logo_url')
+      .maybeSingle<CompanyInfoRow>(),
   ])
 
   // Redact hourly_cost — sales voit les agents pour les assigner mais pas
@@ -202,6 +228,7 @@ async function loadSalesSnapshot(supabase: ServerSupabaseClient): Promise<Compan
     timeEntries: [],
     serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
     quotes: (quotes.data ?? []) as Quote[],
+    companyInfo: companyRow.data ?? null,
     pricingSettings: { hourly_labor_cost: null },
   })
 }
@@ -252,7 +279,7 @@ async function loadAgentSnapshot(
   const sopIds = Array.from(new Set(missionRows.map(m => m.sop_id).filter(Boolean) as string[]))
 
   // Étape 2 : clients/sites/sops uniquement ceux référencés par ses missions.
-  const [agentsResult, clientsResult, sitesResult, sopsResult, timeEntries, serviceTypes] = await Promise.all([
+  const [agentsResult, clientsResult, sitesResult, sopsResult, timeEntries, serviceTypes, companyRow] = await Promise.all([
     // Annuaire : tous les agents de la company. On fetch tout puis on redact
     // les champs sensibles (hourly_cost, notes, business_registration_number).
     supabase.from('agents')
@@ -274,6 +301,11 @@ async function loadAgentSnapshot(
       .order('date', { ascending: false })
       .limit(180),
     supabase.from('service_types').select('*').order('sort_order', { ascending: true }),
+    // Identité entreprise — l'agent voit le nom dans le footer sidebar mais
+    // pas l'email/téléphone interne. On redact côté store si besoin.
+    supabase.from('companies')
+      .select('name, email, phone, address, logo_url')
+      .maybeSingle<CompanyInfoRow>(),
   ])
 
   // Redact : un agent qui ouvre DevTools ne doit voir ni les rémunérations
@@ -299,6 +331,7 @@ async function loadAgentSnapshot(
     timeEntries: (timeEntries.data ?? []) as TimeEntry[],
     serviceTypes: (serviceTypes.data ?? []) as ServiceType[],
     quotes: [],
+    companyInfo: companyRow.data ?? null,
     pricingSettings: { hourly_labor_cost: null },
   })
 }
@@ -341,6 +374,7 @@ function enrichSnapshot(input: EnrichInput): CompanyDataSnapshot {
     timeEntries: input.timeEntries,
     serviceTypes: input.serviceTypes,
     quotes: input.quotes,
+    companyInfo: input.companyInfo,
     pricingSettings: input.pricingSettings,
   }
 }
