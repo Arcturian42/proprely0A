@@ -59,10 +59,7 @@ function LoginContent() {
     startTransition(async () => {
       const res = await signInWithPassword(formData)
       if (res.ok) {
-        // router.refresh() force le proxy à re-lire le cookie sb-…-auth-token
-        // posé par le SSR adapter pendant la server action avant de naviguer.
         router.push(res.redirectTo ?? '/dashboard')
-        router.refresh()
       } else {
         setResult({ ok: false, message: res.error })
       }

@@ -219,17 +219,28 @@ export async function signUpCompany(formData: FormData): Promise<ActionResult> {
     .eq('email', normalizedEmail)
     .maybeSingle<{ id: string }>()
   if (existingErr) {
-    console.error('[signup] existing profile lookup failed:', existingErr)
-    const eventId = captureSignupFailure(existingErr, 'existing_profile_lookup', {
-      email: normalizedEmail,
-    })
-    return {
-      ok: false,
-      error: friendlySignupError(
-        existingErr,
-        eventId,
-        'Vérification du compte impossible. Réessaie ou contacte le support.',
-      ),
+    if (isSchemaCacheError(existingErr)) {
+      // Schema cache miss (PGRST205) — transient after migrations or cold-start.
+      // Skip the pre-flight; createUser handles duplicate emails at step 1.
+      console.warn('[signup] pre-flight skipped (schema cache miss):', existingErr)
+      Sentry.captureMessage('Signup pre-flight skipped: schema cache miss', {
+        level: 'warning',
+        tags: { action: 'signUpCompany', step: 'existing_profile_lookup' },
+        extra: { email: normalizedEmail, error: existingErr },
+      })
+    } else {
+      console.error('[signup] existing profile lookup failed:', existingErr)
+      const eventId = captureSignupFailure(existingErr, 'existing_profile_lookup', {
+        email: normalizedEmail,
+      })
+      return {
+        ok: false,
+        error: friendlySignupError(
+          existingErr,
+          eventId,
+          'Vérification du compte impossible. Réessaie ou contacte le support.',
+        ),
+      }
     }
   }
   if (existingProfile) {

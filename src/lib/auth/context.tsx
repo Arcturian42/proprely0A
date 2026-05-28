@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthState, CurrentUser, Permission, Role, TenantCompany } from './types'
 import { DUMMY_COMPANIES, DUMMY_USER } from './dummy'
 import { roleCan } from './rbac'
@@ -31,6 +31,17 @@ export function AuthProvider({
     : DUMMY_COMPANIES
 
   const [user, setUser] = useState<CurrentUser>(resolvedInitialUser)
+
+  // After client-side navigation post-login, the root layout server component
+  // re-executes and passes the real authenticated user as initialUser. Since
+  // useState doesn't re-initialize from props, we sync explicitly here so the
+  // sidebar and auth-aware components immediately reflect the real user.
+  useEffect(() => {
+    if (initialUser && initialUser.id !== user.id) {
+      setUser(initialUser)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUser?.id])
 
   const company = useMemo(
     () => resolvedInitialCompanies.find(c => c.id === user.company_id) ?? resolvedInitialCompanies[0],

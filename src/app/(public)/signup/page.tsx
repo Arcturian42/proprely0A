@@ -25,11 +25,7 @@ export default function SignupPage() {
         track('signup_completed', {
           company_name: formData.get('company_name'),
         })
-        // Session was set in the server action via signInWithPassword on the
-        // SSR client (cookies adapter posted sb-…-auth-token). router.refresh
-        // forces the proxy to see the new cookie before the navigation runs.
         router.push(res.redirectTo ?? '/onboarding/2')
-        router.refresh()
       } else {
         setError(res.error)
         track('signup_failed', { error: res.error })

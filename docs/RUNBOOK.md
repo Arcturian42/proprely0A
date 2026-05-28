@@ -141,6 +141,47 @@ rappels J-1 ne partent pas et les missions récurrentes ne se génèrent plus.
    différente. Vérifier qu'il n'y a pas d'espace en trop dans la valeur
    stockée sur Vercel.
 
+### 7. PGRST205 — table not found in schema cache
+
+**Symptômes** : Logs console affichent `PGRST205` + message
+`"Could not find the table 'public.<table>' in the schema cache"`.
+Signup, invite, ou toute écriture échoue avec "Service temporairement indisponible".
+
+**Causes possibles (dans l'ordre de probabilité)** :
+
+| Cause | Symptôme distinctif |
+|---|---|
+| A. Table absente — migrations non appliquées | `information_schema.tables` ne liste pas la table |
+| B. Cache PostgREST périmé | Table présente en DB, erreur disparaît après reload |
+| C. GRANT manquant | Table présente, cache OK, mais rôle sans accès |
+
+**Action — quick fix (B & C)** :
+
+```bash
+# Recharge le cache PostgREST + re-applique les GRANTs (< 5 s)
+SUPABASE_ACCESS_TOKEN=xxx node scripts/db-migrate.mjs --fix-cache
+```
+
+Si l'erreur disparaît après cette commande → c'était B ou C. Terminé.
+
+**Action — fix complet (A) si --fix-cache ne suffit pas** :
+
+```bash
+# Applique toutes les migrations dans l'ordre (idempotent — safe à re-runner)
+SUPABASE_ACCESS_TOKEN=xxx node scripts/db-migrate.mjs
+```
+
+`SUPABASE_ACCESS_TOKEN` = personal access token depuis
+`supabase.com/dashboard/account/tokens` (stocké dans `.env.local`,
+jamais commité).
+
+**Vérification** : Après le fix, déclencher un nouveau signup ou relire
+`/api/health` — `tables_ok.onboarding_status` doit être `true`.
+
+**Prévention** : Toute nouvelle migration doit finir par un `pg_notify`
+(voir le pattern dans `20260521000002_grant_table_privileges.sql`) et
+les GRANTs correspondants.
+
 ## Backups & DR
 
 - **Supabase** : Plan Pro requis pour les PITR auto. À confirmer côté

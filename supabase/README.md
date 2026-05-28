@@ -15,21 +15,40 @@
 
 ### Nouvel environnement (clean install + incrémental — même commande)
 
+Méthode recommandée (aucune dépendance, fonctionne sur Windows) :
+
 ```bash
+# Ajouter SUPABASE_ACCESS_TOKEN dans .env.local (token perso Supabase)
+node scripts/db-migrate.mjs
+```
+
+Alternatives :
+
+```bash
+# Supabase CLI
+supabase db push
+
+# psql direct
 for f in supabase/migrations/*.sql; do
   psql $DATABASE_URL -f "$f"
 done
 ```
 
-Si tu utilises le Supabase CLI :
-
-```bash
-supabase db push
-```
-
 Toutes les migrations sont **idempotentes** (`CREATE … IF NOT EXISTS`,
 `DROP POLICY IF EXISTS` avant chaque `CREATE POLICY`, etc.) — safe à
 re-runner.
+
+### Erreur PGRST205 (table not found in schema cache)
+
+```bash
+# Rechargement rapide du cache PostgREST + re-grant des privilèges
+node scripts/db-migrate.mjs --fix-cache
+
+# Si la table est vraiment absente, appliquer toutes les migrations
+node scripts/db-migrate.mjs
+```
+
+Voir le playbook complet dans `docs/RUNBOOK.md → §7`.
 
 ### Ajouter une nouvelle migration
 

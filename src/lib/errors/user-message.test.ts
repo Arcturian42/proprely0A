@@ -107,6 +107,11 @@ describe('isSchemaCacheError', () => {
     expect(isSchemaCacheError(new Error('duplicate key value violates unique constraint'))).toBe(false)
   })
 
+  it('detects PGRST205 by error code alone (no message needed)', () => {
+    expect(isSchemaCacheError({ code: 'PGRST205', details: null, hint: null, message: '' })).toBe(true)
+    expect(isSchemaCacheError({ code: 'PGRST205' })).toBe(true)
+  })
+
   it('returns false for empty / unknown inputs', () => {
     expect(isSchemaCacheError(null)).toBe(false)
     expect(isSchemaCacheError(undefined)).toBe(false)

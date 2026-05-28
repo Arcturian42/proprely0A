@@ -33,14 +33,26 @@ function extractMessage(err: unknown): string {
   return ''
 }
 
+// PostgREST error codes that signal a schema cache miss regardless of message text.
+// PGRST205: "Could not find the table/view/function in the schema cache" — distinct
+// from PGRST106 which is a RLS/relation issue, not a cache staleness issue.
+const SCHEMA_CACHE_CODES = new Set(['PGRST205'])
+
 /**
  * True when the underlying error looks like a PostgREST schema-cache miss
  * (table/column/function not found, schema cache stale). Used by callers that
  * want to tag observability events differently for ops-actionable issues vs
  * transient user errors. Re-uses the same regex set as `toUserMessage` so the
  * two helpers can't drift.
+ *
+ * Checks the PostgREST error code first (PGRST205) so detection is robust even
+ * if Supabase changes the message wording in a future release.
  */
 export function isSchemaCacheError(err: unknown): boolean {
+  if (err && typeof err === 'object') {
+    const code = (err as { code?: unknown }).code
+    if (typeof code === 'string' && SCHEMA_CACHE_CODES.has(code)) return true
+  }
   const raw = extractMessage(err)
   if (!raw) return false
   return SCHEMA_PATTERNS.some((p) => p.test(raw))

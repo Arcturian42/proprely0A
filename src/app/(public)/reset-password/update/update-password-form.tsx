@@ -20,10 +20,7 @@ export default function UpdatePasswordForm() {
     startTransition(async () => {
       const res = await updatePassword(formData)
       if (res.ok) {
-        // router.refresh() pour que le proxy revoie la session active avant
-        // de naviguer (au cas où updateUser invalide les anciens cookies).
         router.push(res.redirectTo ?? '/dashboard')
-        router.refresh()
       } else {
         setError(res.error)
       }
